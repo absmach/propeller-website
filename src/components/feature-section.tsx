@@ -7,8 +7,54 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function FeatureSection() {
+  const features = [
+    {
+      icon: CloudyIcon,
+      title: "Cloud-Edge Orchestration",
+      description:
+        "Deploy Wasm workloads effortlessly across diverse environments, from robust cloud servers to lightweight microcontrollers running Zephyr RTOS.",
+    },
+    {
+      icon: ZapIcon,
+      title: "Fast Boot Times",
+      description:
+        "Take advantage of Wasm's near-instant startup for efficient workload execution. Deploy and scale functions in milliseconds.",
+    },
+    {
+      icon: PackageIcon,
+      title: "OCI Registry Support",
+      description:
+        "Push and pull Wasm workloads from OCI-compliant registries for streamlined workflow integration and version management.",
+    },
+    {
+      icon: ShieldCheckIcon,
+      title: "Security at the Core",
+      description:
+        "Propeller ensures secure workload execution and communication for IoT environments with sandboxed Wasm runtimes.",
+    },
+    {
+      icon: NetworkIcon,
+      title: "Powerful Service Mesh",
+      description:
+        "Integrates with SuperMQ for secure, efficient IoT device communication across your entire infrastructure.",
+    },
+    {
+      icon: ServerIcon,
+      title: "FaaS Deployment",
+      description:
+        "Enable Function-as-a-Service capabilities for scalable and event-driven applications across the cloud-edge continuum.",
+    },
+  ];
+
   return (
     <section id="features" className="py-12 lg:py-20">
       <div className="mx-auto max-w-7xl px-4">
@@ -24,105 +70,30 @@ export default function FeatureSection() {
             any environment with Propeller's comprehensive feature set.
           </p>
         </header>
-        <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-4xl">
-          <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-10 lg:max-w-none lg:grid-cols-2 lg:gap-y-16">
-            <div className="relative pl-16">
-              <dt className="text-base font-semibold">
-                <div className="bg-primary absolute top-0 left-0 flex size-10 items-center justify-center rounded-lg">
-                  <CloudyIcon
-                    aria-hidden="true"
-                    className="text-primary-foreground size-6"
-                  />
-                </div>
-                Cloud-Edge Orchestration
-              </dt>
-              <dd className="text-muted-foreground mt-2 text-base/7">
-                Deploy Wasm workloads effortlessly across diverse environments,
-                from robust cloud servers to lightweight microcontrollers
-                running Zephyr RTOS.
-              </dd>
-            </div>
-
-            <div className="relative pl-16">
-              <dt className="text-base font-semibold">
-                <div className="bg-primary absolute top-0 left-0 flex size-10 items-center justify-center rounded-lg">
-                  <ZapIcon
-                    aria-hidden="true"
-                    className="text-primary-foreground size-6"
-                  />
-                </div>
-                Fast Boot Times
-              </dt>
-              <dd className="text-muted-foreground mt-2 text-base/7">
-                Take advantage of Wasm's near-instant startup for efficient
-                workload execution. Deploy and scale functions in milliseconds.
-              </dd>
-            </div>
-
-            <div className="relative pl-16">
-              <dt className="text-base font-semibold">
-                <div className="bg-primary absolute top-0 left-0 flex size-10 items-center justify-center rounded-lg">
-                  <PackageIcon
-                    aria-hidden="true"
-                    className="text-primary-foreground size-6"
-                  />
-                </div>
-                OCI Registry Support
-              </dt>
-              <dd className="text-muted-foreground mt-2 text-base/7">
-                Push and pull Wasm workloads from OCI-compliant registries for
-                streamlined workflow integration and version management.
-              </dd>
-            </div>
-
-            <div className="relative pl-16">
-              <dt className="text-base font-semibold">
-                <div className="bg-primary absolute top-0 left-0 flex size-10 items-center justify-center rounded-lg">
-                  <ShieldCheckIcon
-                    aria-hidden="true"
-                    className="text-primary-foreground size-6"
-                  />
-                </div>
-                Security at the Core
-              </dt>
-              <dd className="text-muted-foreground mt-2 text-base/7">
-                Propeller ensures secure workload execution and communication
-                for IoT environments with sandboxed Wasm runtimes.
-              </dd>
-            </div>
-
-            <div className="relative pl-16">
-              <dt className="text-base font-semibold">
-                <div className="bg-primary absolute top-0 left-0 flex size-10 items-center justify-center rounded-lg">
-                  <NetworkIcon
-                    aria-hidden="true"
-                    className="text-primary-foreground size-6"
-                  />
-                </div>
-                Powerful Service Mesh
-              </dt>
-              <dd className="text-muted-foreground mt-2 text-base/7">
-                Integrates with SuperMQ for secure, efficient IoT device
-                communication across your entire infrastructure.
-              </dd>
-            </div>
-
-            <div className="relative pl-16">
-              <dt className="text-base font-semibold">
-                <div className="bg-primary absolute top-0 left-0 flex size-10 items-center justify-center rounded-lg">
-                  <ServerIcon
-                    aria-hidden="true"
-                    className="text-primary-foreground size-6"
-                  />
-                </div>
-                FaaS Deployment
-              </dt>
-              <dd className="text-muted-foreground mt-2 text-base/7">
-                Enable Function-as-a-Service capabilities for scalable and
-                event-driven applications across the cloud-edge continuum.
-              </dd>
-            </div>
-          </dl>
+        <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-5xl">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <Card key={feature.title}>
+                  <CardHeader>
+                    <div className="bg-primary mb-4 flex size-12 items-center justify-center rounded-lg">
+                      <Icon
+                        aria-hidden="true"
+                        className="text-primary-foreground size-6"
+                      />
+                    </div>
+                    <CardTitle>{feature.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-base">
+                      {feature.description}
+                    </CardDescription>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>
