@@ -21,6 +21,9 @@ export default function HowItWorksSection() {
         <div className="hidden md:block">
           <div className="relative">
             <div className="bg-border absolute right-0 left-0 mt-6 h-0.5" />
+            <div className="absolute right-0 left-0 mt-6 h-0.5 overflow-hidden">
+              <div className="absolute inset-0 h-full w-32 animate-[progress-beam_4s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary to-transparent" />
+            </div>
 
             <div className="grid grid-cols-4 gap-4">
               <div className="relative">
