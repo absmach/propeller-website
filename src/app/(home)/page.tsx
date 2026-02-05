@@ -4,7 +4,7 @@ import FooterSection from "@/components/footer";
 import { HeroSection } from "@/components/hero";
 import HowItWorksSection from "@/components/how-it-works-section";
 import PartnerCloudSection from "@/components/partner-cloud";
-import ProductDemoSection from "@/components/product-demo-section";
+// import ProductDemoSection from "@/components/product-demo-section";
 import StatisticsSection from "@/components/statistics-section";
 import TestimonialsSection from "@/components/testimonials-section";
 import { Separator } from "@/components/ui/separator";

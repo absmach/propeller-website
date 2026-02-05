@@ -1,4 +1,5 @@
-import { Check, PhoneCall } from "lucide-react";
+import Link from "fumadocs-core/link";
+import { PhoneCall } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -25,9 +26,11 @@ export const FAQSection = () => (
             </p>
           </div>
           <div>
-            <Button className="gap-4" variant="outline">
-              Any questions? Reach out <PhoneCall className="w-4 h-4" />
-            </Button>
+            <Link href="mailto:info@absmach.eu">
+              <Button className="gap-4" variant="outline">
+                Any questions? Reach out <PhoneCall className="w-4 h-4" />
+              </Button>
+            </Link>
           </div>
         </div>
 

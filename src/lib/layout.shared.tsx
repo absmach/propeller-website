@@ -1,6 +1,5 @@
 import type { BaseLayoutProps, LinkItemType } from "fumadocs-ui/layouts/shared";
 import { AlbumIcon, LayoutTemplate } from "lucide-react";
-import Link from "next/link";
 import { assetPath } from "./base-path";
 
 export const linkItems: LinkItemType[] = [
@@ -20,7 +19,7 @@ export const linkItems: LinkItemType[] = [
 
 export const logo = (
   <>
-    <Link href="/" className="flex items-center space-x-2">
+    <div className="flex items-center space-x-2">
       <img
         src={assetPath("/named-logo-black.svg")}
         className="h-30 w-auto dark:hidden"
@@ -31,7 +30,7 @@ export const logo = (
         className="h-30 w-auto hidden dark:block"
         alt="propeller logo"
       />
-    </Link>
+    </div>
   </>
 );
 
@@ -46,6 +45,7 @@ export function baseOptions(): BaseLayoutProps {
     githubUrl: "https://github.com/absmach/propeller",
     nav: {
       title: <>{logo}</>,
+      transparentMode: "top",
     },
     links: linkItems,
   };

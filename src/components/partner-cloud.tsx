@@ -1,4 +1,4 @@
-import { MarqueeEffect } from "@/components/marquee-effect";
+import { MarqueeEffect } from "@/components/ui/marquee-effect";
 
 const logos = [
   {
@@ -34,8 +34,8 @@ const logos = [
 export default function PartnerCloudSection() {
   return (
     <section className="py-12 lg:py-20">
-      <div className="mx-auto max-w-3xl px-4">
-        <header className="space-y-2">
+      <div className="mx-auto max-w-5xl px-4">
+        <header className="space-y-2 text-center mb-12">
           <h3 className="font-heading text-3xl md:text-4xl">
             Built on Industry Standards
           </h3>
@@ -48,12 +48,16 @@ export default function PartnerCloudSection() {
         {logos.length > 0 && (
           <MarqueeEffect
             className="mask-r-from-80% mask-l-from-80%"
-            speed={50}
-            gap={50}
+            speed={30}
+            gap={60}
           >
             {logos.map((logo) => (
               <div key={logo.name} className="flex items-center">
-                <img src={logo.img} className="w-[130px]" alt={logo.name} />
+                <img
+                  src={logo.img}
+                  className="w-[130px] h-[100px] object-contain"
+                  alt={logo.name}
+                />
               </div>
             ))}
           </MarqueeEffect>

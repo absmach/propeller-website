@@ -1,4 +1,4 @@
-import { Activity, Check, Code, Rocket, Upload } from "lucide-react";
+import { Activity, Code, Rocket, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function HowItWorksSection() {

@@ -1,0 +1,164 @@
+openapi: 3.0.0
+info:
+  title: Propeller
+  version: 1.0.0
+  description: ""
+servers:
+  - url: http://localhost:7070
+paths:
+  /proplets/{PROPLET_ID}:
+    get:
+      summary: Get Proplet
+      responses: {}
+      tags:
+        - Manager
+        - Proplets
+    parameters:
+      - name: PROPLET_ID
+        in: path
+        required: true
+        schema:
+          type: string
+  /proplets:
+    get:
+      summary: List Proplets
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          example: "1000"
+      responses: {}
+      tags:
+        - Manager
+        - Proplets
+  /tasks:
+    post:
+      summary: Create Task
+      responses: {}
+      tags:
+        - Manager
+        - Task
+        - Embedded
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+            example: |-
+              {
+                  "name": "main",
+                  // "image_url": "docker.io/mrstevenyaga/add.wasm",
+                  "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+                  "inputs": [
+                      10,
+                      20
+                  ]
+              }
+    get:
+      summary: List Tasks
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          example: "1000"
+      responses: {}
+      tags:
+        - Manager
+        - Task
+  /tasks/{TASK_ID}:
+    get:
+      summary: Get Task
+      responses: {}
+      tags:
+        - Manager
+        - Task
+        - Embedded
+    parameters:
+      - name: TASK_ID
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      summary: Update Task
+      responses: {}
+      tags:
+        - Manager
+        - Task
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  format: color
+                inputs:
+                  type: array
+                  items:
+                    type: integer
+            example:
+              name: add
+              inputs:
+                - 10
+                - 20
+    delete:
+      summary: Delete Task
+      responses: {}
+      tags:
+        - Manager
+        - Task
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+            example:
+              name: "{{$randomCompanyName}}"
+  /tasks/{TASK_ID}/start:
+    post:
+      summary: Start Task
+      responses: {}
+      tags:
+        - Manager
+        - Task
+        - Embedded
+    parameters:
+      - name: TASK_ID
+        in: path
+        required: true
+        schema:
+          type: string
+  /tasks/{TASK_ID}/upload:
+    put:
+      summary: Upload Wasm File
+      responses: {}
+      tags:
+        - Manager
+        - Task
+        - Host Runtime
+    parameters:
+      - name: TASK_ID
+        in: path
+        required: true
+        schema:
+          type: string
+  /tasks/{TASK_ID}/stop:
+    post:
+      summary: Stop Task
+      responses: {}
+      tags:
+        - Manager
+        - Task
+    parameters:
+      - name: TASK_ID
+        in: path
+        required: true
+        schema:
+          type: string

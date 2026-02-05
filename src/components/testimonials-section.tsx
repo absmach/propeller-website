@@ -31,7 +31,7 @@ export default function TestimonialsSection() {
             className="w-full"
           >
             <CarouselContent>
-              {testimonials.map((testimonial, index) => (
+              {testimonials.map((testimonial) => (
                 <CarouselItem
                   key={testimonial.name}
                   className="md:basis-1/2 lg:basis-1/3"

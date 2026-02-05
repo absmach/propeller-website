@@ -1,4 +1,5 @@
-import { MoveRight, PhoneCall } from "lucide-react";
+import Link from "fumadocs-core/link";
+import { MoveRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { assetPath } from "@/lib/base-path";
@@ -23,19 +24,28 @@ export const HeroSection = () => (
             </p>
           </div>
           <div className="flex flex-row gap-4">
-            <Button size="lg" className="gap-4" variant="outline">
-              View Documentation <MoveRight className="w-4 h-4" />
-            </Button>
-            <Button size="lg" className="gap-4">
-              Get Started <MoveRight className="w-4 h-4" />
-            </Button>
+            <Link href="/docs">
+              <Button size="lg" className="gap-4" variant="outline">
+                View Documentation <MoveRight className="w-4 h-4" />
+              </Button>
+            </Link>
+            <Link href="/docs/getting-started">
+              <Button size="lg" className="gap-4">
+                Get Started <MoveRight className="w-4 h-4" />
+              </Button>
+            </Link>
           </div>
         </div>
-        <div className="bg-muted rounded-md aspect-square flex items-center justify-center p-8">
+        <div className="rounded-md aspect-square flex items-center justify-center p-8">
           <img
-            src={assetPath("/architecture.svg")}
+            src={assetPath("/architecture-white.png")}
+            className="w-full h-full rounded-md object-contain dark:hidden"
             alt="Propeller Architecture Diagram showing WebAssembly orchestration"
-            className="w-full h-full rounded-md object-contain"
+          />
+          <img
+            src={assetPath("/architecture-black.png")}
+            className="w-full h-full rounded-md object-contain hidden dark:block"
+            alt="Propeller Architecture Diagram showing WebAssembly orchestration"
           />
         </div>
       </div>

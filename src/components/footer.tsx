@@ -1,5 +1,5 @@
+import Link from "fumadocs-core/link";
 import { Github, Linkedin, SendIcon, Twitter, Youtube } from "lucide-react";
-import Link from "next/link";
 import {
   InputGroup,
   InputGroupAddon,
@@ -14,12 +14,12 @@ const Logo = () => {
     <Link href="/" className="flex items-center space-x-2">
       <img
         src={assetPath("/named-logo-black.svg")}
-        className="h-8 w-auto dark:hidden"
+        className="h-30 w-auto dark:hidden"
         alt="propeller logo"
       />
       <img
         src={assetPath("/named-logo-white.svg")}
-        className="h-8 w-auto hidden dark:block"
+        className="h-30 w-auto hidden dark:block"
         alt="propeller logo"
       />
     </Link>
@@ -72,9 +72,7 @@ export default function FooterSection() {
             <h3 className="text-lg font-semibold">Resources</h3>
             <ul className="[&_li_a]:text-muted-foreground [&_li_a]:hover:text-foreground space-y-2 [&_li_a]:block [&_li_a]:text-sm [&_li_a]:transition-colors [&_li_a]:hover:underline">
               <li>
-                <Link href="https://docs.propeller.absmach.eu/" target="_blank">
-                  Documentation
-                </Link>
+                <Link href="/docs">Documentation</Link>
               </li>
               <li>
                 <Link
@@ -85,12 +83,7 @@ export default function FooterSection() {
                 </Link>
               </li>
               <li>
-                <Link
-                  href="https://docs.propeller.absmach.eu/getting-started/"
-                  target="_blank"
-                >
-                  Getting Started
-                </Link>
+                <Link href="/docs/getting-started">Getting Started</Link>
               </li>
               <li>
                 <Link
