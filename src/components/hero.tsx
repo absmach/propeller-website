@@ -1,6 +1,7 @@
 import { MoveRight, PhoneCall } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { assetPath } from "@/lib/base-path";
 
 export const HeroSection = () => (
   <div className="w-full  py-20 lg:py-40">
@@ -32,7 +33,7 @@ export const HeroSection = () => (
         </div>
         <div className="bg-muted rounded-md aspect-square flex items-center justify-center p-8">
           <img
-            src="/architecture.svg"
+            src={assetPath("/architecture.svg")}
             alt="Propeller Architecture Diagram showing WebAssembly orchestration"
             className="w-full h-full rounded-md object-contain"
           />

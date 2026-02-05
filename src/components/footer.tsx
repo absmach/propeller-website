@@ -7,17 +7,18 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
+import { assetPath } from "@/lib/base-path";
 
 const Logo = () => {
   return (
     <Link href="/" className="flex items-center space-x-2">
       <img
-        src="/logo-black.svg"
+        src={assetPath("/named-logo-black.svg")}
         className="h-8 w-auto dark:hidden"
         alt="propeller logo"
       />
       <img
-        src="/logo-white.svg"
+        src={assetPath("/named-logo-white.svg")}
         className="h-8 w-auto hidden dark:block"
         alt="propeller logo"
       />

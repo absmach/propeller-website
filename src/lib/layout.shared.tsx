@@ -1,6 +1,7 @@
 import type { BaseLayoutProps, LinkItemType } from "fumadocs-ui/layouts/shared";
 import { AlbumIcon, LayoutTemplate } from "lucide-react";
 import Link from "next/link";
+import { assetPath } from "./base-path";
 
 export const linkItems: LinkItemType[] = [
   {
@@ -21,12 +22,12 @@ export const logo = (
   <>
     <Link href="/" className="flex items-center space-x-2">
       <img
-        src="/named-logo-black.svg"
+        src={assetPath("/named-logo-black.svg")}
         className="h-30 w-auto dark:hidden"
         alt="propeller logo"
       />
       <img
-        src="/named-logo-white.svg"
+        src={assetPath("/named-logo-white.svg")}
         className="h-30 w-auto hidden dark:block"
         alt="propeller logo"
       />
