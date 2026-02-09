@@ -34,11 +34,13 @@ export const FAQSection = () => (
           </div>
         </div>
 
-        <div className="max-w-3xl w-full mx-auto">
+        <div className="max-w-4xl w-full mx-auto">
           <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="item-1">
-              <AccordionTrigger>What is Propeller?</AccordionTrigger>
-              <AccordionContent>
+            <AccordionItem value="item-1" className="border-b-2">
+              <AccordionTrigger className="text-lg md:text-xl py-6 hover:no-underline">
+                What is Propeller?
+              </AccordionTrigger>
+              <AccordionContent className="text-base md:text-lg leading-relaxed">
                 Propeller is a cutting-edge orchestrator for WebAssembly (Wasm)
                 workloads across the Cloud-Edge continuum. It enables seamless
                 deployment of Wasm applications from powerful cloud servers to
@@ -46,11 +48,11 @@ export const FAQSection = () => (
                 and performance.
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="item-2">
-              <AccordionTrigger>
+            <AccordionItem value="item-2" className="border-b-2">
+              <AccordionTrigger className="text-lg md:text-xl py-6 hover:no-underline">
                 What are the key features of Propeller?
               </AccordionTrigger>
-              <AccordionContent>
+              <AccordionContent className="text-base md:text-lg leading-relaxed">
                 Propeller offers cloud-edge orchestration, fast boot times with
                 near-instant startup, FaaS deployment capabilities, OCI registry
                 support, WAMR on Zephyr RTOS for constrained devices,
@@ -58,11 +60,11 @@ export const FAQSection = () => (
                 for IoT environments.
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="item-3">
-              <AccordionTrigger>
+            <AccordionItem value="item-3" className="border-b-2">
+              <AccordionTrigger className="text-lg md:text-xl py-6 hover:no-underline">
                 Which devices does Propeller support?
               </AccordionTrigger>
-              <AccordionContent>
+              <AccordionContent className="text-base md:text-lg leading-relaxed">
                 Propeller supports a wide range of devices from robust cloud
                 servers to lightweight microcontrollers running Zephyr RTOS. It
                 can deploy Wasm workloads across the entire cloud-edge
@@ -70,22 +72,22 @@ export const FAQSection = () => (
                 scenarios.
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="item-4">
-              <AccordionTrigger>
+            <AccordionItem value="item-4" className="border-b-2">
+              <AccordionTrigger className="text-lg md:text-xl py-6 hover:no-underline">
                 How does Propeller integrate with existing infrastructure?
               </AccordionTrigger>
-              <AccordionContent>
+              <AccordionContent className="text-base md:text-lg leading-relaxed">
                 Propeller integrates with OCI-compliant registries for workload
                 storage and retrieval, and connects with SuperMQ for secure IoT
                 device communication. It supports standard protocols like MQTT,
                 CoAP, and WebSocket for communication with edge devices.
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="item-5">
-              <AccordionTrigger>
+            <AccordionItem value="item-5" className="border-b-2">
+              <AccordionTrigger className="text-lg md:text-xl py-6 hover:no-underline">
                 What are common use cases for Propeller?
               </AccordionTrigger>
-              <AccordionContent>
+              <AccordionContent className="text-base md:text-lg leading-relaxed">
                 Common use cases include Industrial IoT (deploying analytics to
                 factory edge devices), secure workload execution with isolated
                 Wasm runtimes, smart cities with scalable IoT networks, and
@@ -93,11 +95,11 @@ export const FAQSection = () => (
                 cloud-edge continuum.
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="item-6">
-              <AccordionTrigger>
+            <AccordionItem value="item-6" className="border-b-2">
+              <AccordionTrigger className="text-lg md:text-xl py-6 hover:no-underline">
                 How do I get started with Propeller?
               </AccordionTrigger>
-              <AccordionContent>
+              <AccordionContent className="text-base md:text-lg leading-relaxed">
                 Getting started is easy: develop your application in
                 WebAssembly, push your workloads to an OCI-compliant registry,
                 use Propeller to orchestrate deployment across your
