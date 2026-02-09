@@ -14,12 +14,12 @@ const Logo = () => {
     <Link href="/" className="flex items-center space-x-2">
       <img
         src={assetPath("/named-logo-black.svg")}
-        className="h-30 w-auto dark:hidden"
+        className="h-12 w-auto dark:hidden"
         alt="propeller logo"
       />
       <img
         src={assetPath("/named-logo-white.svg")}
-        className="h-30 w-auto hidden dark:block"
+        className="h-12 w-auto hidden dark:block"
         alt="propeller logo"
       />
     </Link>
