@@ -5,6 +5,7 @@ import { HeroSection } from "@/components/hero";
 import HowItWorksSection from "@/components/how-it-works-section";
 import PartnerCloudSection from "@/components/partner-cloud";
 // import ProductDemoSection from "@/components/product-demo-section";
+import PropellerUISection from "@/components/propeller-ui-section";
 import StatisticsSection from "@/components/statistics-section";
 // import TestimonialsSection from "@/components/testimonials-section";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +26,8 @@ export default function HomePage() {
       <HowItWorksSection />
       {/*<Separator className="container mx-auto" />
       <TestimonialsSection />*/}
+      <Separator className="container mx-auto" />
+      <PropellerUISection />
       <Separator className="container mx-auto" />
       <FAQSection />
       <Separator className="container mx-auto" />
