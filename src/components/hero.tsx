@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { assetPath } from "@/lib/base-path";
 
 export const HeroSection = () => (
-  <div className="w-full py-12 sm:py-20 lg:py-28">
+  <div className="w-full pb-12 sm:pb-20 lg:pb-28">
     <div className="container mx-auto px-4 sm:px-6">
       <div className="grid grid-cols-1 gap-6 sm:gap-8 items-center lg:grid-cols-2">
         <div className="flex gap-3 sm:gap-4 flex-col order-1 lg:order-1 p-4 sm:p-6">
