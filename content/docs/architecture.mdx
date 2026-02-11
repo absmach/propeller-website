@@ -5,59 +5,320 @@ description: Overview of the Propeller distributed computing platform architectu
 
 ## Overview
 
-The Propeller system is a distributed computing platform designed to manage and execute tasks across multiple nodes (proplets). It leverages MQTT for communication, a manager service for task orchestration, and a proxy service for container image distribution. The system is composed of several key components:
+The Propeller system is a **WebAssembly (Wasm) workload orchestrator** for the Cloud-Edge continuum. It enables seamless deployment of Wasm applications from powerful cloud servers to constrained microcontrollers, combining flexibility, security, and performance. The system leverages MQTT for communication, a manager service for task orchestration, and supports multiple storage backends for different deployment scenarios.
+
+The system is composed of several key components:
 
 1. **CLI**: Command Line Interface for interacting with the Propeller system.
-2. **Manager**: Central service responsible for task management and proplet coordination.
-3. **Proplet**: Worker nodes that execute tasks.
-4. **Proxy**: Service for fetching and distributing container images from a registry.
-5. **SuperMQ**: Internal Event Driven Infrastructure for creation and coommunication between services.
+2. **Manager**: Central service responsible for task management, workflow orchestration, and proplet coordination.
+3. **Proplet**: Worker nodes that execute WebAssembly workloads.
+4. **Proxy**: Service downloading wasm modules from OCI registries and distributing them to proplets using MQTT.
+5. **SuperMQ**: Internal Event Driven Infrastructure for creation and communication between services.
 
-![Systme Architecture](images/architecture.png)
+![System Architecture](images/architecture.svg)
 
 ## Components
 
 ### CLI
 
-The CLI provides a command-line interface for users to interact with the Propeller system. It allows users to create, list, update, and delete tasks, as well as start and stop tasks. The CLI also allows you to provision manager and proplets.
+The CLI provides a command-line interface for users to interact with the Propeller system. It allows users to:
+
+- Create, list, update, and delete tasks
+- Start and stop tasks
+- Manage jobs and workflows
+- Configure federated learning experiments
+- Provision manager and proplets
 
 ### Manager
 
-The Manager is the central service responsible for managing tasks and coordinating proplets. It handles task creation, updates, deletion, and execution and maintains an internal database for tracking tasks and proplets. It also manages the lifecycle of proplets and ensures they are alive and healthy. The Manager uses MQTT for communication between services. It exposes REST endpoints for task management and proplet coordination. Currently, the system supports **1 manager : multiple workers**. In the future, the system will be expanded to support **multiple managers : multiple workers**.
+The Manager is the central orchestrator written in Go, responsible for managing the entire lifecycle of workloads and coordinating proplets. It handles:
+
+**Core Responsibilities:**
+
+- Task lifecycle management (creation, scheduling, execution, monitoring)
+- Workflow orchestration with DAG-based dependencies
+- Job management with configurable execution modes
+- Federated learning experiment coordination
+- Proplet health monitoring and liveliness tracking
+- Cron-based scheduled task execution
+
+**Key Features:**
+
+- REST API for external integration
+- MQTT-based communication with proplets
+- Pluggable scheduler implementations (Round Robin, Priority-based)
+- Support for multiple storage backends
+- Middleware for logging, metrics, and tracing
+
+**Architecture Pattern:**
+
+Currently, the system supports **1 manager : multiple proplets**. In the future, the system will be expanded to support **multiple managers : multiple proplets** for high availability.
+
+### Kubernets Operator
+
+The Propeller Kubernetes Operator provides a way to deploy and manage Propeller on Kubernetes clusters. It handles the orchestration of tasks across proplets, scheduling, and resource management. The Operator is responsible for:
+
+**Deployment and Management:**
+
+- Deploying Propeller components (Manager, Proplet, Proxy)
+- Managing Propeller components (scaling, restarting, monitoring)
+
+**Resource Management:**
+
+- Monitoring and scaling proplets based on resource utilization
+- Dynamically adjusting proplet count based on workload demand
+
+**Security and Compliance:**
+
+- Ensuring secure communication and deployment of Propeller components
+- Compliance with privacy regulations and best practices
 
 ### Proplet
 
-Proplets are worker nodes that execute tasks. They receive tasks from the Manager, execute them, and report the results back. Proplets also send periodic liveliness updates to the Manager to indicate they are alive.
+Proplets are worker nodes that execute WebAssembly workloads. They are responsible for:
+
+**Execution:**
+
+- Receiving tasks from the Manager via MQTT
+- Executing WebAssembly modules using various runtimes (Wasmtime, Host, TEE)
+- Reporting task results and status back to the Manager
+- Supporting chunked binary downloads for large Wasm modules
+
+**Health Monitoring:**
+
+- Sending periodic liveliness heartbeats every 10 seconds
+- Reporting metrics and resource utilization
+- Indicating availability for task scheduling
+
+**Runtime Support:**
+
+- **Wasmtime**: In-process WebAssembly execution
+- **Host**: External process execution
+- **TeeWasmRuntime**: Trusted Execution Environment with attestation support
 
 ### Proxy
 
-The Proxy service is responsible for fetching container images from a registry and distributing them to proplets. It handles authentication with the registry and splits the container images into chunks for efficient distribution. This is for OCI registry to fetch image from OCI registry and split the image into chunks for proplets to assemble and execute.
+The Proxy service handles downloading and distributing WebAssembly modules from OCI registries and distributes them to proplets.
 
 ### SuperMQ
 
-SuperMQ is an Event Driven Infrastructure (EDI) for creating and coordinating services. It provides a way to create and manage entities, as well as handle communication between services. SuperMQ uses MQTT for communication and provides a set of APIs for entity creation, management, and communication.
+SuperMQ is an Event Driven Infrastructure (EDI) that provides:
+
+- Entity creation and management
+- MQTT-based messaging between services
+- Secure IoT device communication
+- APIs for service coordination
 
 ## Communication
 
 ### MQTT
 
-MQTT is used for communication between the Manager, Proplets, and Proxy. The Manager publishes tasks to proplets, and proplets send liveliness updates and task results back to the Manager. The Proxy fetches container images and distributes them to proplets.
+MQTT is the primary communication protocol between the Manager and Proplets:
+
+**Manager to Proplet:**
+
+- Task assignments and configuration
+- Start/stop/remove commands
+- Binary chunk distribution
+
+**Proplet to Manager:**
+
+- Liveliness heartbeats (every 10 seconds)
+- Task status updates and results
+- Resource metrics
 
 ### HTTP
 
-HTTP is used for the CLI to interact with the Manager. The Manager exposes REST endpoints for task management and proplet coordination.
+HTTP is used for:
+
+- CLI interactions with the Manager REST API
+- External system integrations
+- Proxy routing
+
+## Task System
+
+### Task Structure
+
+Tasks are the fundamental unit of work in Propeller:
+
+### Task States
+
+Tasks progress through the following states:
+
+1. **Pending**: Task created but not yet scheduled
+2. **Scheduled**: Task assigned to a proplet, awaiting execution
+3. **Running**: Task currently executing on a proplet
+4. **Completed**: Task finished successfully
+5. **Failed**: Task execution failed
+6. **Skipped**: Task skipped due to conditional workflow logic
+
+### Task Types
+
+**By Kind:**
+
+- **Standard**: Regular WebAssembly workload execution
+- **Federated**: Federated learning training task
+
+**By Mode:**
+
+- **Infer**: Inference/prediction mode for ML models
+- **Train**: Training mode for ML models
+
+**By Execution Pattern:**
+
+- **One-shot**: Single execution task
+- **Daemon**: Long-running continuous task
+- **Scheduled**: Recurring task with cron expression
 
 ## Task Lifecycle
 
 1. **Task Creation**: A user creates a task using the CLI or HTTP API, which sends a request to the Manager.
-2. **Task Scheduling**: The Manager selects a proplet to execute the task based on the scheduling algorithm.
-3. **Task Execution**: The selected proplet receives the task, executes it, and reports the results back to the Manager.
-4. **Task Completion**: The Manager updates the task status and stores the results.
+2. **Task Scheduling**: The Manager selects a proplet based on the configured scheduler (Round Robin or Priority-based) and task requirements.
+3. **Task Assignment**: The Manager sends the task to the selected proplet via MQTT.
+4. **Task Execution**: The proplet receives the task, fetches the WebAssembly module (from OCI registry or embedded binary), and executes it.
+5. **Status Reporting**: The proplet sends periodic status updates and final results back to the Manager.
+6. **Task Completion**: The Manager updates the task status, stores the results, and triggers any dependent workflow tasks.
+
+## Jobs
+
+Jobs provide a way to group multiple related tasks together with a common JobID:
+
+### Job Execution Modes
+
+- **Parallel**: All tasks in the job run concurrently
+- **Sequential**: Tasks execute in order, one after another
+- **Configurable**: Custom dependency-based execution using DAG
+
+### Job Lifecycle
+
+1. **CreateJob**: Create a job with a name, list of tasks, and execution mode
+2. **StartJob**: Initiate job execution based on the configured mode
+3. **Monitor**: Track job progress through aggregated task states
+4. **Complete**: Job reaches terminal state (Completed or Failed) based on constituent tasks
+
+## Workflows
+
+Workflows provide DAG-based task orchestration with dependencies:
+
+### Dependency Management
+
+- **DependsOn**: List of task IDs that must complete before this task can start
+- **RunIf**: Conditional execution based on parent task outcome:
+  - `success` (default): Task runs only if all dependencies succeeded
+  - `failure`: Task runs only if any dependency failed
+
+### Workflow Coordinator
+
+The workflow coordinator:
+
+- Validates DAG structure (detects circular dependencies)
+- Performs topological sorting for execution ordering
+- Evaluates conditional execution (RunIf) based on parent states
+- Automatically starts ready tasks when dependencies are satisfied
+- Supports fail-fast semantics (stops on first failure)
+
+### DAG Validation
+
+- **Circular Dependency Detection**: Prevents invalid workflow configurations
+- **Dependency Existence Validation**: Ensures all referenced tasks exist
+- **Topological Sorting**: Determines valid execution order for sequential mode
+
+## Federated Learning
+
+Propeller includes built-in support for federated machine learning:
+
+### Core Components
+
+**Experiment Configuration:**
+
+- Define participants (proplets)
+- Configure aggregation strategy
+- Set round parameters (K-of-N, timeout)
+
+**Round Management:**
+
+- **RoundState**: Tracks round progress, updates, and completion
+- **K-of-N**: Minimum number of updates required to complete a round
+- **Timeout**: Maximum time to wait for participant updates
+
+**Aggregation:**
+
+- **FedAvg**: Federated Averaging algorithm
+- Weighted aggregation by number of training samples
+- Support for model weights (`w`) and bias (`b`) aggregation
+
+### FL Lifecycle
+
+1. **ConfigureExperiment**: Setup FL experiment with participants and parameters
+2. **GetFLTask**: Proplets retrieve training tasks for the current round
+3. **Local Training**: Proplets train models on local data
+4. **PostFLUpdate**: Proplets submit model updates to the manager
+5. **Aggregation**: Manager aggregates updates using FedAvg when K-of-N reached or timeout occurs
+6. **Model Distribution**: Updated global model distributed to participants
+
+## Scheduling
+
+The Manager supports pluggable scheduling algorithms:
+
+### Round Robin Scheduler
+
+- Distributes tasks evenly across available proplets
+- Maintains circular queue of proplets
+- Simple and fair distribution
+
+### Priority Scheduler
+
+- Sorts tasks by priority (higher values first)
+- Falls back to creation time for equal priorities
+- Supports priority range 0-100 (default: 50)
+
+### Scheduling Constraints
+
+- Only schedules to "alive" proplets (heartbeat within 10 seconds)
+- Tracks task count per proplet for load balancing
+- Considers proplet capabilities and task requirements
+
+## Storage Backends
+
+Propeller supports multiple storage backends for different deployment scenarios:
+
+| Backend        | Type                 | Use Case                                  |
+| -------------- | -------------------- | ----------------------------------------- |
+| **PostgreSQL** | Relational DB        | Production deployments, high availability |
+| **SQLite**     | Embedded SQL         | Edge/single-node deployments              |
+| **BadgerDB**   | Key-value (embedded) | High-performance edge deployments         |
+| **Memory**     | In-memory            | Testing and development                   |
 
 ## Proplet Liveliness
 
-Proplets send periodic liveliness updates to the Manager to indicate they are alive. The Manager uses these updates to monitor the health of proplets and ensure they are available for task execution.
+Proplets maintain their availability status through a heartbeat mechanism:
+
+- **Heartbeat Interval**: 10 seconds
+- **Liveliness Threshold**: Proplets are considered "alive" if heartbeat received within threshold window
+- **Scheduling Eligibility**: Only alive proplets are eligible for task scheduling
+- **Health Monitoring**: Manager tracks proplet health and removes stale entries
+
+## Cron Scheduling
+
+Propeller supports scheduled and recurring tasks:
+
+- **Cron Expressions**: Standard cron syntax for scheduling
+- **Timezone Support**: Configurable timezone for cron execution
+- **Persistent Scheduling**: Schedules survive manager restarts
+- **Next Run Tracking**: Automatic calculation of next execution time
+- **Recurring Tasks**: Support for tasks that run on a schedule indefinitely
 
 ## Container Image Distribution
 
-The Proxy fetches container images from a registry, splits them into chunks, and distributes them to proplets. Proplets assemble the chunks and execute the container image.
+Propplet supports WebAssembly module distribution through:
+
+- **OCI Registry**: Fetch Wasm modules from OCI-compliant registries
+- **Embedded Binaries**: Direct binary embedding in task definitions
+- **Chunked Downloads**: Large modules split into chunks for efficient distribution
+
+## Security Features
+
+- **TEE Support**: Trusted Execution Environment for encrypted workload execution
+- **Attestation**: Runtime attestation for TEE-based workloads
+- **KBS Integration**: Key Broker Service integration for secure key management
+- **SuperMQ**: Secure MQTT communication for IoT deployments
