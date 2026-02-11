@@ -1,22 +1,12 @@
 import { Rubik } from "next/font/google";
 import { Provider } from "@/components/provider";
 import "./global.css";
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 
 const rubik = Rubik({
   subsets: ["latin"],
   style: "normal",
 });
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 5,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
-  ],
-};
 
 const baseUrl =
   process.env.NEXT_PUBLIC_BASE_URL || "https://propeller.absmach.eu";
