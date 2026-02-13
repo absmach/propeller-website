@@ -1,0 +1,22 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "architecture.mdx",
+    "---Getting Started---",
+    "getting-started.mdx",
+    "examples",
+    "---Components---",
+    "manager.mdx",
+    "proplet.mdx",
+    "embedded-proplet.mdx",
+    "proxy.mdx",
+    "---Features---",
+    "monitoring.mdx",
+    "reference.mdx",
+    "---Resources---",
+    "api",
+    "developer-guide.mdx",
+    "zephyr.mdx"
+  ]
+}

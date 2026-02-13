@@ -5,11 +5,12 @@ description: Guide for building and contributing to Propeller
 
 ## Getting Propeller
 
-Propeller source can be found in the official Propeller GitHub repository. You should fork this repository in order to make changes to the project. The forked version of the repository should be cloned using the following:
+Propeller source can be found in the [official Propeller GitHub repository](https://github.com/absmach/propeller). You should fork this repository in order to make changes to the project. The forked version of the repository should be cloned using the following:
 
 ```bash
 git clone https://github.com/your-github-username/propeller.git $SOMEPATH/propeller
 cd $SOMEPATH/propeller
+git remote add upstream https://github.com/absmach/propeller.git
 ```
 
 ## Building Propeller
@@ -18,7 +19,8 @@ cd $SOMEPATH/propeller
 
 To build Propeller, you will need the following:
 
-- [A Go compiler (Go 1.23 or later)](https://go.dev/doc/install)
+- [A Go compiler (Go 1.25 or later)](https://go.dev/doc/install)
+- [Rust](https://rustup.rs/)
 - [Make](https://www.gnu.org/software/make/manual/make.html)
 - [Docker](https://docs.docker.com/)
 - [Wasmtime](https://wasmtime.dev/)
@@ -99,6 +101,12 @@ make install
 
 This will install Propeller to the `GOBIN` directory.
 
+```bash
+export GOBIN=~/go/bin
+export PATH=$GOBIN:$PATH
+make install
+```
+
 ## Linter
 
 Propeller uses [golangci-lint](https://golangci-lint.run/) to lint the code. You can run the linter using the following:
@@ -120,6 +128,105 @@ make start-supermq
 This will in the background run `docker compose -f docker/compose.yaml up -d` which will start the SuperMQ services.
 
 You can override the configuration or add some extra parameters to the docker compose configuration.
+
+After this is done, you will need to provision propeller using the following command
+
+```bash
+propeller-cli provision
+```
+
+[![asciicast](https://asciinema.org/a/pPzOgCInOAK5LBXb.svg)](https://asciinema.org/a/pPzOgCInOAK5LBXb)
+
+After this is done, `config.toml` file will be created for easier setup, we can copy it to the `docker` folder and uncomment `config.toml` configuration for manager, proplet and proxy.
+
+```bash
+cp config.toml docker
+```
+
+The changes on the docker compose file looks like this
+
+```diff
+diff --git a/docker/compose.yaml b/docker/compose.yaml
+index 46302ea..e872f29 100644
+--- a/docker/compose.yaml
++++ b/docker/compose.yaml
+@@ -1607,8 +1607,8 @@ services:
+       - supermq-base-net
+     # To use a custom config.toml, uncomment the following line and ensure ./config.toml exists.
+     # If you are using environment variables for configuration, leave this commented out.
+-    # volumes:
+-    #   - ./config.toml:/config.toml
++    volumes:
++      - ./config.toml:/config.toml
+
+   proplet:
+     image: ghcr.io/absmach/propeller/proplet:${PROP_RELEASE_TAG}
+@@ -1642,8 +1642,8 @@ services:
+       - supermq-base-net
+     # To use a custom config.toml, uncomment the following line and ensure ./config.toml exists.
+     # If you are using environment variables for configuration, leave this commented out.
+-    # volumes:
+-    #   - ./config.toml:/home/proplet/config.toml
++    volumes:
++      - ./config.toml:/home/proplet/config.toml
+
+   proxy:
+     image: ghcr.io/absmach/propeller/proxy:${PROP_RELEASE_TAG}
+@@ -1671,5 +1671,5 @@ services:
+       - supermq-base-net
+     # To use a custom config.toml, uncomment the following line and ensure ./config.toml exists.
+     # If you are using environment variables for configuration, leave this commented out.
+-    # volumes:
+-    #   - ./config.toml:/config.toml
++    volumes:
++      - ./config.toml:/config.toml
+```
+
+Then run `make start-supermq` again to start SuperMQ.
+
+The logs from then manager should look like this:
+
+```bash
+{"time":"2026-02-11T16:57:43.822945669Z","level":"INFO","msg":"MQTT connection lost"}
+{"time":"2026-02-11T16:57:43.883167345Z","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"60.157736ms"}
+{"time":"2026-02-11T16:57:43.883519119Z","level":"INFO","msg":"manager service http server listening at manager:7070 without TLS"}
+```
+
+The logs from the proplet should look like this:
+
+```bash
+2026-02-11T17:34:32.841840Z  INFO Starting Proplet (Rust) - Instance ID: f34cddff-2855-4e3f-9b55-9d83b982b315
+2026-02-11T17:34:32.841888Z  INFO MQTT client created (TLS: false)
+2026-02-11T17:34:32.841931Z  INFO Using external Wasm runtime: wasmtime
+2026-02-11T17:34:32.842001Z  INFO Starting MQTT event loop
+2026-02-11T17:34:32.846168Z DEBUG Received MQTT packet: ConnAck(ConnAck { session_present: false, code: Success })
+2026-02-11T17:34:32.877390Z  INFO Starting PropletService
+2026-02-11T17:34:32.877439Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/create
+2026-02-11T17:34:32.877443Z  INFO Published discovery message
+2026-02-11T17:34:32.877463Z  INFO Subscribed to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/manager/start
+2026-02-11T17:34:32.877467Z  INFO Subscribed to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/manager/stop
+2026-02-11T17:34:32.877472Z  INFO Subscribed to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/registry/server
+2026-02-11T17:34:32.878594Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/alive
+2026-02-11T17:34:32.878615Z DEBUG Published liveliness update
+2026-02-11T17:34:32.879956Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/metrics
+2026-02-11T17:34:32.880019Z DEBUG Published proplet metrics
+2026-02-11T17:34:32.882250Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 1 })
+2026-02-11T17:34:32.897028Z DEBUG Received MQTT packet: SubAck(SubAck { pkid: 2, return_codes: [Success(AtLeastOnce)] })
+2026-02-11T17:34:32.902466Z DEBUG Received MQTT packet: SubAck(SubAck { pkid: 3, return_codes: [Success(AtLeastOnce)] })
+2026-02-11T17:34:32.908233Z DEBUG Received MQTT packet: SubAck(SubAck { pkid: 4, return_codes: [Success(AtLeastOnce)] })
+2026-02-11T17:34:32.909485Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 5 })
+2026-02-11T17:34:32.909510Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 6 })
+2026-02-11T17:34:42.878374Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/alive
+2026-02-11T17:34:42.878387Z DEBUG Published liveliness update
+2026-02-11T17:34:42.879526Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/metrics
+2026-02-11T17:34:42.879540Z DEBUG Published proplet metrics
+2026-02-11T17:34:42.881430Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 7 })
+2026-02-11T17:34:42.883416Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 8 })
+2026-02-11T17:34:52.878418Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/alive
+2026-02-11T17:34:52.878441Z DEBUG Published liveliness update
+2026-02-11T17:34:52.880337Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/metrics
+2026-02-11T17:34:52.880366Z DEBUG Published proplet metrics
+```
 
 ### Stopping SuperMQ
 

@@ -1,0 +1,154 @@
+---
+title: WASI HTTP
+description: Sample `wasi:http` in Rust
+---
+
+## Working with the Rust WASI HTTP Example
+
+Propeller includes an example Rust WebAssembly HTTP component: `sample-wasi-http-rust`. Running the Rust WASI example validates your Rust/WASM setup and shows how a single WASI HTTP component works before integrating it with Propeller. This section shows you how to fetch it, build it, run it, and test it.
+
+You can also refer to the original project’s instructions here:
+[https://github.com/bytecodealliance/sample-wasi-http-rust#sample-wasihttp-in-rust](https://github.com/bytecodealliance/sample-wasi-http-rust#sample-wasihttp-in-rust)
+
+### 1. Initialize the Git submodules
+
+From the root of the `propeller` repository:
+
+```bash
+git submodule update --remote
+cd examples/sample-wasi-http-rust
+```
+
+This pulls in the `sample-wasi-http-rust` example code.
+
+### 2. Install the required Rust target
+
+The example builds to a WebAssembly target. If you see errors about missing `wasm32-wasip2` or `wasm32-wasip1`, you need to add the target.
+
+A safe default is to add the Preview 2 target:
+
+```bash
+rustup target add wasm32-wasip2
+```
+
+If this command fails, update Rust first:
+
+```bash
+rustup update
+rustup target add wasm32-wasip2
+```
+
+### 3. Build the Rust example
+
+Build the example for the WebAssembly target:
+
+```bash
+cargo build --target wasm32-wasip2
+```
+
+If the build completes successfully, you will see a message similar to:
+
+```bash
+Compiling sample-wasi-http-rust v0.0.0 (/home/rodneyosodo/code/absmach/propeller/examples/sample-wasi-http-rust)
+ Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.65s
+```
+
+At this point, you have a compiled WASI HTTP component.
+
+### 4. Install `cargo-component` (once)
+
+`cargo-component` makes it easy to work with Wasm components and run them with Wasmtime.
+
+Install it using `cargo`:
+
+```bash
+cargo install cargo-component
+```
+
+You only need to do this once on your machine.
+
+### 5. Serve the Rust component locally
+
+From inside `examples/sample-wasi-http-rust`:
+
+```bash
+cargo component serve
+```
+
+On first run, this may automatically install the `wasm32-wasip1` component standard library and then print something like:
+
+```bash
+Creating component target/wasm32-wasip1/debug/sample_wasi_http_rust.wasm
+Running `target/wasm32-wasip1/debug/sample_wasi_http_rust.wasm`
+Serving HTTP on http://0.0.0.0:8080/
+```
+
+This means your WASI HTTP component is now running as an HTTP server on port `8080`.
+
+Leave this terminal open while the server is running.
+
+### 6. Test the Rust HTTP endpoints
+
+Open a **new terminal** and run the following commands to test the different routes:
+
+#### Hello world route
+
+```bash
+curl -v http://127.0.0.1:8080/
+```
+
+You should see a `200 OK` response with a body similar to:
+
+```text
+Hello, wasi:http/proxy world!
+```
+
+#### Wait route
+
+```bash
+curl -v http://127.0.0.1:8080/wait
+```
+
+This route sleeps briefly before responding, and you should see:
+
+```text
+slept for 1001 millis
+```
+
+#### Echo body route
+
+```bash
+curl -v http://127.0.0.1:8080/echo -d 'hello from John Doe'
+```
+
+The response will echo the request body back:
+
+```text
+hello from John Doe
+```
+
+#### Echo headers route
+
+```bash
+curl -v http://127.0.0.1:8080/echo-headers -H 'X-Test: 123' -H 'X-Foo: bar'
+```
+
+You will see the headers reflected in the response:
+
+```text
+x-foo: bar
+user-agent: curl/...
+accept: */*
+x-test: 123
+```
+
+#### Echo trailers route
+
+```bash
+curl -v http://127.0.0.1:8080/echo-trailers
+```
+
+This demonstrates handling of HTTP trailers over WASI HTTP.
+
+> **When you are done:**
+> Go back to the terminal running `cargo component serve` and press `Ctrl+C` to stop the server.

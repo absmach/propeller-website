@@ -1,0 +1,14 @@
+{
+  "title": "Examples",
+  "pages": [
+    "addition.mdx",
+    "compute.mdx",
+    "addition-base64.mdx",
+    "addition-external-runtime.mdx",
+    "filesystem.mdx",
+    "content/docs/examples/http-client.mdx",
+    "content/docs/examples/http-server.mdx",
+    "tee.mdx",
+    "wasi-http.mdx"
+  ]
+}
