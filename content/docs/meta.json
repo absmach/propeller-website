@@ -12,6 +12,8 @@
     "proxy.mdx",
     "---Features---",
     "monitoring.mdx",
+    "task-scheduling.mdx",
+    "dag-workflows.mdx",
     "reference.mdx",
     "---Resources---",
     "api",
