@@ -86,156 +86,6 @@ propeller-cli
 propeller-proxy
 ```
 
-## Working with the Rust WASI HTTP Example
-
-Propeller includes an example Rust WebAssembly HTTP component: `sample-wasi-http-rust`. Running the Rust WASI example validates your Rust/WASM setup and shows how a single WASI HTTP component works before integrating it with Propeller. This section shows you how to fetch it, build it, run it, and test it.
-
-You can also refer to the original project’s instructions here:
-[https://github.com/bytecodealliance/sample-wasi-http-rust#sample-wasihttp-in-rust](https://github.com/bytecodealliance/sample-wasi-http-rust#sample-wasihttp-in-rust)
-
-### 1. Initialize the Git submodules
-
-From the root of the `propeller` repository:
-
-```bash
-git submodule update --remote
-cd examples/sample-wasi-http-rust
-```
-
-This pulls in the `sample-wasi-http-rust` example code.
-
-### 2. Install the required Rust target
-
-The example builds to a WebAssembly target. If you see errors about missing `wasm32-wasip2` or `wasm32-wasip1`, you need to add the target.
-
-A safe default is to add the Preview 2 target:
-
-```bash
-rustup target add wasm32-wasip2
-```
-
-If this command fails, update Rust first:
-
-```bash
-rustup update
-rustup target add wasm32-wasip2
-```
-
-### 3. Build the Rust example
-
-Build the example for the WebAssembly target:
-
-```bash
-cargo build --target wasm32-wasip2
-```
-
-If the build completes successfully, you will see a message similar to:
-
-```bash
-Compiling sample-wasi-http-rust v0.0.0 (/home/rodneyosodo/code/absmach/propeller/examples/sample-wasi-http-rust)
- Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.65s
-```
-
-At this point, you have a compiled WASI HTTP component.
-
-### 4. Install `cargo-component` (once)
-
-`cargo-component` makes it easy to work with Wasm components and run them with Wasmtime.
-
-Install it using `cargo`:
-
-```bash
-cargo install cargo-component
-```
-
-You only need to do this once on your machine.
-
-### 5. Serve the Rust component locally
-
-From inside `examples/sample-wasi-http-rust`:
-
-```bash
-cargo component serve
-```
-
-On first run, this may automatically install the `wasm32-wasip1` component standard library and then print something like:
-
-```bash
-Creating component target/wasm32-wasip1/debug/sample_wasi_http_rust.wasm
-Running `target/wasm32-wasip1/debug/sample_wasi_http_rust.wasm`
-Serving HTTP on http://0.0.0.0:8080/
-```
-
-This means your WASI HTTP component is now running as an HTTP server on port `8080`.
-
-Leave this terminal open while the server is running.
-
-### 6. Test the Rust HTTP endpoints
-
-Open a **new terminal** and run the following commands to test the different routes:
-
-#### Hello world route
-
-```bash
-curl -v http://127.0.0.1:8080/
-```
-
-You should see a `200 OK` response with a body similar to:
-
-```text
-Hello, wasi:http/proxy world!
-```
-
-#### Wait route
-
-```bash
-curl -v http://127.0.0.1:8080/wait
-```
-
-This route sleeps briefly before responding, and you should see:
-
-```text
-slept for 1001 millis
-```
-
-#### Echo body route
-
-```bash
-curl -v http://127.0.0.1:8080/echo -d 'hello from John Doe'
-```
-
-The response will echo the request body back:
-
-```text
-hello from John Doe
-```
-
-#### Echo headers route
-
-```bash
-curl -v http://127.0.0.1:8080/echo-headers -H 'X-Test: 123' -H 'X-Foo: bar'
-```
-
-You will see the headers reflected in the response:
-
-```text
-x-foo: bar
-user-agent: curl/...
-accept: */*
-x-test: 123
-```
-
-#### Echo trailers route
-
-```bash
-curl -v http://127.0.0.1:8080/echo-trailers
-```
-
-This demonstrates handling of HTTP trailers over WASI HTTP.
-
-> **When you are done:**
-> Go back to the terminal running `cargo component serve` and press `Ctrl+C` to stop the server.
-
 ## Run SuperMQ and Propeller
 
 Propeller needs to talk to a running SuperMQ instance.
@@ -276,11 +126,91 @@ This runs:
 docker compose -f docker/compose.yaml --env-file docker/.env up -d
 ```
 
+The output will look something like:
+
+```bash
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
+[+] up 46/46
+ ✔ Network supermq-base-net                     Created                             0.3s
+ ✔ Volume supermq_supermq-users-db-volume       Created                             0.0s
+ ✔ Volume supermq_supermq-channels-db-volume    Created                             0.0s
+ ✔ Volume supermq_supermq-clients-redis-volume  Created                             0.0s
+ ✔ Volume supermq_supermq-channels-redis-volume Created                             0.0s
+ ✔ Volume supermq_supermq-groups-db-volume      Created                             0.0s
+ ✔ Volume supermq_supermq-pat-db-volume         Created                             0.1s
+ ✔ Volume supermq_supermq-spicedb-db-volume     Created                             0.0s
+ ✔ Volume supermq_supermq-clients-db-volume     Created                             0.0s
+ ✔ Volume supermq_supermq-domains-redis-volume  Created                             0.0s
+ ✔ Volume supermq_supermq-auth-db-volume        Created                             0.0s
+ ✔ Volume supermq_supermq-mqtt-broker-volume    Created                             0.1s
+ ✔ Volume supermq_supermq-auth-redis-volume     Created                             0.0s
+ ✔ Volume supermq_supermq-broker-volume         Created                             0.0s
+ ✔ Volume supermq_supermq-domains-db-volume     Created                             0.0s
+ ✔ Container supermq-spicedb-db                 Created                             1.9s
+ ✔ Container supermq-clients-db                 Created                             1.3s
+ ✔ Container supermq-channels-db                Created                             2.0s
+ ✔ Container supermq-jaeger                     Created                             1.5s
+ ✔ Container supermq-domains-redis              Created                             1.3s
+ ✔ Container supermq-channels-redis             Created                             1.3s
+ ✔ Container supermq-domains-db                 Created                             1.9s
+ ✔ Container supermq-users-db                   Created                             1.8s
+ ✔ Container supermq-clients-redis              Created                             1.3s
+ ✔ Container supermq-auth-db                    Created                             1.4s
+ ✔ Container supermq-rabbitmq                   Created                             1.3s
+ ✔ Container supermq-nats                       Created                             1.3s
+ ✔ Container supermq-auth-redis                 Created                             1.3s
+ ✔ Container supermq-groups-db                  Created                             2.1s
+ ✔ Container supermq-notifications              Created                             0.8s
+ ✔ Container supermq-spicedb-migrate            Created                             0.4s
+ ✔ Container supermq-spicedb                    Created                             0.2s
+ ... 14 more
+```
+
 At this point:
 
 - SuperMQ is up and reachable.
 - Propeller containers (manager, proplet, proxy) will **fail to start correctly** on the first run.
   That’s OK - they don’t have credentials yet because `config.toml` doesn’t exist.
+
+Logs from supermq users container `docker logs supermq-users` look like this:
+
+```bash
+2026/02/13 08:41:48 The binary was build using Nats as the events store
+{"time":"2026-02-13T08:41:48.974609962Z","level":"ERROR","msg":"failed to create token gRPC client service is not serving"}
+2026/02/13 08:41:53 The binary was build using Nats as the events store
+{"time":"2026-02-13T08:41:53.615300269Z","level":"ERROR","msg":"failed to create token gRPC client service is not serving"}
+2026/02/13 08:42:06 The binary was build using Nats as the events store
+{"time":"2026-02-13T08:42:06.420360482Z","level":"INFO","msg":"Token service client successfully connected to auth gRPC server without TLS"}
+{"time":"2026-02-13T08:42:06.444412272Z","level":"INFO","msg":"AuthN successfully connected to auth gRPC server without TLS"}
+{"time":"2026-02-13T08:42:06.468438974Z","level":"INFO","msg":"AuthZ successfully connected to auth gRPC server without TLS"}
+{"time":"2026-02-13T08:42:06.468715597Z","level":"INFO","msg":"Policy client successfully connected to spicedb gRPC server"}
+{"time":"2026-02-13T08:42:06.634957962Z","level":"WARN","msg":"Issue token failed","duration":"63.251007ms","request_id":"","error":"failed to issue token : unexpected gRPC status: Internal (status code:Internal) : failed to issue new login key : failed to authorize user role"}
+{"time":"2026-02-13T08:42:06.63503073Z","level":"ERROR","msg":"failed to create admin client: failed to issue token : unexpected gRPC status: Internal (status code:Internal) : failed to issue new login key : failed to authorize user role"}
+{"time":"2026-02-13T08:42:06.659799697Z","level":"ERROR","msg":"failed to setup service: failed to add policies : malformed entity specification : invalid WriteRelationshipsRequest.Updates[0]: embedded message failed validation | caused by: invalid RelationshipUpdate.Relationship: embedded message failed validation | caused by: invalid Relationship.Subject: embedded message failed validation | caused by: invalid SubjectReference.Object: embedded message failed validation | caused by: invalid ObjectReference.ObjectId: value does not match regex pattern \"^(([a-zA-Z0-9/_|\\\\-=+]{1,})|\\\\*)$\""}
+2026/02/13 08:42:11 The binary was build using Nats as the events store
+{"time":"2026-02-13T08:42:11.101214857Z","level":"INFO","msg":"Token service client successfully connected to auth gRPC server without TLS"}
+{"time":"2026-02-13T08:42:11.124631133Z","level":"INFO","msg":"AuthN successfully connected to auth gRPC server without TLS"}
+{"time":"2026-02-13T08:42:11.149207936Z","level":"INFO","msg":"AuthZ successfully connected to auth gRPC server without TLS"}
+{"time":"2026-02-13T08:42:11.149272378Z","level":"INFO","msg":"Policy client successfully connected to spicedb gRPC server"}
+{"time":"2026-02-13T08:42:11.242006073Z","level":"INFO","msg":"users service http server listening at users:9002 without TLS"}
+{"time":"2026-02-13T08:42:11.242647928Z","level":"INFO","msg":"users service gRPC server listening at users:7002 without TLS"}
+```
+
+Logs from propeller manager container `docker logs propeller-manager` look like this:
+
+```bash
+2026/02/13 08:41:59 failed to load TOML configuration: stat config.toml: no such file or directory
+2026/02/13 08:42:06 failed to load TOML configuration: stat config.toml: no such file or directory
+2026/02/13 08:42:11 failed to load TOML configuration: stat config.toml: no such file or directory
+2026/02/13 08:42:13 failed to load TOML configuration: stat config.toml: no such file or directory
+2026/02/13 08:42:15 failed to load TOML configuration: stat config.toml: no such file or directory
+2026/02/13 08:42:17 failed to load TOML configuration: stat config.toml: no such file or directory
+2026/02/13 08:42:24 failed to load TOML configuration: stat config.toml: no such file or directory
+2026/02/13 08:42:30 failed to load TOML configuration: stat config.toml: no such file or directory
+2026/02/13 08:42:44 failed to load TOML configuration: stat config.toml: no such file or directory
+2026/02/13 08:43:10 failed to load TOML configuration: stat config.toml: no such file or directory
+2026/02/13 08:44:02 failed to load TOML configuration: stat config.toml: no such file or directory
+```
 
 We only need SuperMQ up now so we can **provision** it.
 
@@ -296,7 +226,7 @@ propeller-cli provision
 
 This command will:
 
-- Log you into SuperMQ (you must have a SuperMQ user already created; if not, create one using the [supermq-cli](https://docs.supermq.abstractmachines.fr/cli#create-user), `curl`, or the web UI).
+- Log you into SuperMQ (you must have a SuperMQ user already created; if not, create one using the [supermq-cli](https://docs.supermq.abstractmachines.fr/cli#create-user), `curl`, or the web UI). You can also use the admin user if you have the credentials.
 - Create a **domain**
 - Log your user into that domain
 - Create a **manager client**
@@ -361,6 +291,45 @@ volumes:
 
 Uncomment or add these lines as needed.
 
+The changes on the docker compose file looks like this
+
+```diff
+diff --git a/docker/compose.yaml b/docker/compose.yaml
+index 46302ea..e872f29 100644
+--- a/docker/compose.yaml
++++ b/docker/compose.yaml
+@@ -1607,8 +1607,8 @@ services:
+       - supermq-base-net
+     # To use a custom config.toml, uncomment the following line and ensure ./config.toml exists.
+     # If you are using environment variables for configuration, leave this commented out.
+-    # volumes:
+-    #   - ./config.toml:/config.toml
++    volumes:
++      - ./config.toml:/config.toml
+
+   proplet:
+     image: ghcr.io/absmach/propeller/proplet:${PROP_RELEASE_TAG}
+@@ -1642,8 +1642,8 @@ services:
+       - supermq-base-net
+     # To use a custom config.toml, uncomment the following line and ensure ./config.toml exists.
+     # If you are using environment variables for configuration, leave this commented out.
+-    # volumes:
+-    #   - ./config.toml:/home/proplet/config.toml
++    volumes:
++      - ./config.toml:/home/proplet/config.toml
+
+   proxy:
+     image: ghcr.io/absmach/propeller/proxy:${PROP_RELEASE_TAG}
+@@ -1671,5 +1671,5 @@ services:
+       - supermq-base-net
+     # To use a custom config.toml, uncomment the following line and ensure ./config.toml exists.
+     # If you are using environment variables for configuration, leave this commented out.
+-    # volumes:
+-    #   - ./config.toml:/config.toml
++    volumes:
++      - ./config.toml:/config.toml
+```
+
 ### 4. Restart the Docker stack so Propeller reads `config.toml`
 
 Now that:
@@ -375,6 +344,12 @@ make stop-supermq
 make start-supermq
 ```
 
+or if you are using docker compose
+
+```bash
+docker compose -f docker/compose.yaml --env-file docker/.env up -d --force-recreate
+```
+
 On this second start:
 
 - `propeller-manager`, `propeller-proplet`, and `propeller-proxy` start up,
@@ -383,6 +358,58 @@ On this second start:
 - They connect to SuperMQ using the correct domain, client IDs, client keys, and channel IDs.
 
 At this point, your system is up and ready to use.
+
+Logs from propeller manager container `docker logs propeller-manager` look like this:
+
+```bash
+{"time":"2026-02-13T09:36:23.416841939Z","level":"INFO","msg":"MQTT connection established"}
+{"time":"2026-02-13T09:36:23.416905339Z","level":"WARN","msg":"COORDINATOR_URL not configured - FL features will not be available"}
+{"time":"2026-02-13T09:36:23.529414079Z","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"112.35019ms"}
+{"time":"2026-02-13T09:36:23.529644534Z","level":"INFO","msg":"cron scheduler started","check_interval":60000000000}
+{"time":"2026-02-13T09:36:23.529893334Z","level":"INFO","msg":"manager service http server listening at manager:7070 without TLS"}
+```
+
+Logs from propeller proplet container `docker logs propeller-proplet` look like this:
+
+```bash
+2026-02-13T09:36:23.426879Z  INFO Proplet configuration: PropletConfig { log_level: "debug", instance_id: "39c19eb4-2ee3-45c3-967b-6a2c109f5b7d", mqtt_address: "tcp://mqtt-adapter:1883", mqtt_timeout: 30, mqtt_qos: 2, mqtt_keep_alive: 30, mqtt_max_packet_size: 10485760, mqtt_inflight: 10, mqtt_request_channel_capacity: 128, liveliness_interval: 10, metrics_interval: 10, domain_id: "002cbbc7-0834-4ce7-be9e-d57b5fe6cd85", channel_id: "bda8692b-35fa-4d4d-88a7-dc412edfda63", client_id: "a95517f9-5655-4cf5-a7c8-aa00290b3895", client_key: "ea812299-b561-494d-80aa-0f636142f147", k8s_namespace: Some("default"), external_wasm_runtime: Some("wasmtime"), enable_monitoring: true, tee_enabled: false, kbs_uri: None, aa_config_path: None, layer_store_path: "/tmp/proplet/layers", pull_concurrent_limit: 4 }
+2026-02-13T09:36:23.426891Z  INFO Starting Proplet (Rust) - Instance ID: 39c19eb4-2ee3-45c3-967b-6a2c109f5b7d
+2026-02-13T09:36:23.426926Z  INFO MQTT client created (TLS: false)
+2026-02-13T09:36:23.426960Z  INFO Using external Wasm runtime: wasmtime
+2026-02-13T09:36:23.427023Z  INFO Starting MQTT event loop
+2026-02-13T09:36:23.430812Z DEBUG Received MQTT packet: ConnAck(ConnAck { session_present: false, code: Success })
+2026-02-13T09:36:23.470780Z  INFO Starting PropletService
+2026-02-13T09:36:23.470838Z DEBUG Published to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/control/proplet/create
+2026-02-13T09:36:23.470842Z  INFO Published discovery message
+2026-02-13T09:36:23.470847Z  INFO Subscribed to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/control/manager/start
+2026-02-13T09:36:23.470856Z  INFO Subscribed to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/control/manager/stop
+2026-02-13T09:36:23.470861Z  INFO Subscribed to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/registry/server
+2026-02-13T09:36:23.472062Z DEBUG Published to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/control/proplet/alive
+2026-02-13T09:36:23.472077Z DEBUG Published liveliness update
+2026-02-13T09:36:23.473021Z DEBUG Published to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/control/proplet/metrics
+2026-02-13T09:36:23.473035Z DEBUG Published proplet metrics
+2026-02-13T09:36:23.493391Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 1 })
+2026-02-13T09:36:23.515386Z DEBUG Received MQTT packet: SubAck(SubAck { pkid: 2, return_codes: [Success(AtLeastOnce)] })
+2026-02-13T09:36:23.541562Z DEBUG Received MQTT packet: SubAck(SubAck { pkid: 3, return_codes: [Success(AtLeastOnce)] })
+2026-02-13T09:36:23.549683Z DEBUG Received MQTT packet: SubAck(SubAck { pkid: 4, return_codes: [Success(AtLeastOnce)] })
+2026-02-13T09:36:23.550570Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 5 })
+2026-02-13T09:36:23.550586Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 6 })
+2026-02-13T09:36:33.472277Z DEBUG Published to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/control/proplet/alive
+2026-02-13T09:36:33.472298Z DEBUG Published liveliness update
+2026-02-13T09:36:33.474235Z DEBUG Published to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/control/proplet/metrics
+2026-02-13T09:36:33.474255Z DEBUG Published proplet metrics
+2026-02-13T09:36:33.476578Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 7 })
+2026-02-13T09:36:33.480812Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 8 })
+```
+
+Logs from propeller proxy container `docker logs propeller-proxy` look like this:
+
+```bash
+{"time":"2026-02-13T09:36:23.41915525Z","level":"INFO","msg":"successfully initialized MQTT and HTTP config"}
+{"time":"2026-02-13T09:36:23.419288391Z","level":"INFO","msg":"starting proxy service"}
+{"time":"2026-02-13T09:36:23.419156021Z","level":"INFO","msg":"MQTT connection established"}
+{"time":"2026-02-13T09:36:23.503434027Z","level":"INFO","msg":"successfully subscribed to topic"}
+```
 
 ## Option 2: Run Propeller binaries directly (without Docker)
 
@@ -398,6 +425,12 @@ The provisioning step is **the same** as in Option 1:
 
 Make sure `config.toml` is in the directory where you will start the binaries, or set env vars to point them at the correct file.
 
+You can stop the propeller service containers (`propeller-manager`, `propeller-proplet`, `propeller-proxy`) with:
+
+```bash
+docker stop propeller-manager propeller-proxy propeller-proplet
+```
+
 ### 1. Start the manager
 
 ```bash
@@ -407,9 +440,11 @@ propeller-manager
 If everything is configured correctly, you’ll see logs similar to:
 
 ```json
-{"time":"2025-06-12T14:13:56.74162598+03:00","level":"INFO","msg":"MQTT connection lost"}
-{"time":"2025-06-12T14:13:56.793894993+03:00","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"52.272009ms"}
-{"time":"2025-06-12T14:13:56.794210043+03:00","level":"INFO","msg":"manager service http server listening at localhost:7070 without TLS"}
+{"time":"2026-02-13T12:12:38.938209887+03:00","level":"INFO","msg":"MQTT connection established"}
+{"time":"2026-02-13T12:12:38.938257698+03:00","level":"WARN","msg":"COORDINATOR_URL not configured - FL features will not be available"}
+{"time":"2026-02-13T12:12:38.964151961+03:00","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"25.777171ms"}
+{"time":"2026-02-13T12:12:38.964414628+03:00","level":"INFO","msg":"cron scheduler started","check_interval":60000000000}
+{"time":"2026-02-13T12:12:38.964522773+03:00","level":"INFO","msg":"manager service http server listening at localhost:7070 without TLS"}
 ```
 
 The manager exposes an HTTP API on `localhost:7070`.
@@ -424,9 +459,16 @@ propeller-proplet
 
 Example logs:
 
-```json
-{"time":"2025-06-12T14:14:44.362072799+03:00","level":"INFO","msg":"MQTT connection lost"}
-{"time":"2025-06-12T14:14:44.398147897+03:00","level":"INFO","msg":"Proplet service is running."}
+```bash
+2026-02-13T09:13:11.246621Z  INFO Starting Proplet (Rust) - Instance ID: 67b2bcb2-9c56-4c57-b163-085d6ec2c313
+2026-02-13T09:13:11.249067Z  INFO MQTT client created (TLS: false)
+2026-02-13T09:13:11.249145Z  INFO Using Wasmtime runtime
+2026-02-13T09:13:11.249230Z  INFO Starting MQTT event loop
+2026-02-13T09:13:11.739449Z  INFO Starting PropletService
+2026-02-13T09:13:11.739491Z  INFO Published discovery message
+2026-02-13T09:13:11.739499Z  INFO Subscribed to topic: m/50505f8b-3138-4333-ab96-7b09e11aaa33/c/655f9309-7239-4239-8832-b15fd08ee293/control/manager/start
+2026-02-13T09:13:11.739507Z  INFO Subscribed to topic: m/50505f8b-3138-4333-ab96-7b09e11aaa33/c/655f9309-7239-4239-8832-b15fd08ee293/control/manager/stop
+2026-02-13T09:13:11.739517Z  INFO Subscribed to topic: m/50505f8b-3138-4333-ab96-7b09e11aaa33/c/655f9309-7239-4239-8832-b15fd08ee293/registry/server
 ```
 
 A proplet will automatically register itself with the manager.
@@ -448,17 +490,17 @@ propeller-proxy
 Example logs:
 
 ```json
-{"time":"2025-06-12T14:15:18.438848211+03:00","level":"INFO","msg":"MQTT connection lost"}
-{"time":"2025-06-12T14:15:18.438823293+03:00","level":"INFO","msg":"successfully initialized MQTT and HTTP config"}
-{"time":"2025-06-12T14:15:18.438886395+03:00","level":"INFO","msg":"starting proxy service"}
-{"time":"2025-06-12T14:15:18.452592155+03:00","level":"INFO","msg":"successfully subscribed to topic"}
+{"time":"2026-02-13T12:14:14.683354969+03:00","level":"INFO","msg":"MQTT connection established"}
+{"time":"2026-02-13T12:14:14.683506536+03:00","level":"INFO","msg":"successfully initialized MQTT and HTTP config"}
+{"time":"2026-02-13T12:14:14.683571649+03:00","level":"INFO","msg":"starting proxy service"}
+{"time":"2026-02-13T12:14:14.705055456+03:00","level":"INFO","msg":"successfully subscribed to topic"}
 ```
 
 ## Postman Collection
 
-This is a [collection](./api/postman_collection.json) of the API calls that can be used to interact with the Propeller system.
+This is a [collection](../postman_collection.json) of the API calls that can be used to interact with the Propeller system.
 
-## API
+## Deploy First Workload
 
 ### List Proplets
 
@@ -475,21 +517,21 @@ This will output a response like the following:
   "total": 1,
   "proplets": [
     {
-      "id": "fa407362-9c5f-41b8-9a09-9d0c0b039287",
-      "name": "Wojahn-Omohundro",
-      "task_count": 1,
+      "id": "a95517f9-5655-4cf5-a7c8-aa00290b3895",
+      "name": "Dankert-Gene",
+      "task_count": 0,
       "alive": true,
       "alive_history": [
-        "2025-06-12T14:22:04.379038459+03:00",
-        "2025-06-12T14:22:14.378443596+03:00",
-        "2025-06-12T14:22:24.379305586+03:00",
-        "2025-06-12T14:22:34.378765631+03:00",
-        "2025-06-12T14:22:44.381274342+03:00",
-        "2025-06-12T14:22:54.378152057+03:00",
-        "2025-06-12T14:23:04.380171407+03:00",
-        "2025-06-12T14:23:14.379503767+03:00",
-        "2025-06-12T14:23:24.379971214+03:00",
-        "2025-06-12T14:23:34.378886406+03:00"
+        "2026-02-13T09:36:33.477959042Z",
+        "2026-02-13T09:36:43.476291799Z",
+        "2026-02-13T09:36:53.478319036Z",
+        "2026-02-13T09:37:03.475588195Z",
+        "2026-02-13T09:37:13.477524673Z",
+        "2026-02-13T09:37:23.475479404Z",
+        "2026-02-13T09:37:33.479902052Z",
+        "2026-02-13T09:37:43.476417402Z",
+        "2026-02-13T09:37:53.475723197Z",
+        "2026-02-13T09:38:03.476886244Z"
       ]
     }
   ]
@@ -508,15 +550,20 @@ This will output a response like the following:
 
 ```json
 {
-  "id": "e9858e56-a1dd-4e5a-9288-130f7be783ed",
+  "id": "2226e867-1f9f-4ff2-b8e7-f0ea46830664",
   "name": "add",
+  "kind": "standard",
   "state": 0,
   "cli_args": null,
   "inputs": [10, 20],
+  "daemon": false,
+  "encrypted": false,
   "start_time": "0001-01-01T00:00:00Z",
   "finish_time": "0001-01-01T00:00:00Z",
-  "created_at": "2025-06-12T14:25:22.407167091+03:00",
-  "updated_at": "0001-01-01T00:00:00Z"
+  "created_at": "2026-02-13T09:38:50.765084043Z",
+  "updated_at": "0001-01-01T00:00:00Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
 }
 ```
 
@@ -531,9 +578,10 @@ This will output a response like the following:
 
 ```json
 {
-  "created_at": "2025-09-16T10:25:31.491528704Z",
+  "created_at": "2026-02-13T09:39:13.141470378Z",
   "finish_time": "0001-01-01T00:00:00Z",
-  "id": "2ccb6b7c-3ce8-4c27-be19-01172954d593",
+  "id": "c3464004-d1cd-4b56-a99e-efb3ff6856c0",
+  "kind": "standard",
   "name": "demo",
   "start_time": "0001-01-01T00:00:00Z",
   "updated_at": "0001-01-01T00:00:00Z"
@@ -543,22 +591,27 @@ This will output a response like the following:
 ### Get a task
 
 ```bash
-curl -X GET "http://localhost:7070/tasks/e9858e56-a1dd-4e5a-9288-130f7be783ed"
+curl -X GET "http://localhost:7070/tasks/2226e867-1f9f-4ff2-b8e7-f0ea46830664"
 ```
 
 This will output a response like the following:
 
 ```json
 {
-  "id": "e9858e56-a1dd-4e5a-9288-130f7be783ed",
+  "id": "2226e867-1f9f-4ff2-b8e7-f0ea46830664",
   "name": "add",
+  "kind": "standard",
   "state": 0,
   "cli_args": null,
   "inputs": [10, 20],
+  "daemon": false,
+  "encrypted": false,
   "start_time": "0001-01-01T00:00:00Z",
   "finish_time": "0001-01-01T00:00:00Z",
-  "created_at": "2025-06-12T14:25:22.407167091+03:00",
-  "updated_at": "0001-01-01T00:00:00Z"
+  "created_at": "2026-02-13T09:38:50.765084043Z",
+  "updated_at": "0001-01-01T00:00:00Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
 }
 ```
 
@@ -566,17 +619,18 @@ You can use the CLI to get a task as follows:
 
 ```bash
 # propeller-cli tasks view <id>
-propeller-cli tasks view 2ccb6b7c-3ce8-4c27-be19-01172954d593
+propeller-cli tasks view 2226e867-1f9f-4ff2-b8e7-f0ea46830664
 ```
 
 This will output a response like the following:
 
 ```json
 {
-  "created_at": "2025-09-16T10:25:31.491528704Z",
+  "created_at": "2026-02-13T09:38:50.765084043Z",
   "finish_time": "0001-01-01T00:00:00Z",
-  "id": "2ccb6b7c-3ce8-4c27-be19-01172954d593",
-  "name": "demo",
+  "id": "2226e867-1f9f-4ff2-b8e7-f0ea46830664",
+  "kind": "standard",
+  "name": "add",
   "start_time": "0001-01-01T00:00:00Z",
   "updated_at": "0001-01-01T00:00:00Z"
 }
@@ -584,29 +638,84 @@ This will output a response like the following:
 
 ### Upload Wasm File
 
+There are different ways to upload a Wasm file to Propeller.
+
+- Uplaod a Wasm file to `/tasks/<id>/upload` endpoint
+- Update task with base64 encoded Wasm file using `/tasks/<id>` endpoint
+
+### Upload Wasm File
+
 ```bash
-curl -X PUT "http://localhost:7070/tasks/e9858e56-a1dd-4e5a-9288-130f7be783ed/upload" \
+curl -X PUT "http://localhost:7070/tasks/97946bd0-26b1-4d14-aca5-1c2b4f1d0447/upload" \
 -F 'file=@<propeller_path>/build/addition.wasm'
+```
+
+```json
+{
+  "id": "97946bd0-26b1-4d14-aca5-1c2b4f1d0447",
+  "name": "add",
+  "kind": "standard",
+  "state": 0,
+  "file": "...<truncated>...",
+  "cli_args": null,
+  "inputs": [10, 20],
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-02-13T09:44:35.46121762Z",
+  "updated_at": "2026-02-13T09:45:16.75999115Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
 ```
 
 ### Update task with base64 encoded Wasm file
 
 ```bash
-curl --location --request PUT 'http://localhost:7070/tasks/e9858e56-a1dd-4e5a-9288-130f7be783ed' \
+curl --location --request PUT 'http://localhost:7070/tasks/2226e867-1f9f-4ff2-b8e7-f0ea46830664' \
 --header 'Content-Type: application/json' \
 --data '{
     "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL"
 }'
 ```
 
+The response will echo the request body back:
+
+```json
+{
+  "id": "2226e867-1f9f-4ff2-b8e7-f0ea46830664",
+  "name": "add",
+  "kind": "standard",
+  "state": 0,
+  "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+  "cli_args": null,
+  "inputs": [10, 20],
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-02-13T09:38:50.765084043Z",
+  "updated_at": "2026-02-13T09:42:41.863629845Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
 ```bash
-propeller-cli tasks update e9858e56-a1dd-4e5a-9288-130f7be783ed '{"file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL"}'
+propeller-cli tasks update 2226e867-1f9f-4ff2-b8e7-f0ea46830664 '{"file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL"}'
 ```
 
 ### Start a task
 
 ```bash
-curl -X POST "http://localhost:7070/tasks/e9858e56-a1dd-4e5a-9288-130f7be783ed/start"
+curl -X POST "http://localhost:7070/tasks/97946bd0-26b1-4d14-aca5-1c2b4f1d0447/start"
+```
+
+This will output a response like the following:
+
+```json
+{ "started": true }
 ```
 
 You can use the CLI to start a task as follows:

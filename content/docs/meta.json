@@ -5,6 +5,7 @@
     "architecture.mdx",
     "---Getting Started---",
     "getting-started.mdx",
+    "examples",
     "---Components---",
     "manager.mdx",
     "proplet.mdx",
