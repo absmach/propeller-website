@@ -19,7 +19,7 @@ Propeller supports **scheduled cron tasks** and **task priority scheduling**, en
 
 A scheduled task is any task with a cron expression attached to it. Once created, the system automatically triggers the task at the times defined by the cron expression. You do not need to manually start scheduled tasks - the scheduler handles execution on your behalf.
 
-![Scheduler Execution Flow](images/task-scheduling.png)
+![Scheduler Execution Flow](images/task-scheduling-execution-flow.svg)
 
 ### Cron Expressions
 
@@ -56,7 +56,7 @@ The cron expression is always evaluated in the context of the specified timezone
 - **Recurring tasks** (`is_recurring: true`) are rescheduled automatically after each execution. They continue running at every matching time defined by the cron expression.
 - **One-time tasks** (`is_recurring: false`) execute once at the next matching time and are then automatically removed from the schedule.
 
-![Recurring vs One-Time Lifecycle](images/recurring-vs-one-time.png)
+![Recurring vs One-Time Lifecycle](images/task-scheduling-recurring-vs-one-time-lifecycle.svg)
 
 ### Task Priority Levels
 

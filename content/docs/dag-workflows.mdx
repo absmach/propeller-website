@@ -11,7 +11,7 @@ Propeller supports **workflow DAG scheduling** — a way to define multi-step ta
 
 A DAG (Directed Acyclic Graph) is a way to describe workflows where tasks have dependencies but no circular references. Each task knows which tasks must finish before it can start, and the system automatically determines the correct execution order.
 
-![DAG Basics](images/dag-basic.png)
+![DAG Basics](images/basic-DAG.svg)
 
 In this example, **A** runs first. Once **A** completes, **B** and **C** run in parallel. **D** waits for both **B** and **C** to finish before it starts.
 
@@ -42,7 +42,7 @@ A task is a single unit of work within a workflow. Each task runs a container im
 
 A dependency is a relationship between two tasks. When Task B depends on Task A, Task B will not start until Task A reaches a terminal state (Completed, Failed, or Skipped). A task can depend on multiple parents, and multiple tasks can depend on the same parent.
 
-![DAG Dependency](images/dag-dependency.png)
+![DAG Dependency](images/dependency.svg)
 
 ### Directed Acyclic Graph (DAG)
 
@@ -59,13 +59,13 @@ Each task can specify a `run_if` condition that controls whether it actually exe
 
 If the condition is not met, the task is marked as **Skipped** rather than running. Skipped tasks do not block downstream tasks — they count as a terminal state.
 
-![Conditional Execution](images/dag-conditional-branching.png)
+![Conditional Execution](images/conditional-branching.svg)
 
 ### Data Passing
 
 Tasks can produce output stored in a `results` field. Downstream tasks automatically receive the results of all their parent tasks when they start. This enables pipelines where each step builds on the output of the previous one.
 
-![Data Passing](images/data-passing-between-tasks.png)
+![Data Passing](images/data-passing-between-tasks.svg)
 
 ### Execution Order Resolution
 
@@ -199,7 +199,7 @@ Set the `run_if` field on any task to control whether it runs based on parent ou
 
 You can attach both a success-path and a failure-path task to the same parent to handle either outcome:
 
-![Configuring Conditional Execution](images/run-if-success-failure-branching.png)
+![Configuring Conditional Execution](images/run-if-success-failure-branching.svg)
 
 ### Passing Data Between Tasks
 
@@ -237,7 +237,7 @@ You can also retrieve a task's results explicitly via `GET /tasks/{taskID}/resul
 
 Tasks at the same level of the DAG (with no dependencies on each other) can run in parallel. The system starts all ready tasks simultaneously, subject to available capacity.
 
-![Parallel Execution](images/dag-basic.png)
+![Parallel Execution](images/basic-DAG.svg)
 
 After **A** completes, **B** and **C** become ready and start in parallel. **D** waits for the two tasks to complete.
 
@@ -250,7 +250,7 @@ When multiple tasks become ready at the same time, they are ordered by priority:
 
 Priority determines execution **order**, not eligibility — all ready tasks will eventually run.
 
-![Priority Within a Level](images/priority-within-level.png)
+![Priority Within a Level](images/priority-within-level.svg)
 
 ### What Happens When a Task Fails
 
@@ -288,7 +288,7 @@ Use `configurable` mode for workflows that require fine-grained dependency contr
 
 Extract data from a source, transform it, then load it into a destination.
 
-![ETL Pipeline](images/etl-pipeline.png)
+![ETL Pipeline](images/etl-pipeline.svg)
 
 ```json
 {
@@ -322,7 +322,7 @@ Extract data from a source, transform it, then load it into a destination.
 
 Ingest an image, then run multiple processing steps in parallel, and merge results.
 
-![Image Processing Pipeline with Parallel Steps](images/fanout-fanin.png)
+![Image Processing Pipeline with Parallel Steps](images/fanout-fanin.svg)
 
 ```json
 {
