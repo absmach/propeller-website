@@ -356,6 +356,153 @@
               "response": []
             },
             {
+              "name": "Create Scheduled Recurring Task",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "function constructVisualizerPayload() {",
+                      "    var res = pm.response.json();",
+                      "    var id = res.id;",
+                      "    return id;",
+                      "}",
+                      "",
+                      "pm.collectionVariables.set('TASK_ID', constructVisualizerPayload());",
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                },
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [""],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Daily Report Generation\",\n    \"image_url\": \"ghcr.io/example/report-gen:latest\",\n    \"schedule\": \"0 9 * * *\",\n    \"is_recurring\": true,\n    \"timezone\": \"America/New_York\",\n    \"priority\": 75\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{MANAGER_BASE_URL}}/tasks",
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create One-Time Scheduled Task",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "function constructVisualizerPayload() {",
+                      "    var res = pm.response.json();",
+                      "    var id = res.id;",
+                      "    return id;",
+                      "}",
+                      "",
+                      "pm.collectionVariables.set('TASK_ID', constructVisualizerPayload());",
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                },
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [""],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Maintenance Job\",\n    \"image_url\": \"ghcr.io/example/maintenance:latest\",\n    \"schedule\": \"0 2 15 * *\",\n    \"is_recurring\": false,\n    \"priority\": 100\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{MANAGER_BASE_URL}}/tasks",
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create High-Priority Task",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "function constructVisualizerPayload() {",
+                      "    var res = pm.response.json();",
+                      "    var id = res.id;",
+                      "    return id;",
+                      "}",
+                      "",
+                      "pm.collectionVariables.set('TASK_ID', constructVisualizerPayload());",
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                },
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [""],
+                    "type": "text/javascript",
+                    "packages": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\": \"Critical Alert Handler\",\n    \"image_url\": \"ghcr.io/example/alert-handler:latest\",\n    \"priority\": 95\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{MANAGER_BASE_URL}}/tasks",
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks"]
+                }
+              },
+              "response": []
+            },
+            {
               "name": "Create Task",
               "event": [
                 {
@@ -442,7 +589,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n    \"name\": \"add\",\n    \"inputs\": [\n        10,\n        20\n    ]\n}",
+                  "raw": "{\n    \"name\": \"add\",\n    \"inputs\": [\n        10,\n        20\n    ],\n    \"schedule\": \"0 9 * * MON-FRI\",\n    \"is_recurring\": true,\n    \"timezone\": \"UTC\",\n    \"priority\": 75\n}",
                   "options": {
                     "raw": {
                       "language": "json"
