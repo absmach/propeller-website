@@ -20,13 +20,8 @@
                 "header": [],
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/proplets/{{PROPLET_ID}}",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "proplets",
-                    "{{PROPLET_ID}}"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["proplets", "{{PROPLET_ID}}"]
                 }
               },
               "response": []
@@ -57,12 +52,8 @@
                 "header": [],
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/proplets",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "proplets"
-                  ],
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["proplets"],
                   "query": [
                     {
                       "key": "limit",
@@ -105,9 +96,7 @@
                     {
                       "listen": "prerequest",
                       "script": {
-                        "exec": [
-                          ""
-                        ],
+                        "exec": [""],
                         "type": "text/javascript",
                         "packages": {}
                       }
@@ -127,12 +116,8 @@
                     },
                     "url": {
                       "raw": "{{MANAGER_BASE_URL}}/tasks",
-                      "host": [
-                        "{{MANAGER_BASE_URL}}"
-                      ],
-                      "path": [
-                        "tasks"
-                      ]
+                      "host": ["{{MANAGER_BASE_URL}}"],
+                      "path": ["tasks"]
                     }
                   },
                   "response": []
@@ -144,13 +129,8 @@
                     "header": [],
                     "url": {
                       "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}",
-                      "host": [
-                        "{{MANAGER_BASE_URL}}"
-                      ],
-                      "path": [
-                        "tasks",
-                        "{{TASK_ID}}"
-                      ]
+                      "host": ["{{MANAGER_BASE_URL}}"],
+                      "path": ["tasks", "{{TASK_ID}}"]
                     }
                   },
                   "response": []
@@ -161,9 +141,7 @@
                     {
                       "listen": "test",
                       "script": {
-                        "exec": [
-                          ""
-                        ],
+                        "exec": [""],
                         "type": "text/javascript",
                         "packages": {}
                       }
@@ -171,9 +149,7 @@
                     {
                       "listen": "prerequest",
                       "script": {
-                        "exec": [
-                          ""
-                        ],
+                        "exec": [""],
                         "type": "text/javascript",
                         "packages": {}
                       }
@@ -184,14 +160,8 @@
                     "header": [],
                     "url": {
                       "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}/start",
-                      "host": [
-                        "{{MANAGER_BASE_URL}}"
-                      ],
-                      "path": [
-                        "tasks",
-                        "{{TASK_ID}}",
-                        "start"
-                      ]
+                      "host": ["{{MANAGER_BASE_URL}}"],
+                      "path": ["tasks", "{{TASK_ID}}", "start"]
                     }
                   },
                   "response": []
@@ -224,9 +194,7 @@
                     {
                       "listen": "prerequest",
                       "script": {
-                        "exec": [
-                          ""
-                        ],
+                        "exec": [""],
                         "type": "text/javascript",
                         "packages": {}
                       }
@@ -246,12 +214,8 @@
                     },
                     "url": {
                       "raw": "{{MANAGER_BASE_URL}}/tasks",
-                      "host": [
-                        "{{MANAGER_BASE_URL}}"
-                      ],
-                      "path": [
-                        "tasks"
-                      ]
+                      "host": ["{{MANAGER_BASE_URL}}"],
+                      "path": ["tasks"]
                     }
                   },
                   "response": []
@@ -263,13 +227,8 @@
                     "header": [],
                     "url": {
                       "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}",
-                      "host": [
-                        "{{MANAGER_BASE_URL}}"
-                      ],
-                      "path": [
-                        "tasks",
-                        "{{TASK_ID}}"
-                      ]
+                      "host": ["{{MANAGER_BASE_URL}}"],
+                      "path": ["tasks", "{{TASK_ID}}"]
                     }
                   },
                   "response": []
@@ -280,9 +239,7 @@
                     {
                       "listen": "test",
                       "script": {
-                        "exec": [
-                          ""
-                        ],
+                        "exec": [""],
                         "type": "text/javascript",
                         "packages": {}
                       }
@@ -290,9 +247,7 @@
                     {
                       "listen": "prerequest",
                       "script": {
-                        "exec": [
-                          ""
-                        ],
+                        "exec": [""],
                         "type": "text/javascript",
                         "packages": {}
                       }
@@ -313,14 +268,8 @@
                     },
                     "url": {
                       "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}/upload",
-                      "host": [
-                        "{{MANAGER_BASE_URL}}"
-                      ],
-                      "path": [
-                        "tasks",
-                        "{{TASK_ID}}",
-                        "upload"
-                      ]
+                      "host": ["{{MANAGER_BASE_URL}}"],
+                      "path": ["tasks", "{{TASK_ID}}", "upload"]
                     }
                   },
                   "response": []
@@ -331,9 +280,7 @@
                     {
                       "listen": "test",
                       "script": {
-                        "exec": [
-                          ""
-                        ],
+                        "exec": [""],
                         "type": "text/javascript",
                         "packages": {}
                       }
@@ -341,9 +288,7 @@
                     {
                       "listen": "prerequest",
                       "script": {
-                        "exec": [
-                          ""
-                        ],
+                        "exec": [""],
                         "type": "text/javascript",
                         "packages": {}
                       }
@@ -354,14 +299,8 @@
                     "header": [],
                     "url": {
                       "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}/start",
-                      "host": [
-                        "{{MANAGER_BASE_URL}}"
-                      ],
-                      "path": [
-                        "tasks",
-                        "{{TASK_ID}}",
-                        "start"
-                      ]
+                      "host": ["{{MANAGER_BASE_URL}}"],
+                      "path": ["tasks", "{{TASK_ID}}", "start"]
                     }
                   },
                   "response": []
@@ -410,12 +349,8 @@
                 },
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks"]
                 }
               },
               "response": []
@@ -443,9 +378,7 @@
                 {
                   "listen": "prerequest",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -465,12 +398,8 @@
                 },
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks"]
                 }
               },
               "response": []
@@ -498,9 +427,7 @@
                 {
                   "listen": "prerequest",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -520,12 +447,8 @@
                 },
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks"]
                 }
               },
               "response": []
@@ -553,9 +476,7 @@
                 {
                   "listen": "prerequest",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -575,12 +496,8 @@
                 },
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks"]
                 }
               },
               "response": []
@@ -608,9 +525,7 @@
                 {
                   "listen": "prerequest",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -630,12 +545,8 @@
                 },
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks"]
                 }
               },
               "response": []
@@ -647,13 +558,8 @@
                 "header": [],
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks",
-                    "{{TASK_ID}}"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks", "{{TASK_ID}}"]
                 }
               },
               "response": []
@@ -664,9 +570,7 @@
                 {
                   "listen": "test",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -674,9 +578,7 @@
                 {
                   "listen": "prerequest",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -696,13 +598,8 @@
                 },
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks",
-                    "{{TASK_ID}}"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks", "{{TASK_ID}}"]
                 }
               },
               "response": []
@@ -713,9 +610,7 @@
                 {
                   "listen": "test",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -723,9 +618,7 @@
                 {
                   "listen": "prerequest",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -746,14 +639,8 @@
                 },
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}/upload",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks",
-                    "{{TASK_ID}}",
-                    "upload"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks", "{{TASK_ID}}", "upload"]
                 }
               },
               "response": []
@@ -765,12 +652,8 @@
                 "header": [],
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks"
-                  ],
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks"],
                   "query": [
                     {
                       "key": "limit",
@@ -788,9 +671,7 @@
                 {
                   "listen": "test",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -798,9 +679,7 @@
                 {
                   "listen": "prerequest",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -820,13 +699,8 @@
                 },
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks",
-                    "{{TASK_ID}}"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks", "{{TASK_ID}}"]
                 }
               },
               "response": []
@@ -837,9 +711,7 @@
                 {
                   "listen": "test",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -847,9 +719,7 @@
                 {
                   "listen": "prerequest",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -860,14 +730,8 @@
                 "header": [],
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}/start",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks",
-                    "{{TASK_ID}}",
-                    "start"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks", "{{TASK_ID}}", "start"]
                 }
               },
               "response": []
@@ -878,9 +742,7 @@
                 {
                   "listen": "test",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -888,9 +750,7 @@
                 {
                   "listen": "prerequest",
                   "script": {
-                    "exec": [
-                      ""
-                    ],
+                    "exec": [""],
                     "type": "text/javascript",
                     "packages": {}
                   }
@@ -901,14 +761,8 @@
                 "header": [],
                 "url": {
                   "raw": "{{MANAGER_BASE_URL}}/tasks/{{TASK_ID}}/stop",
-                  "host": [
-                    "{{MANAGER_BASE_URL}}"
-                  ],
-                  "path": [
-                    "tasks",
-                    "{{TASK_ID}}",
-                    "stop"
-                  ]
+                  "host": ["{{MANAGER_BASE_URL}}"],
+                  "path": ["tasks", "{{TASK_ID}}", "stop"]
                 }
               },
               "response": []
@@ -924,9 +778,7 @@
       "script": {
         "type": "text/javascript",
         "packages": {},
-        "exec": [
-          ""
-        ]
+        "exec": [""]
       }
     },
     {
@@ -934,9 +786,7 @@
       "script": {
         "type": "text/javascript",
         "packages": {},
-        "exec": [
-          ""
-        ]
+        "exec": [""]
       }
     }
   ],
