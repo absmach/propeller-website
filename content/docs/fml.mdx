@@ -43,7 +43,7 @@ Propeller's FML system is built on a workload-agnostic design where the core orc
 
 The following diagram illustrates the high-level architecture of Propeller's FML system, showing how the core components (Manager, Coordinator, Aggregator, Model Registry, Proplets, and supporting services) interact to enable federated learning. The diagram highlights the separation between orchestration (Manager) and FL-specific logic (Coordinator), as well as the communication patterns used between components.
 
-![FML System Architecture](images/fml-architecture.png)
+![FML System Architecture](images/fml-architecture.svg)
 
 ### Core Design Principles
 
@@ -243,7 +243,7 @@ SuperMQ provides the underlying MQTT messaging infrastructure that enables async
 
 The federated learning process in Propeller follows a well-defined lifecycle that repeats for each training round. The following diagram illustrates the complete model lifecycle, showing how models progress from initial version through multiple training rounds, with each round producing an improved model version that incorporates knowledge from participating edge devices.
 
-![FML Model Lifecycle:.](images/fml-model-lifecycle.png)
+![FML Model Lifecycle:.](images/fml-model-lifecycle.svg)
 
 ### 1. Round Initialization
 
@@ -345,7 +345,7 @@ Propeller's FML system uses several communication patterns to coordinate distrib
 
 The following diagram provides a detailed view of the message flow between all FML components during a typical training round. It shows the sequence of interactions, the protocols used (HTTP vs MQTT), and the direction of data flow.
 
-![FML Message Flow](images/fml-message-flow.png)
+![FML Message Flow](images/fml-message-flow.svg)
 
 ### HTTP Endpoints
 
