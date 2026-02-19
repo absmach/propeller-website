@@ -1,13 +1,10 @@
 import Link from "fumadocs-core/link";
 import { MoveRight } from "lucide-react";
-import ReactDOM from "react-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { assetPath } from "@/lib/base-path";
 
 export const HeroSection = () => {
-  ReactDOM.preload(assetPath("/architecture.svg"), { as: "image" });
-
   return (
     <div className="w-full pb-12 sm:pb-20 lg:pb-28">
       <div className="container mx-auto px-4 sm:px-6">

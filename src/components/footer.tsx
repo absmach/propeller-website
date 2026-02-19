@@ -133,9 +133,14 @@ export default function FooterSection() {
                   className="w-full"
                 />
                 <InputGroupAddon align="inline-end">
-                  <InputGroupButton variant="secondary">
-                    <span className="hidden lg:inline">Subscribe</span>
-                    <SendIcon className="inline lg:hidden" />
+                  <InputGroupButton
+                    variant="secondary"
+                    aria-label="Subscribe to newsletter"
+                  >
+                    <span className="hidden lg:inline" aria-hidden="true">
+                      Subscribe
+                    </span>
+                    <SendIcon className="inline lg:hidden" aria-hidden="true" />
                   </InputGroupButton>
                 </InputGroupAddon>
               </InputGroup>

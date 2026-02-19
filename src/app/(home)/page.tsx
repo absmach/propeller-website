@@ -9,29 +9,39 @@ import PropellerUISection from "@/components/propeller-ui-section";
 import StatisticsSection from "@/components/statistics-section";
 // import TestimonialsSection from "@/components/testimonials-section";
 import { Separator } from "@/components/ui/separator";
+import { assetPath } from "@/lib/base-path";
 
 export default function HomePage() {
   return (
-    <div>
-      <HeroSection />
-      <Separator className="container mx-auto" />
-      <PartnerCloudSection />
-      <Separator className="container mx-auto" />
-      <StatisticsSection />
-      <Separator className="container mx-auto" />
-      <FeatureSection />
-      {/*<Separator className="container mx-auto" />
-      <ProductDemoSection />*/}
-      <Separator className="container mx-auto" />
-      <HowItWorksSection />
-      {/*<Separator className="container mx-auto" />
-      <TestimonialsSection />*/}
-      <Separator className="container mx-auto" />
-      <PropellerUISection />
-      <Separator className="container mx-auto" />
-      <FAQSection />
-      <Separator className="container mx-auto" />
-      <FooterSection />
-    </div>
+    <>
+      <link
+        rel="preload"
+        href={assetPath("/architecture.svg")}
+        as="image"
+        type="image/svg+xml"
+        fetchPriority="high"
+      />
+      <div>
+        <HeroSection />
+        <Separator className="container mx-auto" />
+        <PartnerCloudSection />
+        <Separator className="container mx-auto" />
+        <StatisticsSection />
+        <Separator className="container mx-auto" />
+        <FeatureSection />
+        {/*<Separator className="container mx-auto" />
+        <ProductDemoSection />*/}
+        <Separator className="container mx-auto" />
+        <HowItWorksSection />
+        {/*<Separator className="container mx-auto" />
+        <TestimonialsSection />*/}
+        <Separator className="container mx-auto" />
+        <PropellerUISection />
+        <Separator className="container mx-auto" />
+        <FAQSection />
+        <Separator className="container mx-auto" />
+        <FooterSection />
+      </div>
+    </>
   );
 }

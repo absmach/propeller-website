@@ -101,12 +101,12 @@ export default function HowItWorksSection() {
               </div>
               <div className="bg-muted grow rounded-lg border p-4">
                 <div>
-                  <span className="text-muted-foreground text-xs font-medium">
+                  <span className="text-foreground/60 text-xs font-medium">
                     Step 1
                   </span>
                   <h3 className="mt-1 font-semibold">Develop in WebAssembly</h3>
                 </div>
-                <p className="text-muted-foreground mt-2 text-sm">
+                <p className="text-foreground/70 mt-2 text-sm">
                   Write portable, lightweight Wasm workloads for your
                   application using your preferred language.
                 </p>
@@ -119,12 +119,12 @@ export default function HowItWorksSection() {
               </div>
               <div className="bg-muted grow rounded-lg border p-4">
                 <div>
-                  <span className="text-muted-foreground text-xs font-medium">
+                  <span className="text-foreground/60 text-xs font-medium">
                     Step 2
                   </span>
                   <h3 className="mt-1 font-semibold">Register Workloads</h3>
                 </div>
-                <p className="text-muted-foreground mt-2 text-sm">
+                <p className="text-foreground/70 mt-2 text-sm">
                   Push your workloads to an OCI-compliant registry for easy
                   deployment and version control.
                 </p>
@@ -137,12 +137,12 @@ export default function HowItWorksSection() {
               </div>
               <div className="bg-muted grow rounded-lg border p-4">
                 <div>
-                  <span className="text-muted-foreground text-xs font-medium">
+                  <span className="text-foreground/60 text-xs font-medium">
                     Step 3
                   </span>
                   <h3 className="mt-1 font-semibold">Deploy Anywhere</h3>
                 </div>
-                <p className="text-muted-foreground mt-2 text-sm">
+                <p className="text-foreground/70 mt-2 text-sm">
                   Use Propeller to orchestrate and manage workload deployment
                   across cloud, edge, and IoT devices.
                 </p>
@@ -155,12 +155,12 @@ export default function HowItWorksSection() {
               </div>
               <div className="bg-muted grow rounded-lg border p-4">
                 <div>
-                  <span className="text-muted-foreground text-xs font-medium">
+                  <span className="text-foreground/60 text-xs font-medium">
                     Step 4
                   </span>
                   <h3 className="mt-1 font-semibold">Monitor & Scale</h3>
                 </div>
-                <p className="text-muted-foreground mt-2 text-sm">
+                <p className="text-foreground/70 mt-2 text-sm">
                   Leverage real-time monitoring and dynamic scaling to optimize
                   your system's performance.
                 </p>
