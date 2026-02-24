@@ -325,13 +325,12 @@ Metrics focus on CPU, memory, and disk I/O with 30-second intervals.
 
 ### MQTT Topics
 
-**Topic pattern:**
+Proplets publish two categories of metrics:
 
-```bash
-m/{domain_id}/c/{channel_id}/metrics/proplet
-```
-
-All proplets publish to this topic regardless of implementation (Go or Rust).
+| Topic | Content |
+| ----- | ------- |
+| `m/{domain_id}/c/{channel_id}/control/proplet/task_metrics` | Per-task process metrics (CPU, memory, disk I/O, threads, file descriptors) — published while a task is running |
+| `m/{domain_id}/c/{channel_id}/control/proplet/metrics` | Proplet-level resource metrics (CPU, memory, cgroup stats) — published on a fixed interval |
 
 ### Message Format
 
@@ -366,18 +365,18 @@ The `aggregated` field is only present when `retain_history: true` in the monito
 
 ### Subscribing to Metrics
 
-**Subscribe to specific domain/channel:**
+**Subscribe to per-task metrics for a specific domain/channel:**
 
 ```bash
 mosquitto_sub -h localhost -p 1883 \
-  -t "m/domain-123/c/channel-456/metrics/proplet" -v
+  -t "m/domain-123/c/channel-456/control/proplet/task_metrics" -v
 ```
 
-**Subscribe to all metrics:**
+**Subscribe to all proplet and task metrics:**
 
 ```bash
 mosquitto_sub -h localhost -p 1883 \
-  -t "m/+/c/+/metrics/#" -v
+  -t "m/+/c/+/control/proplet/#" -v
 ```
 
 ### API Endpoints
@@ -505,7 +504,7 @@ echo $PROPLET_ENABLE_MONITORING
 Verify MQTT connectivity:
 
 ```bash
-mosquitto_sub -h localhost -p 1883 -t "m/+/c/+/metrics/#" -v
+mosquitto_sub -h localhost -p 1883 -t "m/+/c/+/control/proplet/#" -v
 ```
 
 Ensure task has monitoring enabled:
@@ -662,7 +661,7 @@ docker restart propeller-proplet
 ### Subscribe to Metrics
 
 ```bash
-mosquitto_sub -h localhost -p 1883 -t "m/+/c/+/metrics/#" -v
+mosquitto_sub -h localhost -p 1883 -t "m/+/c/+/control/proplet/#" -v
 ```
 
 ### Create Task
