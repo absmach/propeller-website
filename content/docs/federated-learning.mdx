@@ -35,6 +35,8 @@ Modern IoT and edge deployments involve thousands or millions of devices distrib
 
 Propeller's FML system is built on a workload-agnostic design where the core orchestration layer (Manager) provides HTTP endpoints for FL operations but delegates all FL-specific logic to an external Coordinator service.
 
+![FML Architecture](/images/fml/fml-architecture.png)
+
 ### Core Design Principles
 
 1. **Workload-Agnostic Manager**: The Manager service provides HTTP endpoints for FL operations and orchestrates task distribution without understanding FL semantics
@@ -55,6 +57,8 @@ Propeller's FML system is built on a workload-agnostic design where the core orc
 | **Proxy** | Fetches WASM binaries from container registries (GHCR) and serves them to proplets via MQTT |
 
 ## Training Round Lifecycle
+
+![FML Message Flow](/images/fml/fml-message-flow.png)
 
 ### 1. Round Initialization
 
@@ -140,6 +144,8 @@ When the Coordinator receives k-of-n updates:
 1. **Version Increment**: Coordinator increments the model version counter
 2. **Store in Registry**: Store the new model via HTTP POST `/models`
 3. **Completion Notification**: Publish to MQTT topic `{domain}/{channel}/fl/rounds/next`
+
+![FML Model Lifecycle](/images/fml/fml-model-lifecycle.png)
 
 ## Communication Patterns
 

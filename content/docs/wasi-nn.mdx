@@ -5,6 +5,17 @@ description: Run machine learning inference in WebAssembly using WASI-NN with Pr
 
 **WASI-NN** (WebAssembly System Interface for Neural Networks) is a standard API that enables WebAssembly modules to perform machine learning inference. Propeller supports WASI-NN through Wasmtime's built-in implementation, allowing you to run ML models directly within your Wasm workloads.
 
+![WASI-NN on Propeller Architecture](/images/wasi-nn/wasi-nn-proplet.png)
+
+**How it works:**
+
+1. You submit a task to the Manager via REST API (port 7070)
+2. Manager sends the task to a Proplet via MQTT
+3. Proplet spawns wasmtime as external process with `-S nn` flag
+4. wasmtime loads the WASM module and calls wasi-nn APIs
+5. OpenVINO backend runs the actual ML inference
+6. Results flow back: wasmtime → Proplet → Manager → API
+
 ## Key Concepts
 
 ### What is WASI-NN?
@@ -172,13 +183,10 @@ The output will be at `target/wasm32-wasip1/release/wasi-nn-example.wasm`.
 
 ## Running with Wasmtime
 
-WASI-NN requires Wasmtime with the `--wasi-modules=experimental-wasi-nn` flag:
+WASI-NN requires Wasmtime with the `-S nn` flag to enable wasi-nn support:
 
 ```bash
-wasmtime run \
-  --wasi-modules=experimental-wasi-nn \
-  --dir=fixture \
-  target/wasm32-wasip1/release/wasi-nn-example.wasm
+wasmtime run -S nn --dir=fixture target/wasm32-wasip1/release/wasi-nn-example.wasm
 ```
 
 Expected output:
@@ -197,32 +205,71 @@ Found results, sorted top 5: [InferenceResult(281, 0.92), InferenceResult(282, 0
 
 ### Configure the Proplet
 
-Use Host Runtime mode with WASI-NN support:
+For wasi-nn workloads, the proplet needs:
+
+1. External runtime enabled (wasmtime spawned as subprocess)
+2. OpenVINO libraries accessible
+3. Model files mounted
+
+Update `docker/.env`:
 
 ```bash
-export PROPLET_EXTERNAL_WASM_RUNTIME="/usr/local/bin/wasmtime"
+PROPLET_EXTERNAL_WASM_RUNTIME=wasmtime
+```
+
+Mount config and model files in `docker/compose.yaml` under the proplet service:
+
+```yaml
+proplet:
+  volumes:
+    - ./config.toml:/home/proplet/config.toml
+    - ./fixture:/home/proplet/fixture
 ```
 
 ### Create a Task
+
+Create task with `cli_args` for wasi-nn:
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
 -H "Content-Type: application/json" \
 -d '{
-  "name": "wasi-nn-inference",
-  "image_url": "docker.io/myorg/wasi-nn-example:v1",
-  "cli_args": [
-    "--wasi-modules=experimental-wasi-nn",
-    "--dir=fixture"
-  ],
-  "inputs": []
+  "name": "mobilenet-inference",
+  "cli_args": ["-S", "nn", "--dir=/home/proplet/fixture::fixture"]
 }'
+```
+
+| Flag | Purpose |
+| ---- | ------- |
+| `-S nn` | Enables wasi-nn support in wasmtime |
+| `--dir=/home/proplet/fixture::fixture` | Maps container path to WASM sandbox path |
+
+The `--dir` syntax is `host_path::guest_path`. The WASM module sees files at `fixture/` while the actual files are at `/home/proplet/fixture` in the container.
+
+### Upload WASM Binary
+
+```bash
+TASK_ID="your-task-id"
+curl -X PUT "http://localhost:7070/tasks/${TASK_ID}/upload" \
+  -F "file=@target/wasm32-wasip1/release/wasi-nn-example.wasm"
 ```
 
 ### Start the Task
 
 ```bash
-curl -X POST "http://localhost:7070/tasks/{task_id}/start"
+curl -X POST "http://localhost:7070/tasks/${TASK_ID}/start"
+```
+
+### Check Results
+
+```bash
+curl "http://localhost:7070/tasks/${TASK_ID}"
+```
+
+View proplet logs:
+
+```bash
+docker compose -f docker/compose.yaml logs proplet --tail 100
 ```
 
 ## Model Preparation
@@ -318,11 +365,33 @@ let graph = unsafe {
 
 ## Troubleshooting
 
-### "WASI-NN not supported"
+### "unknown import: wasi_nn"
 
-Ensure Wasmtime was compiled with WASI-NN support:
+The `-S nn` flag is missing from cli_args. Create a new task with correct cli_args (cli_args cannot be modified after creation).
+
+### Model files not found
+
+Check both volume mount (Docker) and `--dir` flag (cli_args). Verify files exist:
+
 ```bash
-wasmtime --help | grep wasi-nn
+docker compose -f docker/compose.yaml exec proplet ls -la /home/proplet/fixture
+```
+
+### "Failed to spawn host runtime process"
+
+`PROPLET_EXTERNAL_WASM_RUNTIME` is not set. Add it to your `.env` and restart:
+
+```bash
+PROPLET_EXTERNAL_WASM_RUNTIME=wasmtime
+make stop-supermq && make start-supermq
+```
+
+### OpenVINO backend not available
+
+The proplet container needs OpenVINO libraries. The official proplet image includes OpenVINO. If running locally, ensure `LD_LIBRARY_PATH` includes the OpenVINO lib directory:
+
+```bash
+export LD_LIBRARY_PATH=/opt/intel/openvino_2024/runtime/lib/intel64:$LD_LIBRARY_PATH
 ```
 
 ### Model Loading Failures
