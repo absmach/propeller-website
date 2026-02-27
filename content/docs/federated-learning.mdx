@@ -1,389 +1,398 @@
 ---
-title: Federated Learning
-description: Privacy-preserving distributed machine learning with Propeller's built-in federated learning support
+title: Federated Machine Learning
+description: Workload-agnostic federated learning architecture and lifecycle in Propeller
 ---
 
-## Overview
+Propeller implements Federated Machine Learning (FML) as a workload-agnostic framework that enables distributed machine learning training across multiple edge devices without centralizing raw data.
 
-Propeller includes built-in support for **Federated Learning (FL)**, enabling privacy-preserving distributed training across edge devices. This approach allows machine learning models to be trained on decentralized data without exposing raw data to a central server, making it ideal for privacy-sensitive applications.
+## Motivation for Federated Learning
 
-Propeller's FL implementation uses the **FedAvg (Federated Averaging)** algorithm, where proplets train models locally on their data and submit model updates to the Manager, which aggregates them into a global model.
+### Data Locality and Privacy
 
-## Key Concepts
+Traditional centralized machine learning requires moving raw data from edge devices to a central server. This approach has significant drawbacks:
 
-### Federated Learning Architecture
+- **Privacy Concerns**: Sensitive data (medical records, personal information, proprietary sensor data) must leave the device, creating privacy risks and regulatory compliance challenges
+- **Data Sovereignty**: Organizations may be legally or contractually prohibited from moving data off-premises or across geographic boundaries
+- **Bandwidth Constraints**: Transferring large datasets from edge devices to the cloud consumes significant network bandwidth
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Manager                                  │
-│  ┌────────────────┐  ┌─────────────┐  ┌──────────────────────┐  │
-│  │  FL Coordinator │  │   Round     │  │     Aggregator       │  │
-│  │                 │  │  Manager    │  │     (FedAvg)         │  │
-│  └────────────────┘  └─────────────┘  └──────────────────────┘  │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ HTTP/MQTT
-        ┌────────────────────┼────────────────────┐
-        │                    │                    │
-   ┌────▼────┐          ┌────▼────┐          ┌────▼────┐
-   │ Proplet │          │ Proplet │          │ Proplet │
-   │ (Train) │          │ (Train) │          │ (Train) │
-   └────┬────┘          └────┬────┘          └────┬────┘
-        │                    │                    │
-   ┌────▼────┐          ┌────▼────┐          ┌────▼────┐
-   │ Local   │          │ Local   │          │ Local   │
-   │ Dataset │          │ Dataset │          │ Dataset │
-   └─────────┘          └─────────┘          └─────────┘
-```
+Federated learning solves these problems by keeping raw data on the device. Only model updates (weight gradients or deltas) are transmitted, not the underlying training data.
 
-### Core Components
+### Distributed Assets and Edge Computing
+
+Modern IoT and edge deployments involve thousands or millions of devices distributed across diverse locations:
+
+- **Geographic Distribution**: Devices may be spread across multiple sites, cities, or countries
+- **Resource Constraints**: Edge devices often have limited storage, compute, and network capabilities
+- **Real-time Requirements**: Many applications require models that adapt to local conditions in real-time
+
+### Scalability and Efficiency
+
+- **Parallel Training**: Multiple devices train simultaneously, reducing overall training time
+- **Reduced Server Load**: The central coordinator only aggregates updates, not raw data
+- **Incremental Learning**: New devices can join the federation without retraining from scratch
+
+## Architecture
+
+Propeller's FML system is built on a workload-agnostic design where the core orchestration layer (Manager) provides HTTP endpoints for FL operations but delegates all FL-specific logic to an external Coordinator service.
+
+### Core Design Principles
+
+1. **Workload-Agnostic Manager**: The Manager service provides HTTP endpoints for FL operations and orchestrates task distribution without understanding FL semantics
+2. **External Coordinator**: FL-specific logic (round management, aggregation algorithms, model versioning) is implemented in a separate Coordinator service
+3. **Hybrid Communication**: Components communicate via HTTP (synchronous operations) and MQTT (orchestration)
+4. **WASM-Based Training**: Training workloads execute as WebAssembly modules
+
+### System Components
 
 | Component | Description |
 | --------- | ----------- |
-| **FL Coordinator** | Manages FL experiment lifecycle, round progression, and participant coordination |
-| **Round Manager** | Tracks round progress, updates, and completion (K-of-N semantics) |
-| **Aggregator** | Implements FedAvg algorithm for combining model updates |
-| **Model Registry** | Stores and serves global model versions |
-| **Data Store** | Per-proplet local dataset storage |
+| **Manager** | Core orchestration - exposes `POST /fl/experiments`, creates tasks for participants, proxies requests to Coordinator |
+| **FML Coordinator** | FL-specific service - manages rounds, collects updates, triggers aggregation, handles timeouts |
+| **Aggregator** | Performs FedAvg - computes weighted averages of model updates based on training samples |
+| **Model Registry** | Stores and versions global models - `GET /models/{version}`, `POST /models` |
+| **Proplet** | Edge runtime - executes WASM training modules, fetches models/datasets, submits updates |
+| **Local Data Store** | Provides training datasets to proplets - `GET /datasets/{proplet_id}` |
+| **Proxy** | Fetches WASM binaries from container registries (GHCR) and serves them to proplets via MQTT |
 
-### Round Parameters
+## Training Round Lifecycle
 
-| Parameter | Description |
-| --------- | ----------- |
-| **K-of-N** | Minimum number of participant updates required to complete a round |
-| **Timeout** | Maximum time to wait for participant updates before aggregating |
-| **Participants** | List of proplet IDs that participate in the experiment |
+### 1. Round Initialization
 
-## Configuring an FL Experiment
-
-### Step 1: Create the Experiment
+An external trigger sends an HTTP POST request to the Manager's `/fl/experiments` endpoint:
 
 ```bash
-curl -X POST "http://localhost:7070/fl/experiments" \
--H "Content-Type: application/json" \
--d '{
-  "name": "mnist-classification",
-  "participants": [
-    "proplet-001",
-    "proplet-002", 
-    "proplet-003"
-  ],
-  "aggregation_strategy": "fedavg",
-  "rounds": 10,
-  "k_of_n": 2,
-  "timeout_seconds": 300,
-  "hyperparams": {
-    "learning_rate": 0.01,
-    "batch_size": 32,
-    "epochs": 5
-  },
-  "model_ref": "docker.io/myorg/mnist-model:v1",
-  "ml_backend": "auto"
-}'
+# Export CLIENT_IDs from docker/.env (SuperMQ client IDs, NOT instance IDs)
+export PROPLET_CLIENT_ID=$(grep '^PROPLET_CLIENT_ID=' docker/.env | grep -v '=""' | tail -1 | cut -d '=' -f2 | tr -d '"')
+export PROPLET_2_CLIENT_ID=$(grep '^PROPLET_2_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
+export PROPLET_3_CLIENT_ID=$(grep '^PROPLET_3_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
+
+curl -X POST http://localhost:7070/fl/experiments \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"experiment_id\": \"exp-r-$(date +%s)\",
+    \"round_id\": \"r-$(date +%s)\",
+    \"model_ref\": \"fl/models/global_model_v0\",
+    \"participants\": [\"$PROPLET_CLIENT_ID\", \"$PROPLET_2_CLIENT_ID\", \"$PROPLET_3_CLIENT_ID\"],
+    \"hyperparams\": {\"epochs\": 1, \"lr\": 0.01, \"batch_size\": 16},
+    \"k_of_n\": 3,
+    \"timeout_s\": 60,
+    \"task_wasm_image\": \"ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest\"
+  }"
+
+# Expected response:
+# {"experiment_id":"exp-r-...","round_id":"r-...","status":"configured"}
 ```
 
-Expected response:
-```json
-{
-  "id": "exp-abc123",
-  "name": "mnist-classification",
-  "status": "created",
-  "current_round": 0,
-  "total_rounds": 10,
-  "participants": ["proplet-001", "proplet-002", "proplet-003"],
-  "created_at": "2026-02-27T10:00:00Z"
-}
-```
-
-### Step 2: Start the Experiment
+:::warning Using SuperMQ CLIENT_IDs
+When configuring FL experiments, you must use **SuperMQ CLIENT_IDs** (UUIDs), not instance IDs like `"proplet-1"`. Proplets register using their CLIENT_ID from environment variables:
 
 ```bash
-curl -X POST "http://localhost:7070/fl/experiments/exp-abc123/start"
+# Example docker/.env entries (generated by provisioning script)
+PROPLET_CLIENT_ID=3fe95a65-74f1-4ede-bf20-ef565f04cecb      # For proplet-1
+PROPLET_2_CLIENT_ID=1f074cd1-4e22-4e21-92ca-e35a21d3ce29    # For proplet-2
+PROPLET_3_CLIENT_ID=0d89e6d7-6410-40b5-bcda-07b0217796b8    # For proplet-3
 ```
 
-The Manager will:
-1. Initialize Round 0
-2. Notify all participants via MQTT
-3. Wait for K-of-N updates or timeout
-
-### Using the CLI
-
-```bash
-# Create an experiment from a JSON file
-propeller-cli fl experiments create --file experiment.json
-
-# View experiment status
-propeller-cli fl experiments view exp-abc123
-
-# Get the current FL task for a proplet
-propeller-cli fl task --round-id round-001 --proplet-id proplet-001
-
-# Submit a model update
-propeller-cli fl update --round-id round-001 --file update.json
-
-# Check round completion status
-propeller-cli fl round-status round-001
-```
-
-## Proplet Training Flow
-
-When a proplet receives an FL task, it follows this lifecycle:
-
-### Step 1: Retrieve FL Task
-
-The proplet retrieves its training task for the current round:
-
-```bash
-curl -X GET "http://localhost:7070/fl/task?round_id=round-001&proplet_id=proplet-001"
-```
-
-Response:
-```json
-{
-  "round_id": "round-001",
-  "model_ref": "docker.io/myorg/mnist-model:v1",
-  "hyperparams": {
-    "learning_rate": 0.01,
-    "batch_size": 32,
-    "epochs": 5
-  },
-  "ml_backend": "auto"
-}
-```
-
-### Step 2: Environment Variables
-
-The proplet receives these environment variables for FL tasks:
-
-| Variable | Description | Example |
-| -------- | ----------- | ------- |
-| `ROUND_ID` | Current federated learning round identifier | `round-001` |
-| `MODEL_URI` | URI to the current global model in the model registry | `http://registry:8080/models/mnist/v3` |
-| `MODEL_REGISTRY_URL` | Base URL of the model registry service | `http://registry:8080` |
-| `DATA_STORE_URL` | Base URL of the local data store service | `http://datastore:8080` |
-| `COORDINATOR_URL` | Base URL of the FL coordinator service | `http://localhost:7070` |
-| `ML_BACKEND` | ML backend hint: `standard`, `tinyml`, or `auto` | `auto` |
-| `HYPERPARAMS` | JSON-encoded hyperparameters for training | `{"learning_rate":0.01}` |
-| `FL_NUM_SAMPLES` | Number of training samples used | `1000` |
-| `FL_FORMAT` | Update format (default: `f32-delta`) | `f32-delta` |
-
-### Step 3: Local Training
-
-The proplet:
-1. Fetches the current global model from `MODEL_REGISTRY_URL`
-2. Fetches local training data from `DATA_STORE_URL`
-3. Trains the model using local data
-4. Produces a model update (delta)
-
-### Step 4: Submit Update
-
-The proplet submits its model update:
-
-**JSON format:**
-```bash
-curl -X POST "http://localhost:7070/fl/update" \
--H "Content-Type: application/json" \
--d '{
-  "round_id": "round-001",
-  "proplet_id": "proplet-001",
-  "num_samples": 1000,
-  "format": "f32-delta",
-  "weights": {
-    "layer1.w": [0.001, -0.002, 0.003],
-    "layer1.b": [0.0001, -0.0002]
-  }
-}'
-```
-
-**CBOR format** (for bandwidth-constrained environments):
-```bash
-curl -X POST "http://localhost:7070/fl/update_cbor" \
--H "Content-Type: application/cbor" \
---data-binary @update.cbor
-```
-
-:::note MQTT Fallback
-If HTTP submission fails, the proplet falls back to MQTT: `fl/rounds/{roundID}/updates/{propletID}`
+Using instance IDs will result in `"Skipping participant: proplet not found"` errors.
 :::
 
-## Aggregation
+The Manager will:
+1. Forward the configuration to the Coordinator via HTTP POST `/experiments`
+2. Initialize round state in Coordinator
+3. Publish round start message to MQTT topic `{domain}/{channel}/fl/rounds/start`
+4. Create training tasks for each participating proplet
 
-### FedAvg Algorithm
+### 2. Task Distribution
 
-When the Manager receives K-of-N updates or the timeout is reached:
+Each proplet receives the task start command from the Manager via MQTT:
 
-1. **Weighted Averaging**: Updates are weighted by `num_samples`
-2. **Model Weights**: Aggregates `w` (weights) and `b` (bias) parameters
-3. **Global Model Update**: Produces a new global model version
-4. **Distribution**: Publishes the updated model to the registry
+1. **WASM Binary Fetching**: Proplet requests the WASM binary from the Proxy service via MQTT
+2. **Binary Assembly**: Proplet receives chunks and assembles the complete WASM binary
+3. **Task Request**: Proplet requests FL task details from Coordinator via HTTP GET `/task?round_id={id}&proplet_id={id}`
+4. **Model Fetching**: Proplet fetches the current global model from Model Registry
+5. **Dataset Fetching**: Proplet fetches its local training dataset from Local Data Store
 
-```
-Global Model = Σ (local_update_i × num_samples_i) / Σ num_samples_i
-```
+### 3. Local Training
 
-### Checking Round Status
+The proplet executes the WASM module with the fetched model and dataset:
 
-```bash
-curl -X GET "http://localhost:7070/fl/rounds/round-001/complete"
-```
+1. **WASM Execution**: The proplet launches the WASM training module, providing model, dataset, and hyperparameters via environment variables
+2. **Local Training**: The WASM module performs training iterations on local data
+3. **Update Generation**: After training, the WASM module outputs a JSON update message containing weight changes
 
-Response:
-```json
-{
-  "round_id": "round-001",
-  "complete": true,
-  "updates_received": 3,
-  "k_of_n": 2,
-  "aggregated_at": "2026-02-27T10:15:00Z",
-  "new_model_version": "v4"
-}
-```
+### 4. Update Submission
 
-## ML Backend Selection
+Proplets submit their updates to the Coordinator:
 
-Proplets automatically select the appropriate ML backend based on available resources:
+- **HTTP Submission (Preferred)**: Submit via HTTP POST `/update` with JSON payload
+- **MQTT Fallback**: If HTTP fails, publish to `{domain}/{channel}/fl/rounds/{round_id}/updates/{proplet_id}`
 
-| Backend | Trigger | Use Case |
-| ------- | ------- | -------- |
-| `standard` | Default for servers/VMs | Full-featured ML frameworks (PyTorch, TensorFlow) |
-| `tinyml` | Small batch sizes, memory constraints | Optimized for edge devices (TensorFlow Lite, ONNX Runtime) |
-| `auto` | Automatic detection | Proplet chooses based on hyperparameters and available memory |
+### 5. Aggregation
 
-Set the backend explicitly:
-```bash
-export ML_BACKEND=tinyml
-```
+When the Coordinator receives k-of-n updates:
 
-Or let the proplet decide based on hyperparameters (small `batch_size` triggers TinyML).
+1. **Call Aggregator**: Send all collected updates to Aggregator service via HTTP POST `/aggregate`
+2. **Federated Averaging**: Compute weighted averages based on training samples
+3. **Return Aggregated Model**: Aggregator returns the new model to Coordinator
 
-## Example: MNIST Classification
+### 6. Model Storage and Completion
 
-### 1. Prepare Participant Data
+1. **Version Increment**: Coordinator increments the model version counter
+2. **Store in Registry**: Store the new model via HTTP POST `/models`
+3. **Completion Notification**: Publish to MQTT topic `{domain}/{channel}/fl/rounds/next`
 
-Each proplet has a local dataset shard stored in the data store:
+## Communication Patterns
 
-```bash
-# On proplet-001's data store
-curl -X PUT "http://datastore:8080/datasets/proplet-001/mnist" \
-  -F "data=@mnist_shard_001.npz"
+### HTTP Endpoints
 
-# On proplet-002's data store  
-curl -X PUT "http://datastore:8080/datasets/proplet-002/mnist" \
-  -F "data=@mnist_shard_002.npz"
-```
+**Manager Endpoints**:
+- `POST /fl/experiments` - Configure an FL experiment and trigger round start
+- `GET /fl/task?round_id={id}&proplet_id={id}` - Forward task requests to Coordinator
+- `POST /fl/update` - Forward update submissions (JSON)
+- `POST /fl/update_cbor` - Forward update submissions (CBOR)
+- `GET /fl/rounds/{round_id}/complete` - Check round completion status
 
-### 2. Upload Initial Model
+**Coordinator Endpoints**:
+- `POST /experiments` - Receive experiment configuration
+- `GET /task?round_id={id}&proplet_id={id}` - Provide FL task details
+- `POST /update` - Receive training updates (JSON)
+- `POST /update_cbor` - Receive training updates (CBOR)
+- `GET /rounds/{round_id}/complete` - Provide round completion status
 
-```bash
-curl -X PUT "http://registry:8080/models/mnist/v0" \
-  -F "model=@initial_mnist_model.onnx"
-```
+**Model Registry Endpoints**:
+- `GET /models/{version}` - Fetch a specific model version
+- `POST /models` - Store a new model version
 
-### 3. Create and Start Experiment
+**Aggregator Endpoints**:
+- `POST /aggregate` - Perform FedAvg on collected updates
 
-```bash
-curl -X POST "http://localhost:7070/fl/experiments" \
--H "Content-Type: application/json" \
--d '{
-  "name": "mnist-federated",
-  "participants": ["proplet-001", "proplet-002", "proplet-003"],
-  "aggregation_strategy": "fedavg",
-  "rounds": 5,
-  "k_of_n": 2,
-  "timeout_seconds": 120,
-  "hyperparams": {
-    "learning_rate": 0.001,
-    "batch_size": 64,
-    "epochs": 3
-  },
-  "model_ref": "http://registry:8080/models/mnist/v0"
-}'
-```
+**Local Data Store Endpoints**:
+- `GET /datasets/{proplet_id}` - Fetch dataset for a specific proplet
 
-### 4. Monitor Progress
+### MQTT Topics
 
-```bash
-# Watch experiment status
-watch -n 5 'curl -s http://localhost:7070/fl/experiments/exp-abc123'
+- **Round Start**: `{domain}/{channel}/fl/rounds/start`
+- **Round Completion**: `{domain}/{channel}/fl/rounds/next`
+- **Update Submission (Fallback)**: `{domain}/{channel}/fl/rounds/{round_id}/updates/{proplet_id}`
+- **WASM Binary Fetching**: `registry/proplet` (request) and `registry/server` (response)
 
-# Check current round
-curl http://localhost:7070/fl/rounds/round-001/complete
-```
+## FL Demo Application
 
-### 5. Retrieve Final Model
+For detailed setup instructions and hands-on examples, see the [FL Demo](https://github.com/absmach/propeller/tree/main/examples/fl-demo).
 
-After all rounds complete:
+### Prerequisites
+
+- Docker and Docker Compose
+- Python 3 (for provisioning script)
+- `docker/.env` file with SuperMQ configuration
+- GitHub account with Personal Access Token (PAT) for GHCR
+
+### Quick Start
+
+#### Step 1: Build WASM Client
 
 ```bash
-curl -O "http://registry:8080/models/mnist/v5"
+cd examples/fl-demo/client-wasm
+GOTOOLCHAIN=go1.25.5 GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
+cd ../../..
 ```
 
-## Task Kind: `federated`
+#### Step 2: Push to GHCR
 
-When creating FL tasks, set `kind: "federated"` and `mode` to either `train` or `infer`:
+```bash
+# Login to GHCR (requires PAT with write:packages permission)
+echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 
-```json
-{
-  "name": "fl-training",
-  "kind": "federated",
-  "mode": "train",
-  "image_url": "docker.io/myorg/fl-trainer:v1",
-  "env": {
-    "ROUND_ID": "round-001",
-    "MODEL_URI": "http://registry:8080/models/mnist/v3",
-    "DATA_STORE_URL": "http://datastore:8080"
-  }
-}
+# Push using ORAS (from repository root)
+docker run --rm \
+  -v "$(pwd)/examples/fl-demo/client-wasm:/workspace" \
+  -w /workspace \
+  -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" \
+  ghcr.io/oras-project/oras:v1.3.0 \
+  push ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest \
+  fl-client.wasm:application/wasm
 ```
 
-| Mode | Description |
-| ---- | ----------- |
-| `train` | Proplet performs local training and submits model update |
-| `infer` | Proplet loads the model and performs inference only |
+#### Step 3: Build and Start Services
+
+```bash
+# Build images (Manager and proplet must be built from source)
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
+  --env-file docker/.env build manager proplet proplet-2 proplet-3 coordinator-http
+
+# Start all services
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
+  --env-file docker/.env up -d
+```
+
+#### Step 4: Provision SuperMQ Resources (One-Time)
+
+```bash
+pip install -r examples/fl-demo/requirements.txt
+(cd examples/fl-demo && python3 provision-smq.py)
+```
+
+This creates domain, channel, and clients (manager, proplet-1, proplet-2, proplet-3, fl-coordinator, proxy) and updates `docker/.env`.
+
+#### Step 5: Recreate Services
+
+After provisioning, recreate services to pick up new credentials:
+
+```bash
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
+  --env-file docker/.env up -d --force-recreate manager coordinator-http proplet proplet-2 proplet-3 proxy
+```
+
+#### Step 6: Initialize Model Registry
+
+```bash
+curl -X POST http://localhost:8084/models \
+  -H "Content-Type: application/json" \
+  -d '{
+    "version": 0,
+    "model": {
+      "w": [0.0, 0.0, 0.0],
+      "b": 0.0
+    }
+  }'
+```
+
+#### Step 7: Run FL Round
+
+```bash
+# Export CLIENT_IDs
+export PROPLET_CLIENT_ID=$(grep '^PROPLET_CLIENT_ID=' docker/.env | grep -v '=""' | tail -1 | cut -d '=' -f2 | tr -d '"')
+export PROPLET_2_CLIENT_ID=$(grep '^PROPLET_2_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
+export PROPLET_3_CLIENT_ID=$(grep '^PROPLET_3_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
+
+# Configure experiment
+curl -X POST http://localhost:7070/fl/experiments \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"experiment_id\": \"exp-r-$(date +%s)\",
+    \"round_id\": \"r-$(date +%s)\",
+    \"model_ref\": \"fl/models/global_model_v0\",
+    \"participants\": [\"$PROPLET_CLIENT_ID\", \"$PROPLET_2_CLIENT_ID\", \"$PROPLET_3_CLIENT_ID\"],
+    \"hyperparams\": {\"epochs\": 1, \"lr\": 0.01, \"batch_size\": 16},
+    \"k_of_n\": 3,
+    \"timeout_s\": 60,
+    \"task_wasm_image\": \"ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest\"
+  }"
+```
+
+#### Step 8: Verify Results
+
+```bash
+# Check initial model
+curl http://localhost:8084/models/0
+# Expected: {"w":[0,0,0],"b":0}
+
+# Check aggregated model (after round completes)
+curl http://localhost:8084/models/1
+# Expected: {"w":[<non-zero>,<non-zero>,<non-zero>],"b":<non-zero>}
+```
+
+### Service Ports
+
+| Service | Port |
+| ------- | ---- |
+| Manager | 7070 |
+| Coordinator | 8086 (external) |
+| Model Registry | 8084 |
+| Aggregator | 8085 |
+| Local Data Store | 8083 |
+| MQTT (via nginx) | 1883 |
+
+### Health Check URLs
+
+- Manager: `http://localhost:7070/health`
+- Coordinator: `http://localhost:8086/health`
+- Model Registry: `http://localhost:8084/health`
+- Aggregator: `http://localhost:8085/health`
+- Local Data Store: `http://localhost:8083/health`
+
+## Error Handling
+
+### HTTP Endpoint Failures
+
+- **Coordinator Unavailable**: Manager returns 503 Service Unavailable
+- **Malformed Update Payloads**: Coordinator returns 400 Bad Request
+- **Task Request Errors**: Coordinator returns 404 Not Found
+
+### Aggregator Service Failures
+
+- **Aggregator Unavailable**: Coordinator implements retry with exponential backoff (3 attempts)
+- **Aggregation Errors**: Aggregator returns 500, Coordinator marks round as failed
+- **Timeout**: Coordinator sets configurable timeout (default 30 seconds)
+
+### Proplet Failures
+
+- **Proplet Timeout**: Coordinator excludes proplet from aggregation, continues with remaining participants
+- **WASM Execution Errors**: Proplet reports error via special error update message
+
+### Network-Related Failures
+
+- **HTTP to MQTT Fallback**: Triggered after 3 consecutive HTTP failures
+- **MQTT Connection Loss**: Proplet attempts reconnection (5 attempts before marking unhealthy)
 
 ## Troubleshooting
 
-### Proplet Not Receiving FL Tasks
+### "Skipping participant: proplet not found" Error
 
-1. Verify the proplet is registered as a participant:
+**Cause**: Using instance IDs (`"proplet-1"`) instead of SuperMQ CLIENT_IDs (UUIDs).
+
+**Solution**:
+```bash
+# Verify docker/.env has CLIENT_IDs
+grep -E '^(PROPLET_CLIENT_ID|PROPLET_2_CLIENT_ID|PROPLET_3_CLIENT_ID)=' docker/.env
+# Should show UUIDs like: PROPLET_CLIENT_ID=3fe95a65-74f1-4ede-bf20-ef565f04cecb
+```
+
+### Round Timeout with 0 Updates
+
+**Cause**: Proxy service not fetching WASM binary from GHCR.
+
+**Solution**:
+1. Check proxy is running: `docker compose ps proxy`
+2. Configure GHCR authentication in `docker/.env`:
    ```bash
-   curl http://localhost:7070/fl/experiments/exp-abc123 | jq '.participants'
+   PROXY_AUTHENTICATE=true
+   PROXY_REGISTRY_URL=ghcr.io
+   PROXY_REGISTRY_USERNAME=YOUR_GITHUB_USERNAME
+   PROXY_REGISTRY_PASSWORD=ghp_xxxxx
    ```
+3. Restart proxy: `docker compose up -d --force-recreate proxy`
 
-2. Check proplet is alive:
+### Model Weights Remain Zero After Training
+
+**Cause**: Dataset not loading correctly from Local Data Store.
+
+**Solution**:
+1. Verify datasets exist:
    ```bash
-   curl http://localhost:7070/proplets | jq '.proplets[] | select(.id=="proplet-001")'
+   curl http://localhost:8083/datasets/$PROPLET_CLIENT_ID | jq '.schema, .size'
    ```
-
-3. Verify MQTT connectivity:
+2. Check proplet logs for dataset fetch errors:
    ```bash
-   docker logs propeller-proplet | grep -i mqtt
+   docker compose logs proplet | grep -i "dataset"
    ```
 
-### Round Not Completing
+### Coordinator Connection Refused
 
-1. Check how many updates have been received:
+**Cause**: Coordinator service not running or credentials not configured.
+
+**Solution**:
+1. Rebuild coordinator:
    ```bash
-   curl http://localhost:7070/fl/rounds/round-001/complete
+   docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
+     --env-file docker/.env build coordinator-http
    ```
-
-2. Verify K-of-N setting (might need more participants):
-   ```json
-   {"k_of_n": 2, "updates_received": 1}
-   ```
-
-3. Check timeout hasn't been reached prematurely
-
-### Model Update Rejected
-
-1. Ensure `format` matches expected (`f32-delta` is default)
-2. Verify `num_samples` is included
-3. Check weight dimensions match the model architecture
+2. Verify health: `curl http://localhost:8086/health`
 
 ## Next Steps
 
 | Topic | Description |
 | ----- | ----------- |
-| [Manager](/docs/manager) | Configure the Manager's FL endpoints |
-| [Proplet](/docs/proplet) | Configure proplets for FL participation |
-| [TEE](/docs/tee) | Run FL training in Trusted Execution Environments |
-| [Task Scheduling](/docs/task-scheduling) | Combine FL with workflow DAGs |
+| [WASI-NN](/docs/wasi-nn) | Run neural network inference with WASI-NN |
+| [Task Scheduling](/docs/task-scheduling) | Combine FL with scheduled workflows |
+| [TEE](/docs/tee) | Secure FL with Trusted Execution Environments |
