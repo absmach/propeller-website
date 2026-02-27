@@ -1,0 +1,688 @@
+---
+title: Task Scheduling & Workflows
+description: Configure task dependencies, DAG-based workflows, jobs, and scheduling in Propeller
+---
+
+## Overview
+
+Propeller provides powerful task orchestration capabilities for complex multi-step workloads:
+
+- **Jobs**: Group related tasks with configurable execution modes (parallel, sequential)
+- **Workflows**: DAG-based task orchestration with dependencies and conditional execution
+- **Cron Scheduling**: Time-based task execution with cron expressions
+- **Priority Scheduling**: Control task dispatch order based on priority
+
+## Jobs
+
+Jobs group multiple related tasks together and execute them with a common strategy.
+
+### Creating a Job
+
+```bash
+curl -X POST "http://localhost:7070/jobs" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "data-pipeline",
+  "execution_mode": "sequential",
+  "tasks": [
+    {
+      "name": "extract",
+      "image_url": "docker.io/myorg/extract:v1"
+    },
+    {
+      "name": "transform",
+      "image_url": "docker.io/myorg/transform:v1"
+    },
+    {
+      "name": "load",
+      "image_url": "docker.io/myorg/load:v1"
+    }
+  ]
+}'
+```
+
+Expected response:
+```json
+{
+  "id": "job-abc123",
+  "name": "data-pipeline",
+  "execution_mode": "sequential",
+  "tasks": [
+    {"id": "task-001", "name": "extract", "state": 0},
+    {"id": "task-002", "name": "transform", "state": 0},
+    {"id": "task-003", "name": "load", "state": 0}
+  ],
+  "created_at": "2026-02-27T10:00:00Z"
+}
+```
+
+### Execution Modes
+
+| Mode | Behavior |
+| ---- | -------- |
+| `parallel` | All tasks start simultaneously on available proplets |
+| `sequential` | Tasks run one at a time in order; first failure stops the job (fail-fast) |
+| `configurable` | Mode is read from the `JOB_EXECUTION_MODE` environment variable at runtime |
+
+### Starting a Job
+
+```bash
+curl -X POST "http://localhost:7070/jobs/job-abc123/start"
+```
+
+Expected response:
+```json
+{
+  "started": true,
+  "job_id": "job-abc123",
+  "tasks_started": 3
+}
+```
+
+### Stopping a Job
+
+```bash
+curl -X POST "http://localhost:7070/jobs/job-abc123/stop"
+```
+
+### Listing Jobs
+
+```bash
+curl "http://localhost:7070/jobs?offset=0&limit=100"
+```
+
+### Using the CLI
+
+```bash
+# Create a job
+propeller-cli jobs create data-pipeline --execution-mode sequential
+
+# View job details
+propeller-cli jobs view job-abc123
+
+# Start a job
+propeller-cli jobs start job-abc123
+
+# Stop a job
+propeller-cli jobs stop job-abc123
+
+# List all jobs
+propeller-cli jobs --offset 0 --limit 100
+```
+
+:::note Jobs are Immutable
+Jobs cannot be updated or deleted once created. To modify a job, create a new one with the desired configuration.
+:::
+
+## Workflows
+
+Workflows provide DAG-based (Directed Acyclic Graph) task orchestration with explicit dependencies and conditional execution.
+
+### DAG Concepts
+
+```
+        ┌─────────┐
+        │  start  │
+        └────┬────┘
+             │
+     ┌───────┴───────┐
+     │               │
+┌────▼────┐     ┌────▼────┐
+│ fetch-a │     │ fetch-b │
+└────┬────┘     └────┬────┘
+     │               │
+     └───────┬───────┘
+             │
+        ┌────▼────┐
+        │ process │
+        └────┬────┘
+             │
+     ┌───────┴───────┐
+     │               │
+┌────▼────┐     ┌────▼────┐
+│ success │     │ cleanup │
+│ (run_if │     │ (run_if │
+│ success)│     │ failure)│
+└─────────┘     └─────────┘
+```
+
+### Creating a Workflow
+
+```bash
+curl -X POST "http://localhost:7070/workflows" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "etl-workflow",
+  "tasks": [
+    {
+      "name": "fetch-source-a",
+      "image_url": "docker.io/myorg/fetch:v1",
+      "env": {"SOURCE": "database-a"}
+    },
+    {
+      "name": "fetch-source-b",
+      "image_url": "docker.io/myorg/fetch:v1",
+      "env": {"SOURCE": "database-b"}
+    },
+    {
+      "name": "merge-data",
+      "image_url": "docker.io/myorg/merge:v1",
+      "depends_on": ["<fetch-source-a-id>", "<fetch-source-b-id>"],
+      "run_if": "success"
+    },
+    {
+      "name": "generate-report",
+      "image_url": "docker.io/myorg/report:v1",
+      "depends_on": ["<merge-data-id>"],
+      "run_if": "success"
+    },
+    {
+      "name": "send-alert",
+      "image_url": "docker.io/myorg/alert:v1",
+      "depends_on": ["<merge-data-id>"],
+      "run_if": "failure"
+    }
+  ]
+}'
+```
+
+Expected response:
+```json
+{
+  "id": "workflow-xyz789",
+  "name": "etl-workflow",
+  "tasks": [
+    {"id": "task-001", "name": "fetch-source-a", "depends_on": [], "run_if": "success"},
+    {"id": "task-002", "name": "fetch-source-b", "depends_on": [], "run_if": "success"},
+    {"id": "task-003", "name": "merge-data", "depends_on": ["task-001", "task-002"], "run_if": "success"},
+    {"id": "task-004", "name": "generate-report", "depends_on": ["task-003"], "run_if": "success"},
+    {"id": "task-005", "name": "send-alert", "depends_on": ["task-003"], "run_if": "failure"}
+  ],
+  "created_at": "2026-02-27T10:00:00Z"
+}
+```
+
+### Dependency Fields
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `depends_on` | array of string | Task IDs that must complete before this task starts |
+| `run_if` | string | Condition for execution: `success`, `failure`, or `always` |
+| `workflow_id` | string (auto) | ID of the workflow this task belongs to |
+
+### run_if Values
+
+| Value | Behavior |
+| ----- | -------- |
+| `success` _(default)_ | Task runs only if **all** dependencies completed successfully |
+| `failure` | Task runs only if **any** dependency failed |
+| `always` | Task runs regardless of dependency outcome |
+
+### Starting a Workflow
+
+```bash
+curl -X POST "http://localhost:7070/workflows/workflow-xyz789/start"
+```
+
+The workflow coordinator will:
+1. Identify tasks with no dependencies (roots)
+2. Start root tasks immediately
+3. Monitor task completion
+4. Start dependent tasks when their prerequisites are satisfied
+5. Evaluate `run_if` conditions before starting each task
+
+### Using the CLI
+
+```bash
+# Create a workflow from a JSON file
+propeller-cli workflows create --file workflow.json
+
+# View workflow details
+propeller-cli workflows view workflow-xyz789
+
+# Start a workflow
+propeller-cli workflows start workflow-xyz789
+
+# List all workflows
+propeller-cli workflows --offset 0 --limit 100
+```
+
+### Example workflow.json
+
+```json
+{
+  "name": "ml-pipeline",
+  "tasks": [
+    {
+      "name": "download-dataset",
+      "image_url": "docker.io/myorg/download:v1",
+      "env": {"DATASET_URL": "s3://bucket/data.csv"}
+    },
+    {
+      "name": "preprocess",
+      "image_url": "docker.io/myorg/preprocess:v1",
+      "depends_on": ["download-dataset"]
+    },
+    {
+      "name": "train-model",
+      "image_url": "docker.io/myorg/train:v1",
+      "depends_on": ["preprocess"],
+      "env": {"EPOCHS": "100"}
+    },
+    {
+      "name": "evaluate",
+      "image_url": "docker.io/myorg/evaluate:v1",
+      "depends_on": ["train-model"],
+      "run_if": "success"
+    },
+    {
+      "name": "notify-failure",
+      "image_url": "docker.io/myorg/notify:v1",
+      "depends_on": ["train-model"],
+      "run_if": "failure",
+      "env": {"CHANNEL": "slack"}
+    }
+  ]
+}
+```
+
+## DAG Validation
+
+The workflow coordinator validates DAG structure before execution:
+
+### Circular Dependency Detection
+
+The coordinator detects and rejects circular dependencies:
+
+```json
+{
+  "tasks": [
+    {"name": "task-a", "depends_on": ["task-c"]},
+    {"name": "task-b", "depends_on": ["task-a"]},
+    {"name": "task-c", "depends_on": ["task-b"]}
+  ]
+}
+```
+
+Error response:
+```json
+{
+  "error": "circular dependency detected: task-a -> task-b -> task-c -> task-a"
+}
+```
+
+### Dependency Existence Validation
+
+All referenced task IDs must exist:
+
+```json
+{
+  "tasks": [
+    {"name": "process", "depends_on": ["nonexistent-task"]}
+  ]
+}
+```
+
+Error response:
+```json
+{
+  "error": "dependency 'nonexistent-task' does not exist"
+}
+```
+
+### Topological Sorting
+
+The coordinator performs topological sorting to determine execution order:
+
+1. Tasks with no dependencies execute first
+2. Tasks are ordered so all dependencies run before the dependent
+3. Tasks at the same level can run in parallel
+
+## Task Scheduling
+
+### Priority-Based Scheduling
+
+When multiple tasks are pending, the Manager dispatches higher-priority tasks first:
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "urgent-task",
+  "image_url": "docker.io/myorg/process:v1",
+  "priority": 90
+}'
+```
+
+| Priority | Range | Description |
+| -------- | ----- | ----------- |
+| Low | 0–30 | Background tasks, batch processing |
+| Normal | 31–70 | Default priority (50) |
+| High | 71–100 | Urgent tasks, real-time processing |
+
+:::note Priority vs Round Robin
+Priority determines **which task** is dispatched next. Round Robin determines **which proplet** receives the task. A high-priority task will be dispatched before lower-priority tasks, but proplet selection still cycles evenly.
+:::
+
+### Round Robin Proplet Selection
+
+The Manager cycles through alive proplets when assigning tasks:
+
+```
+Task 1 → Proplet A
+Task 2 → Proplet B
+Task 3 → Proplet C
+Task 4 → Proplet A
+Task 5 → Proplet B
+...
+```
+
+Only proplets with recent heartbeats (within the liveliness threshold) are eligible.
+
+### Pinning to a Specific Proplet
+
+Override scheduling by specifying a proplet:
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "pinned-task",
+  "image_url": "docker.io/myorg/process:v1",
+  "proplet_id": "proplet-specific-001"
+}'
+```
+
+## Cron Scheduling
+
+Schedule tasks to run at specific times using cron expressions.
+
+### Creating a Scheduled Task
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "hourly-cleanup",
+  "image_url": "docker.io/myorg/cleanup:v1",
+  "schedule": "0 * * * *",
+  "timezone": "UTC",
+  "is_recurring": true
+}'
+```
+
+### Cron Expression Format
+
+```
+┌───────────── minute (0-59)
+│ ┌───────────── hour (0-23)
+│ │ ┌───────────── day of month (1-31)
+│ │ │ ┌───────────── month (1-12)
+│ │ │ │ ┌───────────── day of week (0-6, Sun=0)
+│ │ │ │ │
+* * * * *
+```
+
+### Common Cron Patterns
+
+| Pattern | Description |
+| ------- | ----------- |
+| `0 * * * *` | Every hour at minute 0 |
+| `0 0 * * *` | Daily at midnight |
+| `0 0 * * 0` | Weekly on Sunday at midnight |
+| `0 0 1 * *` | Monthly on the 1st at midnight |
+| `*/15 * * * *` | Every 15 minutes |
+| `0 9-17 * * 1-5` | Every hour 9am-5pm, Mon-Fri |
+
+### Timezone Support
+
+Specify timezone for cron evaluation:
+
+```json
+{
+  "schedule": "0 9 * * *",
+  "timezone": "America/New_York"
+}
+```
+
+The Manager evaluates the cron expression in the specified timezone and calculates `next_run` accordingly.
+
+### Viewing Next Run
+
+```bash
+curl http://localhost:7070/tasks/task-abc123 | jq '{next_run, is_recurring}'
+```
+
+Response:
+```json
+{
+  "next_run": "2026-02-27T11:00:00Z",
+  "is_recurring": true
+}
+```
+
+### Stopping a Recurring Task
+
+```bash
+curl -X POST "http://localhost:7070/tasks/task-abc123/stop"
+```
+
+Or update to disable recurrence:
+
+```bash
+curl -X PUT "http://localhost:7070/tasks/task-abc123" \
+-H "Content-Type: application/json" \
+-d '{"is_recurring": false}'
+```
+
+## Task States
+
+Tasks move through these states during execution:
+
+| Value | Name | Description |
+| ----- | ---- | ----------- |
+| `0` | `Pending` | Task created, not yet started |
+| `1` | `Scheduled` | Task assigned to a proplet |
+| `2` | `Running` | Task is executing on a proplet |
+| `3` | `Completed` | Task finished successfully |
+| `4` | `Failed` | Task encountered an error |
+| `5` | `Skipped` | Task skipped (e.g., `run_if` condition not met) |
+| `6` | `Interrupted` | Task was stopped externally |
+
+### State Transitions in Workflows
+
+```
+Pending → Scheduled → Running → Completed
+                           ↓
+                        Failed
+                           
+Dependencies met + run_if=success → Run
+Dependencies met + run_if=failure → Skip (if all succeeded)
+Dependencies met + run_if=always  → Run
+```
+
+## Daemon Tasks
+
+For long-running services that should run continuously:
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "api-server",
+  "image_url": "docker.io/myorg/api:v1",
+  "daemon": true
+}'
+```
+
+Daemon tasks:
+- Run until explicitly stopped
+- Automatically restart on the same proplet if they crash
+- Don't count toward workflow completion
+
+## Example: Complete ETL Pipeline
+
+### Step 1: Define the Workflow
+
+Create `etl-workflow.json`:
+
+```json
+{
+  "name": "daily-etl",
+  "tasks": [
+    {
+      "name": "extract-sales",
+      "image_url": "docker.io/myorg/extract:v1",
+      "env": {"TABLE": "sales"},
+      "priority": 80
+    },
+    {
+      "name": "extract-inventory",
+      "image_url": "docker.io/myorg/extract:v1",
+      "env": {"TABLE": "inventory"},
+      "priority": 80
+    },
+    {
+      "name": "extract-customers",
+      "image_url": "docker.io/myorg/extract:v1",
+      "env": {"TABLE": "customers"},
+      "priority": 80
+    },
+    {
+      "name": "transform-join",
+      "image_url": "docker.io/myorg/transform:v1",
+      "depends_on": ["extract-sales", "extract-inventory", "extract-customers"],
+      "run_if": "success"
+    },
+    {
+      "name": "load-warehouse",
+      "image_url": "docker.io/myorg/load:v1",
+      "depends_on": ["transform-join"],
+      "run_if": "success"
+    },
+    {
+      "name": "generate-report",
+      "image_url": "docker.io/myorg/report:v1",
+      "depends_on": ["load-warehouse"],
+      "run_if": "success"
+    },
+    {
+      "name": "notify-success",
+      "image_url": "docker.io/myorg/notify:v1",
+      "depends_on": ["generate-report"],
+      "run_if": "success",
+      "env": {"CHANNEL": "slack", "MESSAGE": "ETL completed successfully"}
+    },
+    {
+      "name": "notify-failure",
+      "image_url": "docker.io/myorg/notify:v1",
+      "depends_on": ["transform-join", "load-warehouse"],
+      "run_if": "failure",
+      "env": {"CHANNEL": "pagerduty", "MESSAGE": "ETL pipeline failed"}
+    }
+  ]
+}
+```
+
+### Step 2: Create and Start
+
+```bash
+# Create the workflow
+propeller-cli workflows create --file etl-workflow.json
+
+# Start the workflow
+propeller-cli workflows start workflow-abc123
+```
+
+### Step 3: Monitor Progress
+
+```bash
+# Watch task states
+watch -n 2 'curl -s http://localhost:7070/workflows/workflow-abc123 | jq ".tasks[] | {name, state}"'
+```
+
+Expected progression:
+```json
+{"name": "extract-sales", "state": 2}
+{"name": "extract-inventory", "state": 2}
+{"name": "extract-customers", "state": 2}
+{"name": "transform-join", "state": 0}
+{"name": "load-warehouse", "state": 0}
+...
+```
+
+### Step 4: Schedule Daily Runs
+
+Convert to a scheduled workflow:
+
+```bash
+curl -X PUT "http://localhost:7070/workflows/workflow-abc123" \
+-H "Content-Type: application/json" \
+-d '{
+  "schedule": "0 2 * * *",
+  "timezone": "America/New_York",
+  "is_recurring": true
+}'
+```
+
+## Troubleshooting
+
+### Task Stuck in Pending
+
+1. Check proplet availability:
+   ```bash
+   curl http://localhost:7070/proplets | jq '.proplets[] | {id, alive}'
+   ```
+
+2. Verify dependencies are satisfied:
+   ```bash
+   curl http://localhost:7070/tasks/task-abc | jq '{depends_on, state}'
+   ```
+
+3. Check priority isn't too low:
+   ```bash
+   curl http://localhost:7070/tasks | jq '.tasks | sort_by(.priority) | reverse'
+   ```
+
+### Workflow Tasks Not Starting
+
+1. Verify DAG validation passed:
+   ```bash
+   curl http://localhost:7070/workflows/workflow-abc | jq '.validation_errors'
+   ```
+
+2. Check `run_if` conditions:
+   - If `run_if: success` but a dependency failed → task will be `Skipped`
+   - If `run_if: failure` but dependencies succeeded → task will be `Skipped`
+
+3. Verify workflow was started:
+   ```bash
+   curl -X POST http://localhost:7070/workflows/workflow-abc/start
+   ```
+
+### Cron Tasks Not Running
+
+1. Verify cron expression is valid:
+   ```bash
+   # Test with online cron parser
+   echo "0 * * * *" | crontab -l
+   ```
+
+2. Check `is_recurring` is true:
+   ```bash
+   curl http://localhost:7070/tasks/task-abc | jq '{schedule, is_recurring, next_run}'
+   ```
+
+3. Verify timezone is correct:
+   ```bash
+   TZ="America/New_York" date
+   ```
+
+## Next Steps
+
+| Topic | Description |
+| ----- | ----------- |
+| [Manager](/docs/manager) | Configure the Manager's scheduling behavior |
+| [Proplet](/docs/proplet) | Configure proplet liveliness and heartbeat intervals |
+| [Monitoring](/docs/monitoring) | Monitor task execution and workflow progress |
+| [Federated Learning](/docs/federated-learning) | Combine workflows with FL experiments |

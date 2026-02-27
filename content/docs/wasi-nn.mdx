@@ -1,0 +1,475 @@
+---
+title: WASI-NN
+description: Run machine learning inference in WebAssembly using WASI-NN with Propeller
+---
+
+## Overview
+
+**WASI-NN** (WebAssembly System Interface for Neural Networks) is a standard API that enables WebAssembly modules to perform machine learning inference. Propeller supports WASI-NN through Wasmtime's built-in implementation, allowing you to run ML models directly within your Wasm workloads.
+
+This guide covers how to build, deploy, and run WASI-NN workloads with Propeller.
+
+## Key Concepts
+
+### What is WASI-NN?
+
+WASI-NN provides a standardized interface for WebAssembly to:
+
+- Load ML models (ONNX, OpenVINO, TensorFlow Lite)
+- Set input tensors
+- Run inference
+- Retrieve output tensors
+
+This enables portable ML inference across different environments without modifying your WebAssembly code.
+
+### Supported Backends
+
+Propeller's Wasmtime runtime supports these WASI-NN backends:
+
+| Backend | Model Format | Best For |
+| ------- | ------------ | -------- |
+| **OpenVINO** | OpenVINO IR, ONNX | Intel hardware, server inference |
+| **ONNX Runtime** | ONNX | Cross-platform compatibility |
+| **WinML** | ONNX | Windows deployments |
+
+:::note Backend Availability
+Backend support depends on how Wasmtime is compiled. The default Propeller Wasmtime binary includes ONNX Runtime support. For OpenVINO, you may need to build Wasmtime with the appropriate feature flags.
+:::
+
+## Building a WASI-NN Workload
+
+### Prerequisites
+
+- Rust 1.70+ with `wasm32-wasip1` target
+- `cargo-component` for Wasm component model
+- A pre-trained ONNX model
+
+### Step 1: Set Up the Project
+
+```bash
+cargo new --lib wasi-nn-inference
+cd wasi-nn-inference
+```
+
+Add dependencies to `Cargo.toml`:
+
+```toml
+[package]
+name = "wasi-nn-inference"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasi-nn = "0.6"
+wit-bindgen = "0.28"
+
+[profile.release]
+opt-level = "s"
+lto = true
+```
+
+### Step 2: Implement Inference
+
+Create `src/lib.rs`:
+
+```rust
+use wasi_nn::{
+    Graph, GraphBuilder, GraphEncoding, ExecutionTarget,
+    TensorType,
+};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load the model
+    let model_bytes = std::fs::read("/models/mobilenet.onnx")?;
+    
+    let graph = GraphBuilder::new(
+        GraphEncoding::Onnx,
+        ExecutionTarget::CPU
+    )
+    .build_from_bytes(&[&model_bytes])?;
+    
+    // Initialize execution context
+    let mut ctx = graph.init_execution_context()?;
+    
+    // Prepare input tensor (e.g., 224x224 RGB image)
+    let input_data: Vec<f32> = prepare_input_image()?;
+    
+    ctx.set_input(
+        0,
+        TensorType::F32,
+        &[1, 3, 224, 224], // NCHW format
+        &input_data,
+    )?;
+    
+    // Run inference
+    ctx.compute()?;
+    
+    // Get output
+    let mut output = vec![0f32; 1000]; // 1000 classes for ImageNet
+    ctx.get_output(0, &mut output)?;
+    
+    // Find top prediction
+    let (class_id, confidence) = output
+        .iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+        .unwrap();
+    
+    println!("Predicted class: {} with confidence: {:.2}%", 
+             class_id, confidence * 100.0);
+    
+    Ok(())
+}
+
+fn prepare_input_image() -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+    // Load and preprocess image from /data/input.jpg
+    let image_bytes = std::fs::read("/data/input.jpg")?;
+    // ... image preprocessing (resize, normalize, etc.)
+    Ok(vec![0.0; 3 * 224 * 224]) // Placeholder
+}
+```
+
+### Step 3: Build the Wasm Module
+
+```bash
+rustup target add wasm32-wasip1
+cargo build --target wasm32-wasip1 --release
+```
+
+The output will be at `target/wasm32-wasip1/release/wasi_nn_inference.wasm`.
+
+### Step 4: Package Model and Wasm Together
+
+Create a directory structure:
+
+```
+inference-package/
+├── model/
+│   └── mobilenet.onnx
+├── wasi_nn_inference.wasm
+└── Dockerfile
+```
+
+Create a `Dockerfile` for OCI packaging:
+
+```dockerfile
+FROM scratch
+COPY model/mobilenet.onnx /models/mobilenet.onnx
+COPY wasi_nn_inference.wasm /app.wasm
+ENTRYPOINT ["/app.wasm"]
+```
+
+Push to an OCI registry:
+
+```bash
+docker build -t docker.io/myorg/wasi-nn-inference:v1 .
+docker push docker.io/myorg/wasi-nn-inference:v1
+```
+
+## Running WASI-NN with Propeller
+
+### Configure the Proplet
+
+WASI-NN requires specific Wasmtime flags. Use the Host Runtime mode with explicit flags:
+
+```bash
+export PROPLET_EXTERNAL_WASM_RUNTIME="/usr/local/bin/wasmtime"
+export PROPLET_DIRS="/models:/data"
+```
+
+### Create a Task
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "image-classification",
+  "image_url": "docker.io/myorg/wasi-nn-inference:v1",
+  "cli_args": [
+    "--wasi-modules=experimental-wasi-nn",
+    "--dir=/models",
+    "--dir=/data"
+  ],
+  "inputs": []
+}'
+```
+
+Expected response:
+```json
+{
+  "id": "task-abc123",
+  "name": "image-classification",
+  "state": 0,
+  "created_at": "2026-02-27T10:00:00Z"
+}
+```
+
+### Start the Task
+
+```bash
+curl -X POST "http://localhost:7070/tasks/task-abc123/start"
+```
+
+### Monitor Execution
+
+```bash
+# Check task status
+curl http://localhost:7070/tasks/task-abc123
+
+# View proplet logs
+docker logs propeller-proplet -f
+```
+
+Expected output:
+```
+2026-02-27T10:01:00.000Z INFO Loading WASI-NN model: /models/mobilenet.onnx
+2026-02-27T10:01:02.000Z INFO Model loaded successfully
+2026-02-27T10:01:02.500Z INFO Running inference...
+2026-02-27T10:01:03.000Z INFO Predicted class: 281 with confidence: 92.34%
+```
+
+## Example: Object Detection
+
+### Model Setup
+
+Download a pre-trained YOLO model:
+
+```bash
+wget https://github.com/onnx/models/raw/main/validated/vision/object_detection_segmentation/yolov3/model/yolov3-10.onnx \
+  -O models/yolov3.onnx
+```
+
+### Inference Code
+
+```rust
+use wasi_nn::{Graph, GraphBuilder, GraphEncoding, ExecutionTarget, TensorType};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load YOLO model
+    let model = std::fs::read("/models/yolov3.onnx")?;
+    
+    let graph = GraphBuilder::new(GraphEncoding::Onnx, ExecutionTarget::CPU)
+        .build_from_bytes(&[&model])?;
+    
+    let mut ctx = graph.init_execution_context()?;
+    
+    // Input: 416x416 RGB image
+    let input = load_and_preprocess_image("/data/image.jpg")?;
+    
+    ctx.set_input(0, TensorType::F32, &[1, 3, 416, 416], &input)?;
+    ctx.compute()?;
+    
+    // Process YOLO outputs (boxes, scores, classes)
+    let mut boxes = vec![0f32; 10647 * 4];
+    let mut scores = vec![0f32; 10647 * 80];
+    
+    ctx.get_output(0, &mut boxes)?;
+    ctx.get_output(1, &mut scores)?;
+    
+    // Post-process and decode detections
+    let detections = decode_yolo_output(&boxes, &scores);
+    
+    for det in detections {
+        println!("Detected {} at ({}, {}, {}, {}) with confidence {:.2}%",
+                 det.class_name, det.x1, det.y1, det.x2, det.y2, det.confidence * 100.0);
+    }
+    
+    Ok(())
+}
+```
+
+### Deploy to Propeller
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "object-detection",
+  "image_url": "docker.io/myorg/yolo-inference:v1",
+  "cli_args": [
+    "--wasi-modules=experimental-wasi-nn",
+    "--dir=/models",
+    "--dir=/data"
+  ],
+  "env": {
+    "INPUT_IMAGE": "/data/sample.jpg"
+  }
+}'
+```
+
+## Using Different Backends
+
+### ONNX Runtime (Default)
+
+No additional configuration needed:
+
+```rust
+let graph = GraphBuilder::new(GraphEncoding::Onnx, ExecutionTarget::CPU)
+    .build_from_bytes(&[&model_bytes])?;
+```
+
+### OpenVINO
+
+For Intel hardware acceleration:
+
+```rust
+let graph = GraphBuilder::new(GraphEncoding::Openvino, ExecutionTarget::CPU)
+    .build_from_bytes(&[&model_xml, &model_bin])?;
+```
+
+:::note OpenVINO Setup
+OpenVINO requires additional setup on the host:
+```bash
+# Install OpenVINO runtime
+wget https://registrationcenter-download.intel.com/...
+tar xf l_openvino_toolkit_ubuntu22_2024.0.0...
+source /opt/intel/openvino/setupvars.sh
+```
+:::
+
+### GPU Acceleration
+
+To use GPU acceleration (CUDA, DirectML):
+
+```rust
+let graph = GraphBuilder::new(GraphEncoding::Onnx, ExecutionTarget::GPU)
+    .build_from_bytes(&[&model_bytes])?;
+```
+
+Task configuration:
+```json
+{
+  "name": "gpu-inference",
+  "cli_args": [
+    "--wasi-modules=experimental-wasi-nn",
+    "--wasi-nn-graph=onnx::gpu"
+  ]
+}
+```
+
+## Combining WASI-NN with Federated Learning
+
+WASI-NN works well with Propeller's federated learning for local inference:
+
+```json
+{
+  "name": "fl-inference",
+  "kind": "federated",
+  "mode": "infer",
+  "image_url": "docker.io/myorg/fl-inference:v1",
+  "env": {
+    "MODEL_URI": "http://registry:8080/models/mnist/v5",
+    "DATA_STORE_URL": "http://datastore:8080"
+  },
+  "cli_args": [
+    "--wasi-modules=experimental-wasi-nn",
+    "--dir=/models"
+  ]
+}
+```
+
+## Performance Tips
+
+### Model Optimization
+
+1. **Quantize models** to INT8 for faster inference:
+   ```bash
+   python -m onnxruntime.quantization.quantize \
+     --input mobilenet.onnx \
+     --output mobilenet_int8.onnx \
+     --quant_format QDQ
+   ```
+
+2. **Use ONNX Runtime optimizations**:
+   ```bash
+   python -c "
+   import onnxruntime as ort
+   sess_options = ort.SessionOptions()
+   sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+   sess_options.optimized_model_filepath = 'mobilenet_optimized.onnx'
+   ort.InferenceSession('mobilenet.onnx', sess_options)
+   "
+   ```
+
+### Memory Management
+
+- Set appropriate heap limits in task configuration
+- Use streaming for large inputs/outputs
+- Consider model sharding for very large models
+
+### Batch Processing
+
+Process multiple inputs in a single inference call:
+
+```rust
+// Batch of 4 images
+ctx.set_input(0, TensorType::F32, &[4, 3, 224, 224], &batch_input)?;
+ctx.compute()?;
+```
+
+## Troubleshooting
+
+### "WASI-NN not supported"
+
+Ensure Wasmtime was compiled with WASI-NN support:
+```bash
+wasmtime --help | grep wasi-nn
+```
+
+If not present, rebuild Wasmtime with the feature:
+```bash
+cargo build --features wasi-nn
+```
+
+### Model Loading Failures
+
+1. Verify model path is correctly mapped:
+   ```bash
+   ls -la /models/
+   ```
+
+2. Check model format matches encoding:
+   ```rust
+   // ONNX requires .onnx files
+   GraphEncoding::Onnx
+   
+   // OpenVINO requires .xml and .bin files
+   GraphEncoding::Openvino
+   ```
+
+3. Ensure model is valid:
+   ```bash
+   python -c "import onnx; onnx.checker.check_model('model.onnx')"
+   ```
+
+### Out of Memory
+
+Increase Wasm memory limits:
+```json
+{
+  "cli_args": [
+    "--wasm-max-memory=2147483648"
+  ]
+}
+```
+
+### Slow Inference
+
+1. Check you're using optimized models
+2. Verify CPU vs GPU target:
+   ```rust
+   ExecutionTarget::GPU  // vs ExecutionTarget::CPU
+   ```
+3. Enable OpenVINO for Intel CPUs
+
+## Next Steps
+
+| Topic | Description |
+| ----- | ----------- |
+| [Proplet](/docs/proplet) | Configure the Proplet runtime modes |
+| [HAL](/docs/hal) | Hardware Abstraction Layer for different environments |
+| [Federated Learning](/docs/federated-learning) | Combine WASI-NN with FL training |
+| [Examples](/docs/examples) | More WebAssembly examples |

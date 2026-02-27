@@ -1,0 +1,389 @@
+---
+title: Federated Learning
+description: Privacy-preserving distributed machine learning with Propeller's built-in federated learning support
+---
+
+## Overview
+
+Propeller includes built-in support for **Federated Learning (FL)**, enabling privacy-preserving distributed training across edge devices. This approach allows machine learning models to be trained on decentralized data without exposing raw data to a central server, making it ideal for privacy-sensitive applications.
+
+Propeller's FL implementation uses the **FedAvg (Federated Averaging)** algorithm, where proplets train models locally on their data and submit model updates to the Manager, which aggregates them into a global model.
+
+## Key Concepts
+
+### Federated Learning Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Manager                                  │
+│  ┌────────────────┐  ┌─────────────┐  ┌──────────────────────┐  │
+│  │  FL Coordinator │  │   Round     │  │     Aggregator       │  │
+│  │                 │  │  Manager    │  │     (FedAvg)         │  │
+│  └────────────────┘  └─────────────┘  └──────────────────────┘  │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ HTTP/MQTT
+        ┌────────────────────┼────────────────────┐
+        │                    │                    │
+   ┌────▼────┐          ┌────▼────┐          ┌────▼────┐
+   │ Proplet │          │ Proplet │          │ Proplet │
+   │ (Train) │          │ (Train) │          │ (Train) │
+   └────┬────┘          └────┬────┘          └────┬────┘
+        │                    │                    │
+   ┌────▼────┐          ┌────▼────┐          ┌────▼────┐
+   │ Local   │          │ Local   │          │ Local   │
+   │ Dataset │          │ Dataset │          │ Dataset │
+   └─────────┘          └─────────┘          └─────────┘
+```
+
+### Core Components
+
+| Component | Description |
+| --------- | ----------- |
+| **FL Coordinator** | Manages FL experiment lifecycle, round progression, and participant coordination |
+| **Round Manager** | Tracks round progress, updates, and completion (K-of-N semantics) |
+| **Aggregator** | Implements FedAvg algorithm for combining model updates |
+| **Model Registry** | Stores and serves global model versions |
+| **Data Store** | Per-proplet local dataset storage |
+
+### Round Parameters
+
+| Parameter | Description |
+| --------- | ----------- |
+| **K-of-N** | Minimum number of participant updates required to complete a round |
+| **Timeout** | Maximum time to wait for participant updates before aggregating |
+| **Participants** | List of proplet IDs that participate in the experiment |
+
+## Configuring an FL Experiment
+
+### Step 1: Create the Experiment
+
+```bash
+curl -X POST "http://localhost:7070/fl/experiments" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "mnist-classification",
+  "participants": [
+    "proplet-001",
+    "proplet-002", 
+    "proplet-003"
+  ],
+  "aggregation_strategy": "fedavg",
+  "rounds": 10,
+  "k_of_n": 2,
+  "timeout_seconds": 300,
+  "hyperparams": {
+    "learning_rate": 0.01,
+    "batch_size": 32,
+    "epochs": 5
+  },
+  "model_ref": "docker.io/myorg/mnist-model:v1",
+  "ml_backend": "auto"
+}'
+```
+
+Expected response:
+```json
+{
+  "id": "exp-abc123",
+  "name": "mnist-classification",
+  "status": "created",
+  "current_round": 0,
+  "total_rounds": 10,
+  "participants": ["proplet-001", "proplet-002", "proplet-003"],
+  "created_at": "2026-02-27T10:00:00Z"
+}
+```
+
+### Step 2: Start the Experiment
+
+```bash
+curl -X POST "http://localhost:7070/fl/experiments/exp-abc123/start"
+```
+
+The Manager will:
+1. Initialize Round 0
+2. Notify all participants via MQTT
+3. Wait for K-of-N updates or timeout
+
+### Using the CLI
+
+```bash
+# Create an experiment from a JSON file
+propeller-cli fl experiments create --file experiment.json
+
+# View experiment status
+propeller-cli fl experiments view exp-abc123
+
+# Get the current FL task for a proplet
+propeller-cli fl task --round-id round-001 --proplet-id proplet-001
+
+# Submit a model update
+propeller-cli fl update --round-id round-001 --file update.json
+
+# Check round completion status
+propeller-cli fl round-status round-001
+```
+
+## Proplet Training Flow
+
+When a proplet receives an FL task, it follows this lifecycle:
+
+### Step 1: Retrieve FL Task
+
+The proplet retrieves its training task for the current round:
+
+```bash
+curl -X GET "http://localhost:7070/fl/task?round_id=round-001&proplet_id=proplet-001"
+```
+
+Response:
+```json
+{
+  "round_id": "round-001",
+  "model_ref": "docker.io/myorg/mnist-model:v1",
+  "hyperparams": {
+    "learning_rate": 0.01,
+    "batch_size": 32,
+    "epochs": 5
+  },
+  "ml_backend": "auto"
+}
+```
+
+### Step 2: Environment Variables
+
+The proplet receives these environment variables for FL tasks:
+
+| Variable | Description | Example |
+| -------- | ----------- | ------- |
+| `ROUND_ID` | Current federated learning round identifier | `round-001` |
+| `MODEL_URI` | URI to the current global model in the model registry | `http://registry:8080/models/mnist/v3` |
+| `MODEL_REGISTRY_URL` | Base URL of the model registry service | `http://registry:8080` |
+| `DATA_STORE_URL` | Base URL of the local data store service | `http://datastore:8080` |
+| `COORDINATOR_URL` | Base URL of the FL coordinator service | `http://localhost:7070` |
+| `ML_BACKEND` | ML backend hint: `standard`, `tinyml`, or `auto` | `auto` |
+| `HYPERPARAMS` | JSON-encoded hyperparameters for training | `{"learning_rate":0.01}` |
+| `FL_NUM_SAMPLES` | Number of training samples used | `1000` |
+| `FL_FORMAT` | Update format (default: `f32-delta`) | `f32-delta` |
+
+### Step 3: Local Training
+
+The proplet:
+1. Fetches the current global model from `MODEL_REGISTRY_URL`
+2. Fetches local training data from `DATA_STORE_URL`
+3. Trains the model using local data
+4. Produces a model update (delta)
+
+### Step 4: Submit Update
+
+The proplet submits its model update:
+
+**JSON format:**
+```bash
+curl -X POST "http://localhost:7070/fl/update" \
+-H "Content-Type: application/json" \
+-d '{
+  "round_id": "round-001",
+  "proplet_id": "proplet-001",
+  "num_samples": 1000,
+  "format": "f32-delta",
+  "weights": {
+    "layer1.w": [0.001, -0.002, 0.003],
+    "layer1.b": [0.0001, -0.0002]
+  }
+}'
+```
+
+**CBOR format** (for bandwidth-constrained environments):
+```bash
+curl -X POST "http://localhost:7070/fl/update_cbor" \
+-H "Content-Type: application/cbor" \
+--data-binary @update.cbor
+```
+
+:::note MQTT Fallback
+If HTTP submission fails, the proplet falls back to MQTT: `fl/rounds/{roundID}/updates/{propletID}`
+:::
+
+## Aggregation
+
+### FedAvg Algorithm
+
+When the Manager receives K-of-N updates or the timeout is reached:
+
+1. **Weighted Averaging**: Updates are weighted by `num_samples`
+2. **Model Weights**: Aggregates `w` (weights) and `b` (bias) parameters
+3. **Global Model Update**: Produces a new global model version
+4. **Distribution**: Publishes the updated model to the registry
+
+```
+Global Model = Σ (local_update_i × num_samples_i) / Σ num_samples_i
+```
+
+### Checking Round Status
+
+```bash
+curl -X GET "http://localhost:7070/fl/rounds/round-001/complete"
+```
+
+Response:
+```json
+{
+  "round_id": "round-001",
+  "complete": true,
+  "updates_received": 3,
+  "k_of_n": 2,
+  "aggregated_at": "2026-02-27T10:15:00Z",
+  "new_model_version": "v4"
+}
+```
+
+## ML Backend Selection
+
+Proplets automatically select the appropriate ML backend based on available resources:
+
+| Backend | Trigger | Use Case |
+| ------- | ------- | -------- |
+| `standard` | Default for servers/VMs | Full-featured ML frameworks (PyTorch, TensorFlow) |
+| `tinyml` | Small batch sizes, memory constraints | Optimized for edge devices (TensorFlow Lite, ONNX Runtime) |
+| `auto` | Automatic detection | Proplet chooses based on hyperparameters and available memory |
+
+Set the backend explicitly:
+```bash
+export ML_BACKEND=tinyml
+```
+
+Or let the proplet decide based on hyperparameters (small `batch_size` triggers TinyML).
+
+## Example: MNIST Classification
+
+### 1. Prepare Participant Data
+
+Each proplet has a local dataset shard stored in the data store:
+
+```bash
+# On proplet-001's data store
+curl -X PUT "http://datastore:8080/datasets/proplet-001/mnist" \
+  -F "data=@mnist_shard_001.npz"
+
+# On proplet-002's data store  
+curl -X PUT "http://datastore:8080/datasets/proplet-002/mnist" \
+  -F "data=@mnist_shard_002.npz"
+```
+
+### 2. Upload Initial Model
+
+```bash
+curl -X PUT "http://registry:8080/models/mnist/v0" \
+  -F "model=@initial_mnist_model.onnx"
+```
+
+### 3. Create and Start Experiment
+
+```bash
+curl -X POST "http://localhost:7070/fl/experiments" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "mnist-federated",
+  "participants": ["proplet-001", "proplet-002", "proplet-003"],
+  "aggregation_strategy": "fedavg",
+  "rounds": 5,
+  "k_of_n": 2,
+  "timeout_seconds": 120,
+  "hyperparams": {
+    "learning_rate": 0.001,
+    "batch_size": 64,
+    "epochs": 3
+  },
+  "model_ref": "http://registry:8080/models/mnist/v0"
+}'
+```
+
+### 4. Monitor Progress
+
+```bash
+# Watch experiment status
+watch -n 5 'curl -s http://localhost:7070/fl/experiments/exp-abc123'
+
+# Check current round
+curl http://localhost:7070/fl/rounds/round-001/complete
+```
+
+### 5. Retrieve Final Model
+
+After all rounds complete:
+
+```bash
+curl -O "http://registry:8080/models/mnist/v5"
+```
+
+## Task Kind: `federated`
+
+When creating FL tasks, set `kind: "federated"` and `mode` to either `train` or `infer`:
+
+```json
+{
+  "name": "fl-training",
+  "kind": "federated",
+  "mode": "train",
+  "image_url": "docker.io/myorg/fl-trainer:v1",
+  "env": {
+    "ROUND_ID": "round-001",
+    "MODEL_URI": "http://registry:8080/models/mnist/v3",
+    "DATA_STORE_URL": "http://datastore:8080"
+  }
+}
+```
+
+| Mode | Description |
+| ---- | ----------- |
+| `train` | Proplet performs local training and submits model update |
+| `infer` | Proplet loads the model and performs inference only |
+
+## Troubleshooting
+
+### Proplet Not Receiving FL Tasks
+
+1. Verify the proplet is registered as a participant:
+   ```bash
+   curl http://localhost:7070/fl/experiments/exp-abc123 | jq '.participants'
+   ```
+
+2. Check proplet is alive:
+   ```bash
+   curl http://localhost:7070/proplets | jq '.proplets[] | select(.id=="proplet-001")'
+   ```
+
+3. Verify MQTT connectivity:
+   ```bash
+   docker logs propeller-proplet | grep -i mqtt
+   ```
+
+### Round Not Completing
+
+1. Check how many updates have been received:
+   ```bash
+   curl http://localhost:7070/fl/rounds/round-001/complete
+   ```
+
+2. Verify K-of-N setting (might need more participants):
+   ```json
+   {"k_of_n": 2, "updates_received": 1}
+   ```
+
+3. Check timeout hasn't been reached prematurely
+
+### Model Update Rejected
+
+1. Ensure `format` matches expected (`f32-delta` is default)
+2. Verify `num_samples` is included
+3. Check weight dimensions match the model architecture
+
+## Next Steps
+
+| Topic | Description |
+| ----- | ----------- |
+| [Manager](/docs/manager) | Configure the Manager's FL endpoints |
+| [Proplet](/docs/proplet) | Configure proplets for FL participation |
+| [TEE](/docs/tee) | Run FL training in Trusted Execution Environments |
+| [Task Scheduling](/docs/task-scheduling) | Combine FL with workflow DAGs |
