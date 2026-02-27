@@ -3,7 +3,11 @@ title: TEE
 description: TEE example
 ---
 
-This is a Trusted Execution Environment (TEE) example. It runs the addition example inside a secure enclave, protecting code and data from the host OS. For this example we need to enable TEE mode on the proplet by setting the `PROPLET_TEE_ENABLED` environment variable.
+This is a Trusted Execution Environment (TEE) example. It runs the addition example inside a secure enclave, protecting code and data from the host OS.
+
+For a comprehensive guide on TEE concepts, Trustee setup, and encrypted workload configuration, see the [Encrypted Workloads](/docs/tee) documentation.
+
+For this example we need to enable TEE mode on the proplet by setting the `PROPLET_TEE_ENABLED` environment variable.
 
 ```bash
 export PROPLET_TEE_ENABLED=true
