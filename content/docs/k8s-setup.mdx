@@ -12,7 +12,7 @@ This tutorial sets up a **single machine** as both **control-plane + worker**, u
 
 ---
 
-## 0) Prep the machine
+## 0. Prep the machine
 
 ### Set a stable hostname (recommended)
 ```bash
@@ -44,7 +44,7 @@ EOF
 sudo sysctl --system
 ```
 
-## 1) Install containerd (container runtime)
+## 1. Install containerd (container runtime)
 
 Kubernetes needs a container runtime; containerd is a common choice.
 
@@ -69,7 +69,7 @@ sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/conf
 sudo systemctl restart containerd
 ```
 
-## 2) Install kubeadm / kubelet / kubectl
+## 2. Install kubeadm / kubelet / kubectl
 
 Follow the official “Installing kubeadm” instructions for your distro/version.
 
@@ -92,7 +92,17 @@ kubeadm version
 kubectl version --client
 ```
 
-## 3) Bootstrap the single-node cluster (control plane)
+The output should be similar to:
+
+```bash
+$ kubeadm version
+kubeadm version: &version.Info{Major:"1", Minor:"34", EmulationMajor:"", EmulationMinor:"", MinCompatibilityMajor:"", MinCompatibilityMinor:"", GitVersion:"v1.34.1", GitCommit:"93248f9ae092f571eb870b7664c534bfc7d00f03", GitTreeState:"clean", BuildDate:"2025-09-09T19:43:15Z", GoVersion:"go1.24.6", Compiler:"gc", Platform:"linux/amd64"}
+$ kubectl version --client
+Client Version: v1.34.1
+Kustomize Version: v5.7.1
+```
+
+## 3. Bootstrap the single-node cluster (control plane)
 
 Pick a Pod network CIDR that matches your CNI choice.
 
@@ -122,7 +132,7 @@ Check node status:
 kubectl get nodes
 ```
 
-## 4) Install a CNI (pod network) — example: Calico
+## 4. Install a CNI (pod network) — example: Calico
 
 Kubernetes won’t schedule pods normally until a CNI is installed.
 
@@ -141,7 +151,7 @@ Wait for pods:
 kubectl get pods -A --watch
 ```
 
-## 5) Make it a true single-node cluster (schedule workloads on control plane)
+## 5. Make it a true single-node cluster (schedule workloads on control plane)
 
 By default, control-plane nodes repel normal workloads via a taint. You remove it for single-node setups.
 
