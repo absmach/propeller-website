@@ -1,11 +1,12 @@
 ---
-title: K8s single node setup for CoCo 
-description: How to setup a single node k8s cluster using kubeadm and containerd on a Linux machine for testing and developing with confidentail containers. 
+title: K8s single node setup for CoCo
+description: How to setup a single node k8s cluster using kubeadm and containerd on a Linux machine for testing and developing with confidentail containers.
 ---
 
 This tutorial sets up a **single machine** as both **control-plane + worker**, using **kubeadm** (the standard Kubernetes bootstrapping tool) and **containerd** (recommended runtime). It’s the closest thing to a “real” DIY cluster you’ll run on one box.
 
 > Assumptions:
+>
 > - Ubuntu/Debian-like Linux (examples use `apt`)
 > - You have `sudo` access
 > - You want a single-node cluster that can run workloads (not just control plane)
@@ -15,17 +16,20 @@ This tutorial sets up a **single machine** as both **control-plane + worker**, u
 ## 0. Prep the machine
 
 ### Set a stable hostname (recommended)
+
 ```bash
 sudo hostnamectl set-hostname k8s-single
 ```
 
 ### Disable swap (required by kubelet)
+
 ```bash
 sudo swapoff -a
 sudo sed -i.bak '/\sswap\s/s/^/#/' /etc/fstab
 ```
 
 ### Load kernel modules + sysctl for Kubernetes networking
+
 ```bash
 cat <<'EOF' | sudo tee /etc/modules-load.d/k8s.conf
 overlay
@@ -49,6 +53,7 @@ sudo sysctl --system
 Kubernetes needs a container runtime; containerd is a common choice.
 
 ### Install + enable
+
 ```bash
 sudo apt-get update
 sudo apt-get install -y containerd
@@ -75,15 +80,14 @@ Follow the official “Installing kubeadm” instructions for your distro/versio
 
 On Ubuntu/Debian this typically means:
 
- - add the Kubernetes package repo for your target version
+- add the Kubernetes package repo for your target version
 
- - install:
+- install:
+  - kubelet (node agent)
 
-    - kubelet (node agent)
+  - kubeadm (cluster bootstrap)
 
-    - kubeadm (cluster bootstrap)
-
-    - kubectl (CLI)
+  - kubectl (CLI)
 
 After installing, verify:
 
@@ -106,7 +110,7 @@ Kustomize Version: v5.7.1
 
 Pick a Pod network CIDR that matches your CNI choice.
 
- - For Calico, a common choice is 192.168.0.0/16.
+- For Calico, a common choice is 192.168.0.0/16.
 
 ### Initialize
 
@@ -143,7 +147,7 @@ curl -LO https://raw.githubusercontent.com/projectcalico/calico/v3.31.3/manifest
 kubectl apply -f calico.yaml
 ```
 
-Calico’s docs note that if you use the default ```192.168.0.0/16```, you usually don’t need to edit the manifest.
+Calico’s docs note that if you use the default `192.168.0.0/16`, you usually don’t need to edit the manifest.
 
 Wait for pods:
 
