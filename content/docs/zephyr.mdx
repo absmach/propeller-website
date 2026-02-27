@@ -3,6 +3,8 @@ title: Deploying WAMR on Zephyr
 description: Step-by-step guide for deploying WebAssembly on Zephyr RTOS for ESP32
 ---
 
+This guide covers deploying the [WebAssembly Micro Runtime (WAMR)](https://github.com/bytecodealliance/wasm-micro-runtime) on [Zephyr RTOS](https://zephyrproject.org/) for ESP32 devices. This is foundational material for running the [Embedded Proplet](/docs/embedded-proplet) on resource-constrained hardware.
+
 ## **1. Set Up Zephyr Development Environment**
 
 ### Install Dependencies on your development machine
@@ -494,3 +496,10 @@ Clear the existing CMake cache to resolve the mismatch by deleting the `build` d
 ```bash
 rm -rf ~/zephyrproject/zephyr/build
 ```
+
+## Next Steps
+
+| Topic | Description |
+| ----- | ----------- |
+| [Embedded Proplet](/docs/embedded-proplet) | Build and deploy a minimal Proplet for embedded devices |
+| [Proplet](/docs/proplet) | Configure the full-featured Rust Proplet |
