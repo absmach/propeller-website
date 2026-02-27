@@ -519,9 +519,318 @@ Trying to load multiple large WASM modules simultaneously will fail.
 
 ## Next Steps
 
-After successfully building and flashing the embedded proplet:
+After successfully building and flashing the embedded proplet, follow these steps to verify the deployment.
 
-1. **Verify Connectivity**: Confirm MQTT messages appear in the Propeller Manager logs
-2. **Test WASM Execution**: Send a simple WASM module (e.g., addition.wasm) via Manager
-3. **Monitor Resources**: Check memory usage and latency via proplet logs
-4. **Scale Testing**: Test with multiple embedded proplets to verify load balancing
+### Step 1: Verify Connectivity
+
+Monitor the embedded proplet logs to confirm WiFi and MQTT connection:
+
+```bash
+west espressif monitor
+```
+
+Expected successful connection sequence:
+```
+[00:00:00.123,456] <inf> main: Starting Proplet...
+[00:00:00.234,567] <inf> wifi_manager: Initializing WiFi...
+[00:00:02.345,678] <inf> wifi_manager: WiFi connected to SSID
+[00:00:02.456,789] <inf> mqtt_client: Connecting to MQTT broker...
+[00:00:03.567,890] <inf> mqtt_client: MQTT connected
+[00:00:03.678,901] <inf> mqtt_client: Subscribe: /embedded/startup/discovery
+[00:00:03.789,012] <inf> main: Proplet running
+```
+
+Verify the Manager receives the proplet's discovery message:
+
+```bash
+docker logs propeller-manager -f | grep -i proplet
+```
+
+You should see registration events indicating the embedded proplet has connected.
+
+### Step 2: Test WASM Execution
+
+Create a task for the embedded proplet using the Manager API:
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{"name": "add", "inputs": [10, 20]}'
+```
+
+Expected response:
+```json
+{
+  "id": "2226e867-1f9f-4ff2-b8e7-f0ea46830664",
+  "name": "add",
+  "kind": "standard",
+  "state": 0,
+  "inputs": [10, 20],
+  "created_at": "2026-02-13T09:38:50.765084043Z"
+}
+```
+
+Upload a simple WASM module (e.g., `addition.wasm`):
+
+```bash
+curl -X PUT "http://localhost:7070/tasks/<task_id>/upload" \
+-F 'file=@build/addition.wasm'
+```
+
+Start the task:
+
+```bash
+curl -X POST "http://localhost:7070/tasks/<task_id>/start"
+```
+
+Expected response:
+```json
+{ "started": true }
+```
+
+Monitor execution on the embedded proplet:
+
+```bash
+west espressif monitor
+```
+
+Expected output:
+```
+[00:00:10.123,456] <inf> wasm_handler: Received WASM module (size: 45 bytes)
+[00:00:10.234,567] <inf> wasm_handler: Loading WASM module...
+[00:00:10.345,678] <inf> wasm_handler: Instantiating WASM runtime...
+[00:00:10.456,789] <inf> wasm_handler: Executing function 'main'...
+[00:00:10.567,890] <inf> wasm_handler: Execution result: 30
+[00:00:10.678,901] <inf> mqtt_client: Publishing result to channel
+```
+
+### Step 3: Monitor Resources
+
+Check the embedded proplet's resource usage via logs:
+
+```bash
+west espressif monitor | grep -E "heap|memory|stack"
+```
+
+On Zephyr, enable runtime statistics in `prj.conf`:
+
+```ini
+CONFIG_THREAD_ANALYZER=y
+CONFIG_THREAD_ANALYZER_AUTO=y
+CONFIG_THREAD_ANALYZER_AUTO_INTERVAL=30
+```
+
+This provides periodic thread and stack usage reports:
+```
+[00:00:30.000,000] <inf> thread_analyzer: Thread: main
+[00:00:30.000,100] <inf> thread_analyzer:   Stack size: 8192, used: 3456
+[00:00:30.000,200] <inf> thread_analyzer:   CPU: 5.2%
+```
+
+### Step 4: Scale Testing
+
+Deploy multiple embedded proplets with unique IDs in `src/main.c`:
+
+```c
+// Proplet 1
+#define PROPLET_ID "proplet-esp32-001"
+
+// Proplet 2
+#define PROPLET_ID "proplet-esp32-002"
+```
+
+Flash each device and verify all appear in Manager:
+
+```bash
+curl -X GET "http://localhost:7070/proplets" | jq
+```
+
+Expected response showing multiple embedded proplets:
+```json
+{
+  "proplets": [
+    {
+      "id": "proplet-esp32-001",
+      "name": "embed-proplet-1",
+      "status": "connected",
+      "type": "embedded"
+    },
+    {
+      "id": "proplet-esp32-002", 
+      "name": "embed-proplet-2",
+      "status": "connected",
+      "type": "embedded"
+    }
+  ]
+}
+```
+
+Create a task and observe load distribution across proplets via Manager logs.
+
+## Adapting for Different Hardware
+
+The embedded proplet is currently configured for ESP32-S3, but Zephyr supports many other boards. This section explains how to adapt the build for different hardware.
+
+### Supported Architectures
+
+WAMR supports these embedded architectures:
+
+| Architecture | WAMR Target | Example Boards |
+|-------------|-------------|----------------|
+| Xtensa | `XTENSA` | ESP32, ESP32-S3 |
+| ARM Cortex-M | `THUMB` | nRF52840, STM32F4, MIMXRT1060 |
+| ARM64 | `AARCH64` | Raspberry Pi (64-bit Zephyr) |
+| RISC-V 32 | `RISCV32` | ESP32-C3, GD32VF103 |
+| RISC-V 64 | `RISCV64` | SiFive boards |
+
+### Step 1: Modify CMakeLists.txt
+
+Update the board and WAMR target in `embed-proplet/CMakeLists.txt`:
+
+```cmake
+# For ESP32-S3 (default - Xtensa):
+set(BOARD esp32s3_devkitc)
+set(WAMR_BUILD_TARGET "XTENSA")
+
+# For nRF52840 (ARM Cortex-M):
+set(BOARD nrf52840dk_nrf52840)
+set(WAMR_BUILD_TARGET "THUMB")
+
+# For STM32F4 Discovery:
+set(BOARD stm32f4_disco)
+set(WAMR_BUILD_TARGET "THUMB")
+
+# For ESP32-C3 (RISC-V):
+set(BOARD esp32c3_devkitm)
+set(WAMR_BUILD_TARGET "RISCV32")
+```
+
+### Step 2: Create Board Configuration
+
+Create a board-specific configuration file in `boards/`:
+
+**For ARM boards (e.g., `nrf52840dk_nrf52840.conf`):**
+```ini
+# nRF52840 Wi-Fi/BLE Configuration
+CONFIG_BT=y
+CONFIG_BT_PERIPHERAL=y
+
+# Or for WiFi via external module:
+CONFIG_WIFI=y
+CONFIG_NET_L2_WIFI_SHELL=y
+```
+
+**For RISC-V boards (e.g., `esp32c3_devkitm.conf`):**
+```ini
+# ESP32-C3 Wi-Fi Configuration
+CONFIG_WIFI_ESP32=y
+CONFIG_ESP32_WIFI_STA_RECONNECT=y
+CONFIG_ESP32_WIFI_STA_AUTO_DHCPV4=y
+```
+
+### Step 3: Create Device Tree Overlay (if needed)
+
+Create a board-specific overlay file (e.g., `boards/nrf52840dk_nrf52840.overlay`):
+
+```dts
+/* Enable WiFi via ESP-AT co-processor connected to UART */
+&uart1 {
+    status = "okay";
+    current-speed = <115200>;
+    esp_wifi: esp-hosted {
+        status = "okay";
+    };
+};
+```
+
+### Step 4: Adjust Memory Settings
+
+Different boards have different memory constraints. Update `prj.conf`:
+
+```ini
+# For boards with more RAM (e.g., STM32H7 with 1MB SRAM):
+CONFIG_HEAP_MEM_POOL_SIZE=131072   # 128 KB
+# Increase WAMR heap in CMakeLists.txt:
+# set(WAMR_BUILD_GLOBAL_HEAP_SIZE 65536)  # 64 KB
+
+# For memory-constrained boards (e.g., nRF52832 with 64KB RAM):
+CONFIG_HEAP_MEM_POOL_SIZE=32768    # 32 KB
+# Decrease WAMR heap:
+# set(WAMR_BUILD_GLOBAL_HEAP_SIZE 16384)  # 16 KB
+```
+
+### Step 5: Build for Target Board
+
+```bash
+# Clean previous build
+rm -rf build
+
+# Build for new target (examples)
+west build -b nrf52840dk_nrf52840 -p auto .
+west build -b stm32f4_disco -p auto .
+west build -b esp32c3_devkitm -p auto .
+```
+
+### Step 6: Update Flashing Commands
+
+Different boards use different flashing methods:
+
+```bash
+# ESP32 family (via esptool):
+west flash
+
+# Nordic boards (via nrfjprog):
+west flash --runner nrfjprog
+
+# STM32 boards (via OpenOCD):
+west flash --runner openocd
+
+# Generic J-Link:
+west flash --runner jlink
+```
+
+### Hardware Checklist
+
+Before porting to a new board, verify:
+
+| Requirement | Description |
+|------------|-------------|
+| **RAM** | Minimum 128 KB for WAMR + networking |
+| **Flash** | At least 512 KB for firmware |
+| **Networking** | WiFi, Ethernet, or BLE with IP support |
+| **Zephyr Support** | Board must be in Zephyr's board list |
+| **WAMR Architecture** | CPU must match a supported WAMR target |
+
+To check if your board is supported by Zephyr:
+
+```bash
+west boards | grep -i <board_name>
+```
+
+### Example: ESP32-C3 Port
+
+Here's a complete example porting to ESP32-C3 (RISC-V based):
+
+1. **CMakeLists.txt changes:**
+```cmake
+set(BOARD esp32c3_devkitm)
+set(WAMR_BUILD_TARGET "RISCV32")
+```
+
+2. **Create `boards/esp32c3_devkitm.conf`:**
+```ini
+CONFIG_WIFI_ESP32=y
+CONFIG_ESP32_WIFI_STA_RECONNECT=y
+CONFIG_ESP32_WIFI_STA_AUTO_DHCPV4=y
+```
+
+3. **Build and flash:**
+```bash
+rm -rf build
+west build -b esp32c3_devkitm -p auto .
+west flash
+```
+
+:::note Cross-Platform Testing
+When porting to a new platform, test with a minimal WASM module first (like `addition.wasm`) before deploying complex workloads. This helps isolate platform-specific issues from application bugs.
+:::
