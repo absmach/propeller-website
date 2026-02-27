@@ -710,6 +710,7 @@ set(WAMR_BUILD_TARGET "RISCV32")
 Create a board-specific configuration file in `boards/`:
 
 **For ARM boards (e.g., `nrf52840dk_nrf52840.conf`):**
+
 ```ini
 # nRF52840 Wi-Fi/BLE Configuration
 CONFIG_BT=y
@@ -721,6 +722,7 @@ CONFIG_NET_L2_WIFI_SHELL=y
 ```
 
 **For RISC-V boards (e.g., `esp32c3_devkitm.conf`):**
+
 ```ini
 # ESP32-C3 Wi-Fi Configuration
 CONFIG_WIFI_ESP32=y
@@ -812,12 +814,14 @@ west boards | grep -i <board_name>
 Here's a complete example porting to ESP32-C3 (RISC-V based):
 
 1. **CMakeLists.txt changes:**
+
 ```cmake
 set(BOARD esp32c3_devkitm)
 set(WAMR_BUILD_TARGET "RISCV32")
 ```
 
 2. **Create `boards/esp32c3_devkitm.conf`:**
+
 ```ini
 CONFIG_WIFI_ESP32=y
 CONFIG_ESP32_WIFI_STA_RECONNECT=y
@@ -825,6 +829,7 @@ CONFIG_ESP32_WIFI_STA_AUTO_DHCPV4=y
 ```
 
 3. **Build and flash:**
+
 ```bash
 rm -rf build
 west build -b esp32c3_devkitm -p auto .
