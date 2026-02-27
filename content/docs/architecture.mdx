@@ -228,6 +228,8 @@ Tasks progress through the following states:
 5. **Status Reporting**: The proplet sends periodic status updates and final results back to the Manager.
 6. **Task Completion**: The Manager updates the task status, stores the results, and triggers any dependent workflow tasks.
 
+**Task Interruption**: Tasks can be interrupted at any point in their lifecycle by calling the `/tasks/{id}/stop` REST API endpoint. When interrupted, a task transitions to the **Interrupted** state, and the Manager signals the proplet to stop execution immediately. See the [Manager API](manager.mdx) for details on the stop endpoint.
+
 ## Jobs
 
 Jobs provide a way to group multiple related tasks together with a common JobID:
