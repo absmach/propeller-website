@@ -1,0 +1,176 @@
+---
+title: WASI NN
+description: WASI NN example
+---
+
+This is a WASI NN (Neural Network) example. It demonstrates running machine learning inference using the WASI NN API with an OpenVINO backend. The example loads a pre-trained model, runs inference on an input tensor, and outputs the top 5 classification results.
+
+## Source Code
+
+The source code is available in the [examples/wasi-nn](https://github.com/absmach/propeller/blob/main/examples/wasi-nn/src/main.rs) directory.
+
+<CodeFromSource
+  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/wasi-nn/src/main.rs"
+  lang="rust"
+/>
+
+## Build Wasm
+
+Build the WASI NN example to WebAssembly:
+
+```bash
+cd propeller/examples/wasi-nn
+cargo build --target wasm32-wasip1 --release
+```
+
+Your output should look like this:
+
+```bash
+Compiling wasi-nn v0.1.0
+Compiling wasi-nn-example v0.1.0 (/home/user/propeller/examples/wasi-nn)
+ Finished `release` profile [optimized] target(s) in 2.34s
+```
+
+The compiled WASM file will be at `target/wasm32-wasip1/release/wasi-nn-example.wasm`.
+
+## Prepare Model Files
+
+The example requires OpenVINO model files in a `fixture` directory:
+
+```bash
+mkdir -p fixture
+# Download or copy your OpenVINO model files:
+# - model.xml (graph definition)
+# - model.bin (weights)
+# - tensor.bgr (input tensor in BGR format, 224x224x3)
+```
+
+## Create Task
+
+Create a task for the WASI NN example:
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{"name": "_start"}'
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "7e89f012-3456-789a-bcde-f0123456789a",
+  "name": "_start",
+  "kind": "standard",
+  "state": 0,
+  "cli_args": null,
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-02-27T12:00:00.000000000Z",
+  "updated_at": "0001-01-01T00:00:00Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+## Upload Wasm
+
+Upload the WASM file:
+
+```bash
+curl -X PUT "http://localhost:7070/tasks/7e89f012-3456-789a-bcde-f0123456789a/upload" \
+-F "file=@target/wasm32-wasip1/release/wasi-nn-example.wasm"
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "7e89f012-3456-789a-bcde-f0123456789a",
+  "name": "_start",
+  "kind": "standard",
+  "state": 0,
+  "file": "...<redacted>...",
+  "cli_args": null,
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-02-27T12:00:00.000000000Z",
+  "updated_at": "2026-02-27T12:01:00.000000000Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+## Start Task
+
+Start the inference task:
+
+```bash
+curl -X POST "http://localhost:7070/tasks/7e89f012-3456-789a-bcde-f0123456789a/start"
+```
+
+Your output should look like this:
+
+```json
+{ "started": true }
+```
+
+## Get Task Results
+
+Check the task results:
+
+```bash
+curl -X GET "http://localhost:7070/tasks/7e89f012-3456-789a-bcde-f0123456789a"
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "7e89f012-3456-789a-bcde-f0123456789a",
+  "name": "_start",
+  "kind": "standard",
+  "state": 3,
+  "file": "...<redacted>...",
+  "cli_args": null,
+  "daemon": false,
+  "encrypted": false,
+  "proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895",
+  "results": "",
+  "start_time": "2026-02-27T12:01:05.000000000Z",
+  "finish_time": "2026-02-27T12:01:06.500000000Z",
+  "created_at": "2026-02-27T12:00:00.000000000Z",
+  "updated_at": "2026-02-27T12:01:06.500000000Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+## Running with WasmTime
+
+You can also run the example directly with WasmTime (requires OpenVINO backend):
+
+```bash
+wasmtime run --dir fixture \
+  --wasi-modules=experimental-wasi-nn \
+  target/wasm32-wasip1/release/wasi-nn-example.wasm
+```
+
+Your output should look like this:
+
+```bash
+Read graph XML, first 50 characters: <?xml version="1.0" ?>
+<net batch="1" name="mob
+Read graph weights, size in bytes: 3469612
+Loaded graph into wasi-nn with ID: 0
+Created wasi-nn execution context with ID: 0
+Read input tensor, size in bytes: 602112
+Executed graph inference
+Found results, sorted top 5: [InferenceResult(281, 0.9875), InferenceResult(282, 0.0078), InferenceResult(285, 0.0021), InferenceResult(287, 0.0009), InferenceResult(290, 0.0004)]
+```
+
+The numbers represent ImageNet class IDs and their confidence scores.

@@ -11,6 +11,7 @@
     "http-server.mdx",
     "federated-learning.mdx",
     "tee.mdx",
-    "wasi-http.mdx"
+    "wasi-http.mdx",
+    "wasi-nn.mdx"
   ]
 }
