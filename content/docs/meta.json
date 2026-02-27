@@ -18,6 +18,7 @@
     "---Resources---",
     "api",
     "developer-guide.mdx",
-    "zephyr.mdx"
+    "zephyr.mdx",
+    "k8s-setup.mdx"
   ]
 }
