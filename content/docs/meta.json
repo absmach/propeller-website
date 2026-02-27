@@ -19,6 +19,6 @@
     "api",
     "developer-guide.mdx",
     "zephyr.mdx",
-    "k8s-setup.mdx"
+    "coco-k8s-setup.mdx"
   ]
 }
