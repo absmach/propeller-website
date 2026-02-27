@@ -3,11 +3,182 @@ title: Embedded Proplet
 description: WAMR integration for WebAssembly execution on embedded Zephyr devices
 ---
 
+## Overview
+
+Propeller integrates [WAMR](https://github.com/bytecodealliance/wasm-micro-runtime) within its decentralized worker-node framework, enabling distributed execution of WASM workloads on [Zephyr](https://www.zephyrproject.org/)-based embedded devices through the embedded proplet. The WAMR runtime is integrated into the Propeller project as a Git submodule within `embed-proplet/modules/wamr/`, ensuring modular dependency management and streamlined updates.
+
+The embedded proplet specifically targets the **ESP32-S3** (XTENSA) architecture but is adaptable to a wide range of embedded platforms including ARM, RISC-V, and others through Zephyr's platform abstraction layer.
+
+## Architecture Components
+
+The embedded proplet consists of the following core components:
+
+- **WASM Handler** (`wasm_handler.c`): Interfaces with WAMR to load, execute, and manage WASM modules
+- **MQTT Client** (`mqtt_client.c`): Handles bidirectional communication with the Manager
+- **WiFi Manager** (`wifi_manager.c`): Manages wireless connectivity and network configuration  
+- **Task Monitor** (`task_monitor.c`): Tracks resource usage and publishes metrics
+- **JSON Serialization** (`cJSON.c`): Encodes/decodes structured data for message passing
+- **Main Application** (`main.c`): Orchestrates initialization and lifecycle management
+
+## WAMR Integration Configuration
+
+The embedded proplet is configured in `CMakeLists.txt` with the following WAMR settings:
+
+```cmake
+set(WAMR_BUILD_PLATFORM "zephyr")
+set(WAMR_BUILD_TARGET "XTENSA")
+set(WAMR_BUILD_INTERP 1)          # Enable interpreter mode
+set(WAMR_BUILD_AOT 1)             # Enable AOT compilation
+set(WAMR_BUILD_LIBC_BUILTIN 1)    # Use built-in libc (not WASI)
+set(WAMR_BUILD_GLOBAL_HEAP_POOL 1)
+set(WAMR_BUILD_GLOBAL_HEAP_SIZE 40960)  # 40 KB heap
+```
+
+These settings enable:
+- Both interpreter and AOT execution modes for flexibility
+- Built-in C library support (WASI is not fully supported on Zephyr yet)
+- Memory-constrained execution with a 40 KB global heap
+
+## Prerequisites
+
+Before building the embedded proplet, ensure you have installed:
+
+1. **Zephyr SDK** (v0.16.4 or later):
+
+```bash
+wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64.tar.xz
+tar xf zephyr-sdk-0.16.5_linux-x86_64.tar.xz -C ~/
+~/zephyr-sdk-0.16.5/setup.sh
+```
+
+2. **West** (Zephyr's meta-tool):
+
+```bash
+pip install west
+```
+
+3. **CMake** (3.20.0 or later):
+
+```bash
+cmake --version  # Verify installation
+```
+
+4. **ESP-IDF Tools** (for ESP32-S3 flashing):
+
+```bash
+pip install esptool
+```
+
+5. **Python dependencies**:
+
+```bash
+pip install pyyaml
+```
+
+## Building the Embedded Proplet
+
+### Step 1: Initialize Zephyr Workspace
+
+While in the propeller repository root:
+
+```bash
+west init -m https://github.com/zephyrproject-rtos/zephyr.git --mr main zephyr-workspace
+cd zephyr-workspace
+west update
+```
+
+### Step 2: Set Zephyr Base
+
+```bash
+export ZEPHYR_BASE=$(pwd)/zephyr
+```
+
+### Step 3: Build the Embedded Proplet
+
+From the `embed-proplet/` directory:
+
+```bash
+cd embed-proplet
+west build -b esp32s3_devkitc/esp32s3/procpu -p auto .
+```
+
+Expected output (first build may take 2-5 minutes):
+```
+-- Zephyr version: 4.3.0 (...)
+-- Found PACKAGE_VERSION_ZEPHYR: 4.3.0
+[...]
+[100%] Linking C executable zephyr/zephyr.elf
+[100%] Built target zephyr_final
+Built target zephyr_final
+```
+
+### Step 4: Flash to ESP32-S3
+
+```bash
+west flash
+```
+
+Expected output:
+```
+-- west flash: using runner esptool
+esptool.py v4.7.0
+Found 1 serial ports
+Found 2 serial ports
+Serial port: /dev/ttyUSB0
+Connecting.......
+
+Flashing will start now...
+[...]
+Hard resetting via RTS pin...
+```
+
+## Network and MQTT Configuration
+
+The embedded proplet expects the following environment to be configured in `src/main.c`:
+
+```c
+#define WIFI_SSID "<YOUR_WIFI_SSID>"
+#define WIFI_PSK "<YOUR_WIFI_PSK>"
+#define PROPLET_ID "<YOUR_PROPLET_ID>"
+#define DOMAIN_ID "<YOUR_DOMAIN_ID>"
+#define CHANNEL_ID "<YOUR_CHANNEL_ID>"
+```
+
+:::note Configuration
+You must update these values in `src/main.c` before building. The embedded proplet will log these values at startup for verification.
+:::
+
+### Runtime Log Output
+
+Once flashed and powered on, monitor the device with:
+
+```bash
+west espressif monitor
+```
+
+Expected log output on successful startup:
+```
+Starting Proplet...
+[00:00:00.123,456] <inf> main: Starting Proplet...
+[00:00:00.234,567] <inf> wifi_manager: Initializing WiFi...
+[00:00:02.345,678] <inf> wifi_manager: WiFi connected to SSID
+[00:00:02.456,789] <inf> mqtt_client: Connecting to MQTT broker...
+[00:00:03.567,890] <inf> mqtt_client: MQTT connected
+[00:00:03.678,901] <inf> mqtt_client: Subscribe: /embedded/startup/discovery
+[00:00:03.789,012] <inf> main: Proplet running
+```
+
 ## WAMR Integration in the Embedded Proplet
 
-Propeller integrates [WAMR](https://github.com/bytecodealliance/wasm-micro-runtime) within its decentralized worker-node framework, enabling distributed execution of WASM workloads on [Zephyr](https://www.zephyrproject.org/)-based embedded devices through the embedded proplet. The WAMR runtime is integrated into the Propeller project as a Git submodule, ensuring modular dependency management and streamlined updates. The integration is defined within the CMakeLists.txt configuration, where WAMR is compiled as part of the Zephyr build system. The embedded proplet explicitly configures WAMR for the ESP32-S3 (XTENSA) architecture by setting `WAMR_BUILD_PLATFORM="zephyr"` and `WAMR_BUILD_TARGET="XTENSA"`. Other target options include `"ARM"`, `"RISCV"`, `"X86_64"`, and `"MIPS"`, making the embedded proplet adaptable to a wide range of embedded architectures beyond XTENSA.
+WAMR is compiled as part of the Zephyr build system. The integration is defined within the CMakeLists.txt configuration, where WAMR is compiled as part of the Zephyr build system and configured for the ESP32-S3 (XTENSA) architecture through the settings shown above.
 
-To ensure an optimal balance between performance and flexibility in embedded environments, the embedded proplet is configured to support both interpreter mode (`WAMR_BUILD_INTERP=1`) and ahead-of-time (AOT) compilation (`WAMR_BUILD_AOT=1`). The above configuration allows for efficient execution of pre-compiled WASM modules while retaining the ability to interpret dynamically loaded binaries. Disabling the interpreter (`WAMR_BUILD_INTERP=0`) mandates the use of AOT-compiled modules, potentially improving runtime efficiency but limiting flexibility. Conversely, disabling AOT (`WAMR_BUILD_AOT=0`) forces reliance on interpretation, which may introduce performance overhead but ensures broader compatibility for modules that have not been precompiled. The built-in WAMR libc (`WAMR_BUILD_LIBC_BUILTIN=1`) is utilized instead of [WASI](https://github.com/WebAssembly/WASI), as full WASI support in Zephyr is still evolving. Furthermore, a global heap pool (`WAMR_BUILD_GLOBAL_HEAP_POOL=1`) is allocated with a size of 40 KB (`WAMR_BUILD_GLOBAL_HEAP_SIZE=40960`), ensuring efficient memory management for WASM execution.
+To ensure an optimal balance between performance and flexibility in embedded environments, the embedded proplet is configured to support both interpreter mode (`WAMR_BUILD_INTERP=1`) and ahead-of-time (AOT) compilation (`WAMR_BUILD_AOT=1`). This dual-mode configuration allows for:
+
+- **Efficient execution** of pre-compiled AOT modules
+- **Flexibility** to interpret dynamically loaded binaries
+- **Performance optimization** for resource-constrained devices
+
+The built-in WAMR libc (`WAMR_BUILD_LIBC_BUILTIN=1`) is utilized instead of [WASI](https://github.com/WebAssembly/WASI), as full WASI support in Zephyr is still evolving. A global heap pool (`WAMR_BUILD_GLOBAL_HEAP_POOL=1`) is allocated with a size of 40 KB (`WAMR_BUILD_GLOBAL_HEAP_SIZE=40960`), ensuring efficient memory management for WASM execution on memory-constrained devices.
 
 ## Extending the Zephyr Build System for WAMR Integration
 
@@ -192,12 +363,12 @@ Configuration options are split between `prj.conf` and `esp32s3-devkitc.conf`, w
 3. **`esp32s3-devkitc.overlay`:**
    - Extends or modifies the board's Devicetree source.
 
-### **Configuration Hierarchy**
+## Configuration Files and Hierarchy
 
-Zephyr processes files in this order:
+Configuration in Zephyr follows a strict hierarchy. Settings from later files override earlier ones:
 
-1. **Default Kconfig files**: Zephyr subsystems and modules.
-2. **Board files**: `esp32s3-devkitc.conf` overrides defaults.
-3. **Application files**: `prj.conf` overrides earlier settings.
+1. **Zephyr defaults** - Base configurations from Zephyr subsystems
+2. **Board configs** - `esp32s3_devkitc.conf` (board-specific overrides)
+3. **Application config** - `prj.conf` (application-wide settings - highest priority)
 
-If a setting appears in both `prj.conf` and `esp32s3-devkitc.conf`, the value in `prj.conf` takes precedence. Avoid duplicate definitions to prevent conflicts.
+### `prj.conf` - Configuration Hierarchy
