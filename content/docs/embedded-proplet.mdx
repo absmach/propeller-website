@@ -371,4 +371,157 @@ Configuration in Zephyr follows a strict hierarchy. Settings from later files ov
 2. **Board configs** - `esp32s3_devkitc.conf` (board-specific overrides)
 3. **Application config** - `prj.conf` (application-wide settings - highest priority)
 
-### `prj.conf` - Configuration Hierarchy
+### `prj.conf` - Zephyr Configuration Priority
+
+If a setting appears in both `prj.conf` and `esp32s3-devkitc.conf`, the value in `prj.conf` takes precedence. Avoid duplicate definitions to prevent unpredictable behavior.
+
+## Troubleshooting Common Build Issues
+
+### Issue 1: CMake Can't Find Threads
+
+**Error Output:**
+```
+Could NOT find Threads (missing: Threads_FOUND)
+...
+FATAL ERROR: command exited with status 1: ...
+```
+
+**Root Cause:**
+WAMR's CMakeLists.txt tries to find pthread on the host system (Linux/Windows/macOS), but cross-compilation for ESP32-S3 doesn't use the host's pthread library. Zephyr's embedded threading is different.
+
+**Solution:**
+Edit `embed-proplet/modules/wamr/wasm-micro-runtime/CMakeLists.txt` and wrap the problematic lines:
+
+```cmake
+# BEFORE (causes error on Zephyr):
+set (THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+# AFTER (skip on Zephyr):
+if (NOT WAMR_BUILD_PLATFORM STREQUAL "zephyr")
+  set (THREADS_PREFER_PTHREAD_FLAG ON)
+  find_package(Threads REQUIRED)
+endif()
+```
+
+Then clean and rebuild:
+```bash
+rm -rf build
+west build -b esp32s3_devkitc/esp32s3/procpu -p auto .
+```
+
+### Issue 2: Shared Library Warning
+
+**Warning Output:**
+```
+ADD_LIBRARY called with SHARED option but the target platform does not support
+dynamic linking. Building a STATIC library instead. This may lead to problems.
+```
+
+**Root Cause:**
+Zephyr does not support dynamic linking on ESP32-S3. WAMR tries to build a shared library which gets silently converted to static, causing the warning.
+
+**Solution Option A - Disable Shared Library:**
+In `embed-proplet/modules/wamr/wasm-micro-runtime/CMakeLists.txt`, after setting `WAMR_BUILD_PLATFORM="zephyr"`, add:
+
+```cmake
+if (WAMR_BUILD_PLATFORM STREQUAL "zephyr")
+  set(WAMR_BUILD_SHARED 0 CACHE BOOL "Disable shared library on Zephyr" FORCE)
+endif ()
+```
+
+**Solution Option B - Guard the Shared Library Block:**
+Wrap the shared library build with:
+
+```cmake
+# SHARED LIBRARY
+if (WAMR_BUILD_SHARED AND NOT WAMR_BUILD_PLATFORM STREQUAL "zephyr")
+    add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
+    # ... rest of shared library configuration
+endif ()
+```
+
+Either approach eliminates the warning and results in only a static WAMR build (`iwasm_static`), which is what Zephyr needs.
+
+### Issue 3: Configuration Not Taking Effect
+
+**Symptom:**
+Settings in `prj.conf` don't appear to be applied.
+
+**Solution:**
+Clean the build directory and rebuild:
+```bash
+rm -rf build
+west build -b esp32s3_devkitc/esp32s3/procpu -p auto .
+```
+
+Check the configuration precedence:
+1. Does `esp32s3_devkitc.conf` exist and override your setting?
+2. Is your setting in `prj.conf` spelled correctly?
+3. Are there conflicting settings in both files?
+
+### Issue 4: MQTT Connection Failures
+
+**Symptoms:**
+- `MQTT connect failed` in logs
+- Cannot reach SuperMQ broker
+
+**Debug Steps:**
+1. Verify WiFi connected successfully:
+   ```
+   [00:00:02.345,678] <inf> wifi_manager: WiFi connected to SSID
+   ```
+
+2. Check MQTT configuration in `src/main.c`:
+   - Domain ID matches SuperMQ configuration
+   - Channel ID is correct
+   - Proplet ID is unique
+
+3. Enable debug logging in `prj.conf`:
+   ```ini
+   CONFIG_MQTT_LOG_LEVEL_DBG=y
+   CONFIG_NET_LOG=y
+   ```
+
+4. Monitor with:
+   ```bash
+   west espressif monitor
+   ```
+
+### Issue 5: Out of Memory Errors
+
+**Symptoms:**
+- WASM module fails to load
+- "No memory" errors in logs
+
+**Solution:**
+The embedded proplet has these memory limits (from `CMakeLists.txt`):
+- Global WAMR heap: 40 KB
+- Per-module stack: 16 KB  
+- Per-module heap: 16 KB
+- Total system heap: 64 KB
+
+If WASM modules are too large:
+1. Use AOT compilation instead of interpreter mode (more compact)
+2. Increase `WAMR_BUILD_GLOBAL_HEAP_SIZE` in `CMakeLists.txt`
+3. Reduce heap allocations in other subsystems via `prj.conf`
+
+:::note Memory Constraints
+The ESP32-S3 has 520 KB of SRAM total. Budget for:
+- Zephyr kernel: ~100 KB
+- WiFi/MQTT stack: ~150 KB  
+- Logging buffers: ~20 KB
+- WAMR and modules: ~40 KB
+- User heap: ~210 KB
+
+Trying to load multiple large WASM modules simultaneously will fail.
+:::
+
+## Next Steps
+
+After successfully building and flashing the embedded proplet:
+
+1. **Verify Connectivity**: Confirm MQTT messages appear in the Propeller Manager logs
+2. **Test WASM Execution**: Send a simple WASM module (e.g., addition.wasm) via Manager
+3. **Monitor Resources**: Check memory usage and latency via proplet logs
+4. **Scale Testing**: Test with multiple embedded proplets to verify load balancing
