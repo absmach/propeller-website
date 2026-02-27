@@ -1,209 +1,416 @@
 ---
 title: Kubernetes Operator
-description: Deploy and manage Propeller on Kubernetes clusters using the Propeller Kubernetes Operator
+description: Deploy and manage Propeller workloads on Kubernetes using the Propeller K8s Operator
 ---
+
+The [Propeller K8s Operator](https://github.com/absmach/propeller-k8s-operator) is a Kubernetes operator designed to manage and schedule tasks on a fleet of devices, which can be either Kubernetes pods or external devices. It introduces two custom resources: `Proplet` and `Task`.
 
 ## Overview
 
-The [Propeller Kubernetes Operator](https://github.com/absmach/propeller-k8s-operator) provides a Kubernetes-native way to deploy and manage Propeller components. It handles the orchestration of Propeller deployments, scaling, and resource management within Kubernetes clusters.
+The operator enables users to define a pool of worker nodes (`Proplets`) and schedule tasks (`Tasks`) to be executed on them. This is particularly useful for IoT and edge computing scenarios where tasks need to be offloaded to a distributed network of devices.
 
-## Features
+### Key Features
 
-**Deployment and Management:**
+- **Hybrid Worker Management**: Manage both Kubernetes-native workers (as `Deployments`) and external devices (e.g., IoT devices, bare-metal servers) as a unified pool of resources
+- **Task Scheduling**: A sophisticated scheduling mechanism that allows `Tasks` to specify requirements for the `Proplets` they can run on, including resource requirements, device capabilities, and label-based selection
+- **MQTT Integration**: The operator communicates with external `Proplets` via the MQTT protocol, allowing for real-time status updates and task management
+- **Extensible Scheduling**: The scheduling logic is pluggable, with a round-robin scheduler provided by default
 
-- Deploy Propeller components (Manager, Proplet, Proxy) as Kubernetes resources
-- Automated lifecycle management (scaling, restarting, monitoring)
-- Custom Resource Definitions (CRDs) for Propeller workloads
+## Architecture
 
-**Resource Management:**
+The operator consists of two main controllers:
 
-- Monitor and scale proplets based on resource utilization
-- Dynamically adjust proplet count based on workload demand
-- Integration with Kubernetes Horizontal Pod Autoscaler (HPA)
+- **`PropletReconciler`**: This controller manages the lifecycle of `Proplet` resources. For `k8s` Proplets, it creates and manages a corresponding `Deployment`. For `external` Proplets, it monitors their health via MQTT liveness messages
+- **`TaskReconciler`**: This controller manages the lifecycle of `Task` resources. It finds a suitable `Proplet` based on the Task's requirements, schedules the Task to a Proplet, and monitors the Task's execution
 
-**Security and Compliance:**
+### MQTT Communication
 
-- Secure communication between Propeller components
-- RBAC integration with Kubernetes
-- Compliance with privacy regulations and best practices
+The operator uses MQTT to communicate with external Proplets. The communication is structured around a base topic, and the operator subscribes to topics for liveness and task results, and publishes messages to start tasks.
 
-## Installation
+## Getting Started
 
 ### Prerequisites
 
-- Kubernetes cluster (v1.25+)
-- `kubectl` configured to access your cluster
-- Helm 3.x (optional, for Helm-based installation)
+- A Kubernetes cluster (v1.25+)
+- `kubectl` installed and configured to communicate with your cluster
+- An MQTT broker accessible from your cluster
 
-### Install the Operator
+### Installation
 
-Clone the operator repository:
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/absmach/propeller-k8s-operator.git
+   cd propeller-k8s-operator
+   ```
+
+2. **Install the CRDs:**
+
+   ```bash
+   make install
+   ```
+
+3. **Deploy the operator:**
+
+   ```bash
+   make deploy
+   ```
+
+4. **Verify the operator is running:**
+
+   ```bash
+   kubectl get pods -n propeller-k8s-operator-system
+   ```
+
+   Expected output:
+   ```
+   NAME                                                       READY   STATUS    RESTARTS   AGE
+   propeller-k8s-operator-controller-manager-xxxxx-xxxxx      1/1     Running   0          30s
+   ```
+
+## Custom Resources
+
+The operator introduces two Custom Resource Definitions (CRDs):
+
+### Proplet
+
+A `Proplet` represents a worker node that is available to execute Tasks. There are two types:
+
+| Type | Description |
+| ---- | ----------- |
+| `k8s` | A Proplet managed by the operator, runs as a `Deployment` within the Kubernetes cluster |
+| `external` | A Proplet representing an external device that communicates with the operator via MQTT |
+
+**Example Proplet (k8s):**
+
+```yaml
+apiVersion: propeller.propeller.abstractmachines.fr/v1
+kind: Proplet
+metadata:
+  name: my-k8s-proplet
+spec:
+  type: k8s
+  k8s:
+    image: docker.io/myorg/propeller-proplet:latest
+    logLevel: info
+    replicas: 1
+  resources:
+    cpu: 50m
+    memory: 128Mi
+  connectionConfig:
+    domainId: "cbba98e5-84a9-422c-ad00-f6ee21d6695a"
+    channelId: "16722ec1-ce8a-446d-a829-d83459f1c40e"
+    clientId: "ef007c37-3253-4860-9986-cc9262a8e0f1"
+    clientKey: "b07514e4-05a6-40bc-acde-3030e757839c"
+    mqttAddress: tcp://mqtt-broker:1883
+    mqttQos: 1
+    mqttTimeout: 10s
+```
+
+**Example Proplet (external):**
+
+```yaml
+apiVersion: propeller.propeller.abstractmachines.fr/v1
+kind: Proplet
+metadata:
+  name: my-external-proplet
+spec:
+  type: external
+  external:
+    deviceType: raspberry-pi
+    capabilities:
+      - gpio
+      - sensor
+  connectionConfig:
+    domainId: "cbba98e5-84a9-422c-ad00-f6ee21d6695a"
+    channelId: "16722ec1-ce8a-446d-a829-d83459f1c40e"
+    clientId: "fa407362-9c5f-41b8-9a09-9d0c0b039287"
+    clientKey: "991c4d03-2f2c-4ba5-97a6-45bead85457e"
+    mqttAddress: tcp://mqtt-broker:1883
+    mqttQos: 1
+    mqttTimeout: 30s
+```
+
+#### Proplet Spec Fields
+
+| Field | Type | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `type` | `k8s` \| `external` | Yes | Type of proplet |
+| `k8s.image` | string | Yes (for k8s) | Container image for the proplet |
+| `k8s.logLevel` | `debug` \| `info` \| `warn` \| `error` | No | Log level (default: `info`) |
+| `k8s.replicas` | int | No | Number of replicas (default: 1) |
+| `external.deviceType` | string | No | Type of external device (e.g., `raspberry-pi`, `esp32`) |
+| `external.capabilities` | []string | No | Device capabilities (e.g., `gpio`, `sensor`) |
+| `resources.cpu` | string | No | CPU resource limit (e.g., `50m`) |
+| `resources.memory` | string | No | Memory resource limit (e.g., `128Mi`) |
+| `connectionConfig` | object | Yes | MQTT connection configuration |
+
+#### Proplet Status
+
+| Field | Description |
+| ----- | ----------- |
+| `phase` | Current phase: `Initializing`, `Running`, `Offline` |
+| `conditions` | List of conditions: `Ready`, `Connected`, `Healthy` |
+| `lastSeen` | Timestamp of last heartbeat |
+| `taskCount` | Number of tasks executed |
+| `k8sStatus.readyReplicas` | Ready replicas (for k8s type) |
+| `k8sStatus.availableReplicas` | Available replicas (for k8s type) |
+
+### Task
+
+A `Task` represents a unit of work to be executed on a Proplet. It specifies the function to be executed, any required inputs, and constraints for selecting a suitable Proplet.
+
+**Example Task:**
+
+```yaml
+apiVersion: propeller.propeller.abstractmachines.fr/v1
+kind: Task
+metadata:
+  name: addition-task
+spec:
+  name: addition-base64-encoded
+  functionName: main
+  file: "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL"
+  inputs:
+    - 10
+    - 32
+  propletSelector:
+    matchCapabilities:
+      - sensor
+  resourceRequirements:
+    cpu: "500m"
+    memory: "256Mi"
+```
+
+**Example Task with Image URL:**
+
+```yaml
+apiVersion: propeller.propeller.abstractmachines.fr/v1
+kind: Task
+metadata:
+  name: my-wasm-task
+spec:
+  name: process-data
+  functionName: main
+  imageUrl: "docker.io/myorg/my-wasm-module:latest"
+  cliArgs:
+    - "--verbose"
+  propletSelector:
+    propletId: "my-k8s-proplet"
+  preferredPropletType: k8s
+```
+
+#### Task Spec Fields
+
+| Field | Type | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `name` | string | Yes | Task name (1-253 characters) |
+| `functionName` | string | Yes | Function to execute in the WASM module |
+| `imageUrl` | string | No | OCI image URL for the WASM binary |
+| `file` | base64 | No | Base64-encoded WASM binary |
+| `cliArgs` | []string | No | Command-line arguments for the runtime |
+| `inputs` | []uint64 | No | Input values for the function |
+| `propletSelector.propletId` | string | No | Target a specific proplet by ID |
+| `propletSelector.matchLabels` | map | No | Match proplets by labels |
+| `propletSelector.matchDeviceTypes` | []string | No | Match by device type |
+| `propletSelector.matchCapabilities` | []string | No | Match by capabilities |
+| `preferredPropletType` | `k8s` \| `external` \| `any` | No | Preferred proplet type (default: `any`) |
+| `resourceRequirements.cpu` | string | No | CPU requirement (e.g., `500m`) |
+| `resourceRequirements.memory` | string | No | Memory requirement (e.g., `256Mi`) |
+
+#### Task Status
+
+| Field | Description |
+| ----- | ----------- |
+| `phase` | Current phase: `pending`, `scheduled`, `running`, `completed`, `failed` |
+| `assignedProplet` | Name of the proplet executing this task |
+| `createdAt` | Task creation timestamp |
+| `startedAt` | Task start timestamp |
+| `finishedAt` | Task completion timestamp |
+| `results` | Task output/results |
+| `error` | Error message (if failed) |
+| `conditions` | List of conditions: `Scheduled`, `Started`, `Completed` |
+
+## Usage Examples
+
+### Creating a Proplet and Task
+
+1. **Create a Proplet:**
+
+   Create a file named `my-proplet.yaml`:
+
+   ```yaml
+   apiVersion: propeller.propeller.abstractmachines.fr/v1
+   kind: Proplet
+   metadata:
+     name: demo-proplet
+   spec:
+     type: k8s
+     k8s:
+       image: docker.io/myorg/propeller-proplet:latest
+       logLevel: info
+       replicas: 1
+     connectionConfig:
+       domainId: "your-domain-id"
+       channelId: "your-channel-id"
+       clientId: "your-client-id"
+       clientKey: "your-client-key"
+       mqttAddress: tcp://mqtt-broker:1883
+   ```
+
+   Apply the manifest:
+
+   ```bash
+   kubectl apply -f my-proplet.yaml
+   ```
+
+2. **Verify the Proplet:**
+
+   ```bash
+   kubectl get proplets
+   ```
+
+   Expected output:
+   ```
+   NAME           TYPE   PHASE     READY   TASKS   REPLICAS   LAST SEEN   AGE
+   demo-proplet   k8s    Running   True    0       1          10s         30s
+   ```
+
+3. **Create a Task:**
+
+   Create a file named `my-task.yaml`:
+
+   ```yaml
+   apiVersion: propeller.propeller.abstractmachines.fr/v1
+   kind: Task
+   metadata:
+     name: addition-task
+   spec:
+     name: addition
+     functionName: main
+     file: "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL"
+     inputs:
+       - 10
+       - 32
+   ```
+
+   Apply the manifest:
+
+   ```bash
+   kubectl apply -f my-task.yaml
+   ```
+
+4. **Monitor the Task:**
+
+   ```bash
+   kubectl get tasks
+   ```
+
+   Expected output:
+   ```
+   NAME            PHASE       FUNCTION   PROPLET        START TIME   FINISH TIME   PREFERRED TYPE   AGE
+   addition-task   completed   main       demo-proplet   10s          5s            any              15s
+   ```
+
+5. **View Task Results:**
+
+   ```bash
+   kubectl get task addition-task -o jsonpath='{.status.results}'
+   ```
+
+   Expected output:
+   ```
+   42
+   ```
+
+### Scheduling Tasks to Specific Proplets
+
+Target a specific proplet by ID:
+
+```yaml
+spec:
+  propletSelector:
+    propletId: "my-specific-proplet"
+```
+
+Target proplets with specific capabilities:
+
+```yaml
+spec:
+  propletSelector:
+    matchCapabilities:
+      - gpio
+      - sensor
+```
+
+Target proplets with specific labels:
+
+```yaml
+spec:
+  propletSelector:
+    matchLabels:
+      environment: production
+      region: us-west
+```
+
+## ConnectionConfig
+
+The `connectionConfig` field is required for MQTT communication:
+
+| Field | Type | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `domainId` | string | Yes | SuperMQ domain ID |
+| `channelId` | string | Yes | SuperMQ channel ID |
+| `clientId` | string | Yes | SuperMQ client ID |
+| `clientKey` | string | Yes | SuperMQ client key |
+| `mqttAddress` | string | Yes | MQTT broker address (e.g., `tcp://mqtt:1883`) |
+| `mqttTimeout` | duration | No | MQTT timeout (default: `30s`) |
+| `mqttQos` | 0-2 | No | MQTT QoS level (default: `0`) |
+
+## Development
+
+To contribute to the development of the Propeller K8s Operator:
+
+### Prerequisites
+
+- Go 1.24+
+- Docker
+- `make`
+
+### Building from Source
 
 ```bash
 git clone https://github.com/absmach/propeller-k8s-operator.git
 cd propeller-k8s-operator
+make build
 ```
 
-Deploy the operator to your cluster:
+### Running Tests
 
 ```bash
-make deploy
+make test
 ```
 
-Verify the operator is running:
+### Running Locally
 
 ```bash
-kubectl get pods -n propeller-system
-```
-
-Expected output:
-```
-NAME                                      READY   STATUS    RESTARTS   AGE
-propeller-controller-manager-xxxxx-xxxxx  1/1     Running   0          30s
-```
-
-## Custom Resources
-
-### PropellerManager
-
-Deploy a Propeller Manager instance:
-
-```yaml
-apiVersion: propeller.absmach.eu/v1alpha1
-kind: PropellerManager
-metadata:
-  name: propeller-manager
-spec:
-  replicas: 1
-  storage:
-    type: postgres
-    connectionString: "postgres://user:pass@postgres:5432/propeller"
-  mqtt:
-    broker: "tcp://supermq-mqtt:1883"
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "100m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-```
-
-### PropellerProplet
-
-Deploy Proplet workers:
-
-```yaml
-apiVersion: propeller.absmach.eu/v1alpha1
-kind: PropellerProplet
-metadata:
-  name: propeller-proplet
-spec:
-  replicas: 3
-  runtime: wasmtime  # or "host", "tee"
-  managerUrl: "http://propeller-manager:7070"
-  mqtt:
-    broker: "tcp://supermq-mqtt:1883"
-  resources:
-    requests:
-      memory: "128Mi"
-      cpu: "50m"
-    limits:
-      memory: "256Mi"
-      cpu: "200m"
-```
-
-### PropellerProxy
-
-Deploy the OCI proxy:
-
-```yaml
-apiVersion: propeller.absmach.eu/v1alpha1
-kind: PropellerProxy
-metadata:
-  name: propeller-proxy
-spec:
-  replicas: 1
-  registry:
-    url: "docker.io"
-  mqtt:
-    broker: "tcp://supermq-mqtt:1883"
-  resources:
-    requests:
-      memory: "64Mi"
-      cpu: "50m"
-```
-
-## Configuration
-
-### Environment Variables
-
-The operator supports the following environment variables:
-
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `PROPELLER_NAMESPACE` | Namespace for Propeller resources | `propeller-system` |
-| `WATCH_NAMESPACE` | Namespace to watch for CRDs (empty = all) | `""` |
-| `ENABLE_WEBHOOKS` | Enable admission webhooks | `true` |
-| `METRICS_BIND_ADDRESS` | Address for metrics endpoint | `:8080` |
-| `HEALTH_PROBE_BIND_ADDRESS` | Address for health probes | `:8081` |
-
-### Scaling
-
-The operator supports automatic scaling based on workload demand:
-
-```yaml
-apiVersion: propeller.absmach.eu/v1alpha1
-kind: PropellerProplet
-metadata:
-  name: propeller-proplet
-spec:
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilization: 70
-  targetMemoryUtilization: 80
-```
-
-## Monitoring
-
-The operator exposes Prometheus metrics at `/metrics`:
-
-| Metric | Description |
-| ------ | ----------- |
-| `propeller_manager_tasks_total` | Total tasks created |
-| `propeller_proplet_count` | Number of active proplets |
-| `propeller_task_execution_duration_seconds` | Task execution duration histogram |
-
-Enable ServiceMonitor for Prometheus Operator integration:
-
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: propeller-operator
-spec:
-  selector:
-    matchLabels:
-      app: propeller-operator
-  endpoints:
-    - port: metrics
-      interval: 30s
+make run
 ```
 
 ## Uninstallation
 
-Remove Propeller resources:
+Remove all Propeller resources:
 
 ```bash
-kubectl delete propellermanagers --all
-kubectl delete propellerproplets --all
-kubectl delete propellerproxies --all
+kubectl delete tasks --all
+kubectl delete proplets --all
 ```
 
-Remove the operator:
+Remove the operator and CRDs:
 
 ```bash
 make undeploy
+make uninstall
 ```
 
 ## Next Steps
@@ -212,5 +419,5 @@ make undeploy
 | ----- | ----------- |
 | [Manager](/docs/manager) | Configure the Manager service |
 | [Proplet](/docs/proplet) | Configure Proplet worker nodes |
-| [Monitoring](/docs/monitoring) | Enable process-level metrics collection |
+| [Getting Started](/docs/getting-started) | Complete setup guide |
 | [Architecture](/docs/architecture) | System architecture overview |
