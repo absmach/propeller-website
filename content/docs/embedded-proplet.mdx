@@ -41,61 +41,24 @@ These settings enable:
 
 ## Prerequisites
 
-Before building the embedded proplet, ensure you have installed:
+Before building the embedded proplet, complete the environment setup in [Deploying WAMR on Zephyr](/docs/zephyr):
 
-1. **Zephyr SDK** (v0.16.4 or later):
+1. [Set Up Zephyr Development Environment](/docs/zephyr#1-set-up-zephyr-development-environment) - Install dependencies, west, and Zephyr SDK
+2. [Install ESP-IDF](/docs/zephyr#2-install-esp-idf-on-your-development-machine) - Required for ESP32-S3 flashing
+3. [Test Zephyr's Integration with ESP-IDF](/docs/zephyr#3-test-zephyrs-integration-with-esp-idf) - Verify your toolchain works
 
-```bash
-wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5/zephyr-sdk-0.16.5_linux-x86_64.tar.xz
-tar xf zephyr-sdk-0.16.5_linux-x86_64.tar.xz -C ~/
-~/zephyr-sdk-0.16.5/setup.sh
-```
-
-2. **West** (Zephyr's meta-tool):
+After completing those steps, ensure your environment is active:
 
 ```bash
-pip install west
-```
-
-3. **CMake** (3.20.0 or later):
-
-```bash
-cmake --version  # Verify installation
-```
-
-4. **ESP-IDF Tools** (for ESP32-S3 flashing):
-
-```bash
-pip install esptool
-```
-
-5. **Python dependencies**:
-
-```bash
-pip install pyyaml
+source ~/zephyrproject/.venv/bin/activate
+export ZEPHYR_BASE=~/zephyrproject/zephyr
 ```
 
 ## Building the Embedded Proplet
 
-### Step 1: Initialize Zephyr Workspace
+### Step 1: Build the Embedded Proplet
 
-While in the propeller repository root:
-
-```bash
-west init -m https://github.com/zephyrproject-rtos/zephyr.git --mr main zephyr-workspace
-cd zephyr-workspace
-west update
-```
-
-### Step 2: Set Zephyr Base
-
-```bash
-export ZEPHYR_BASE=$(pwd)/zephyr
-```
-
-### Step 3: Build the Embedded Proplet
-
-From the `embed-proplet/` directory:
+From the `embed-proplet/` directory in the Propeller repository:
 
 ```bash
 cd embed-proplet
@@ -112,7 +75,7 @@ Expected output (first build may take 2-5 minutes):
 Built target zephyr_final
 ```
 
-### Step 4: Flash to ESP32-S3
+### Step 2: Flash to ESP32-S3
 
 ```bash
 west flash
@@ -376,6 +339,8 @@ Configuration in Zephyr follows a strict hierarchy. Settings from later files ov
 If a setting appears in both `prj.conf` and `esp32s3-devkitc.conf`, the value in `prj.conf` takes precedence. Avoid duplicate definitions to prevent unpredictable behavior.
 
 ## Troubleshooting Common Build Issues
+
+For general Zephyr issues (permissions, `west` not found, board qualifiers, serial port conflicts), see [Potential Pitfalls and Solutions](/docs/zephyr#potential-pitfalls-and-solutions). This section covers WAMR-specific issues.
 
 ### Issue 1: CMake Can't Find Threads
 
@@ -839,3 +804,12 @@ west flash
 :::note Cross-Platform Testing
 When porting to a new platform, test with a minimal WASM module first (like `addition.wasm`) before deploying complex workloads. This helps isolate platform-specific issues from application bugs.
 :::
+
+## Related Documentation
+
+| Topic | Description |
+| ----- | ----------- |
+| [Deploying WAMR on Zephyr](/docs/zephyr) | Set up Zephyr, ESP-IDF, and WAMR development environment |
+| [Proplet](/docs/proplet) | Full-featured Rust Proplet for Linux/containerized environments |
+| [HAL](/docs/hal) | Hardware Abstraction Layer for different runtime environments |
+| [Examples](/docs/examples) | WASM module examples including the `addition.wasm` test module |
