@@ -31,6 +31,7 @@ To build Propeller, you will need the following:
 TinyGo supports Go versions 1.19 through 1.23, but the project's `go.mod` requires Go 1.25.5. This creates a compatibility issue for building WASM examples.
 
 **Workaround**: Install Go 1.23.5 separately and it will be used automatically:
+
 ```bash
 go install golang.org/dl/go1.23.5@latest
 ~/go/bin/go1.23.5 download
@@ -47,7 +48,9 @@ Use the GNU Make tool to build all Propeller services:
 make all
 ```
 
-This will build all Go services (manager, cli, proxy), Rust proplet, and WASM examples for your platform. **Note**: This requires both Go and Rust toolchains to be installed.
+This will build all Go services (manager, cli, proxy), Rust proplet, and WASM examples for your platform. 
+
+**Note**: This requires both Go and Rust toolchains to be installed.
 
 :::tip Building Only Go Services
 To build only the Go services without Rust and WASM dependencies:
@@ -172,6 +175,7 @@ This installs:
 The project uses [mockery](https://vektra.github.io/mockery/latest/installation/) to generate mock interfaces for testing. The `make test` and `make test-all` targets automatically run `mockery --config .mockery.yaml` to generate mocks before running tests.
 
 **Important**: The project migrated from mockery v2 to v3. If you have an older version installed, update it:
+
 ```bash
 go install github.com/vektra/mockery/v2@latest
 ```
@@ -186,6 +190,7 @@ make test
 ```
 
 Example output:
+
 ```bash
 Generating mocks...
 mockery --config .mockery.yaml
@@ -237,6 +242,7 @@ make start-supermq
 This runs `docker compose -f docker/compose.yaml --env-file docker/.env up -d` and starts all required SuperMQ services.
 
 Example output:
+
 ```bash
 docker compose -f docker/compose.yaml --env-file docker/.env up -d
 WARN[0000] Found orphan containers ([supermq-ws]) for this project. If you removed
@@ -306,18 +312,21 @@ Then uncomment the volumes sections in `docker/compose.yaml` to mount the config
 To configure Docker containers to use your generated `config.toml`, update the `docker/compose.yaml` file to uncomment the volumes sections for manager, proplet, and proxy services.
 
 For the manager service:
+
 ```yaml
 volumes:
   - ./config.toml:/config.toml
 ```
 
 For the proplet service:
+
 ```yaml
 volumes:
   - ./config.toml:/home/proplet/config.toml
 ```
 
 For the proxy service:
+
 ```yaml
 volumes:
   - ./config.toml:/config.toml
@@ -361,11 +370,13 @@ make stop-supermq
 ### TinyGo WASM Build Failures
 
 **Problem**: Building WASM examples with `make addition` fails with:
-```
+
+```bash
 requires go version 1.19 through 1.23, got go1.25
 ```
 
 **Solution**: The project uses Go 1.25.5 but TinyGo only supports Go 1.19-1.23. Install Go 1.23.5:
+
 ```bash
 go install golang.org/dl/go1.23.5@latest
 ~/go/bin/go1.23.5 download
@@ -376,11 +387,13 @@ The Makefile has been updated to automatically use Go 1.23.5 for WASM builds.
 ### Installation Permission Denied
 
 **Problem**: `make install` fails with:
-```
+
+```bash
 cp: cannot create regular file '/propeller-*': Permission denied
 ```
 
 **Solution**: The `$GOBIN` environment variable must be set before running `make install`:
+
 ```bash
 export GOBIN=~/go/bin
 make install
@@ -393,6 +406,7 @@ Without `$GOBIN`, the install target tries to write binaries to the system root 
 **Problem**: Tests fail with mockery errors or undefined mock functions like `NewPubSub`.
 
 **Solution**: The project has been migrated to mockery v3. Ensure you have the latest version:
+
 ```bash
 go install github.com/vektra/mockery/v2@latest
 ```
@@ -408,6 +422,7 @@ The `.mockery.yaml` configuration file has been updated for mockery v3 compatibi
 2. Missing wasip2 support - ensure you have TinyGo 0.34.0 or later with wasip2 target
 
 **Verify setup**:
+
 ```bash
 tinygo version  # Should be 0.34.0 or later
 go version      # Should be 1.25.5 (Go 1.23.5 will be used for WASM builds)
@@ -419,6 +434,7 @@ wasmtime --version  # Should be 42.0.1 or later
 **Problem**: Some SuperMQ containers keep restarting or failing to start.
 
 **Solution**: Check container logs:
+
 ```bash
 docker compose -f docker/compose.yaml logs [service-name]
 ```
@@ -429,6 +445,7 @@ Common issues:
 - Memory: SuperMQ requires 4GB+ RAM to start all services
 
 To clean up and restart:
+
 ```bash
 make stop-supermq
 docker compose -f docker/compose.yaml down -v  # Remove volumes
