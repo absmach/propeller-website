@@ -1,0 +1,216 @@
+---
+title: Kubernetes Operator
+description: Deploy and manage Propeller on Kubernetes clusters using the Propeller Kubernetes Operator
+---
+
+## Overview
+
+The [Propeller Kubernetes Operator](https://github.com/absmach/propeller-k8s-operator) provides a Kubernetes-native way to deploy and manage Propeller components. It handles the orchestration of Propeller deployments, scaling, and resource management within Kubernetes clusters.
+
+## Features
+
+**Deployment and Management:**
+
+- Deploy Propeller components (Manager, Proplet, Proxy) as Kubernetes resources
+- Automated lifecycle management (scaling, restarting, monitoring)
+- Custom Resource Definitions (CRDs) for Propeller workloads
+
+**Resource Management:**
+
+- Monitor and scale proplets based on resource utilization
+- Dynamically adjust proplet count based on workload demand
+- Integration with Kubernetes Horizontal Pod Autoscaler (HPA)
+
+**Security and Compliance:**
+
+- Secure communication between Propeller components
+- RBAC integration with Kubernetes
+- Compliance with privacy regulations and best practices
+
+## Installation
+
+### Prerequisites
+
+- Kubernetes cluster (v1.25+)
+- `kubectl` configured to access your cluster
+- Helm 3.x (optional, for Helm-based installation)
+
+### Install the Operator
+
+Clone the operator repository:
+
+```bash
+git clone https://github.com/absmach/propeller-k8s-operator.git
+cd propeller-k8s-operator
+```
+
+Deploy the operator to your cluster:
+
+```bash
+make deploy
+```
+
+Verify the operator is running:
+
+```bash
+kubectl get pods -n propeller-system
+```
+
+Expected output:
+```
+NAME                                      READY   STATUS    RESTARTS   AGE
+propeller-controller-manager-xxxxx-xxxxx  1/1     Running   0          30s
+```
+
+## Custom Resources
+
+### PropellerManager
+
+Deploy a Propeller Manager instance:
+
+```yaml
+apiVersion: propeller.absmach.eu/v1alpha1
+kind: PropellerManager
+metadata:
+  name: propeller-manager
+spec:
+  replicas: 1
+  storage:
+    type: postgres
+    connectionString: "postgres://user:pass@postgres:5432/propeller"
+  mqtt:
+    broker: "tcp://supermq-mqtt:1883"
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+```
+
+### PropellerProplet
+
+Deploy Proplet workers:
+
+```yaml
+apiVersion: propeller.absmach.eu/v1alpha1
+kind: PropellerProplet
+metadata:
+  name: propeller-proplet
+spec:
+  replicas: 3
+  runtime: wasmtime  # or "host", "tee"
+  managerUrl: "http://propeller-manager:7070"
+  mqtt:
+    broker: "tcp://supermq-mqtt:1883"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+```
+
+### PropellerProxy
+
+Deploy the OCI proxy:
+
+```yaml
+apiVersion: propeller.absmach.eu/v1alpha1
+kind: PropellerProxy
+metadata:
+  name: propeller-proxy
+spec:
+  replicas: 1
+  registry:
+    url: "docker.io"
+  mqtt:
+    broker: "tcp://supermq-mqtt:1883"
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+```
+
+## Configuration
+
+### Environment Variables
+
+The operator supports the following environment variables:
+
+| Variable | Description | Default |
+| -------- | ----------- | ------- |
+| `PROPELLER_NAMESPACE` | Namespace for Propeller resources | `propeller-system` |
+| `WATCH_NAMESPACE` | Namespace to watch for CRDs (empty = all) | `""` |
+| `ENABLE_WEBHOOKS` | Enable admission webhooks | `true` |
+| `METRICS_BIND_ADDRESS` | Address for metrics endpoint | `:8080` |
+| `HEALTH_PROBE_BIND_ADDRESS` | Address for health probes | `:8081` |
+
+### Scaling
+
+The operator supports automatic scaling based on workload demand:
+
+```yaml
+apiVersion: propeller.absmach.eu/v1alpha1
+kind: PropellerProplet
+metadata:
+  name: propeller-proplet
+spec:
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilization: 70
+  targetMemoryUtilization: 80
+```
+
+## Monitoring
+
+The operator exposes Prometheus metrics at `/metrics`:
+
+| Metric | Description |
+| ------ | ----------- |
+| `propeller_manager_tasks_total` | Total tasks created |
+| `propeller_proplet_count` | Number of active proplets |
+| `propeller_task_execution_duration_seconds` | Task execution duration histogram |
+
+Enable ServiceMonitor for Prometheus Operator integration:
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: propeller-operator
+spec:
+  selector:
+    matchLabels:
+      app: propeller-operator
+  endpoints:
+    - port: metrics
+      interval: 30s
+```
+
+## Uninstallation
+
+Remove Propeller resources:
+
+```bash
+kubectl delete propellermanagers --all
+kubectl delete propellerproplets --all
+kubectl delete propellerproxies --all
+```
+
+Remove the operator:
+
+```bash
+make undeploy
+```
+
+## Next Steps
+
+| Topic | Description |
+| ----- | ----------- |
+| [Manager](/docs/manager) | Configure the Manager service |
+| [Proplet](/docs/proplet) | Configure Proplet worker nodes |
+| [Monitoring](/docs/monitoring) | Enable process-level metrics collection |
+| [Architecture](/docs/architecture) | System architecture overview |

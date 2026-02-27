@@ -162,3 +162,200 @@ paths:
         required: true
         schema:
           type: string
+  /jobs:
+    post:
+      summary: Create Job
+      responses: {}
+      tags:
+        - Manager
+        - Jobs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                execution_mode:
+                  type: string
+                  enum: [parallel, sequential, configurable]
+                tasks:
+                  type: array
+                  items:
+                    type: object
+            example:
+              name: batch-process
+              execution_mode: sequential
+              tasks:
+                - name: step-1
+                  image_url: docker.io/myorg/step1:v1
+                - name: step-2
+                  image_url: docker.io/myorg/step2:v1
+    get:
+      summary: List Jobs
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          example: "100"
+      responses: {}
+      tags:
+        - Manager
+        - Jobs
+  /jobs/{JOB_ID}:
+    get:
+      summary: Get Job
+      responses: {}
+      tags:
+        - Manager
+        - Jobs
+    parameters:
+      - name: JOB_ID
+        in: path
+        required: true
+        schema:
+          type: string
+  /jobs/{JOB_ID}/start:
+    post:
+      summary: Start Job
+      responses: {}
+      tags:
+        - Manager
+        - Jobs
+    parameters:
+      - name: JOB_ID
+        in: path
+        required: true
+        schema:
+          type: string
+  /jobs/{JOB_ID}/stop:
+    post:
+      summary: Stop Job
+      responses: {}
+      tags:
+        - Manager
+        - Jobs
+    parameters:
+      - name: JOB_ID
+        in: path
+        required: true
+        schema:
+          type: string
+  /workflows:
+    post:
+      summary: Create Workflow
+      description: Create a workflow with tasks that have depends_on and run_if fields
+      responses: {}
+      tags:
+        - Manager
+        - Workflows
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tasks:
+                  type: array
+                  items:
+                    type: object
+            example:
+              tasks:
+                - name: fetch-data
+                  image_url: docker.io/myorg/fetch:v1
+                - name: process
+                  image_url: docker.io/myorg/process:v1
+                  depends_on:
+                    - "<fetch-data-task-id>"
+                  run_if: success
+  /fl/experiments:
+    post:
+      summary: Configure FL Experiment
+      description: Configure a new federated learning experiment
+      responses: {}
+      tags:
+        - Manager
+        - Federated Learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+  /fl/task:
+    get:
+      summary: Get FL Task
+      description: Get the federated learning task for the current round
+      parameters:
+        - name: round_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: proplet_id
+          in: query
+          schema:
+            type: string
+      responses: {}
+      tags:
+        - Manager
+        - Federated Learning
+  /fl/update:
+    post:
+      summary: Submit FL Update (JSON)
+      description: Submit a model update in JSON format
+      responses: {}
+      tags:
+        - Manager
+        - Federated Learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+  /fl/update_cbor:
+    post:
+      summary: Submit FL Update (CBOR)
+      description: Submit a model update in CBOR format
+      responses: {}
+      tags:
+        - Manager
+        - Federated Learning
+      requestBody:
+        content:
+          application/cbor:
+            schema:
+              type: object
+  /fl/rounds/{ROUND_ID}/complete:
+    get:
+      summary: Get Round Completion Status
+      description: Check if a federated learning round is complete
+      responses: {}
+      tags:
+        - Manager
+        - Federated Learning
+    parameters:
+      - name: ROUND_ID
+        in: path
+        required: true
+        schema:
+          type: string
+  /health:
+    get:
+      summary: Health Check
+      description: Returns manager instance ID and health status
+      responses: {}
+      tags:
+        - System
+  /metrics:
+    get:
+      summary: Prometheus Metrics
+      description: Exposes Prometheus-compatible metrics endpoint
+      responses: {}
+      tags:
+        - System
