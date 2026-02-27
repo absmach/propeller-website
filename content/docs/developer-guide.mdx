@@ -365,6 +365,86 @@ SuperMQ can be stopped using the following:
 ```bash
 make stop-supermq
 ```
+
+### Running Propeller Binaries Directly
+
+For development and debugging, you can run Propeller services directly on your host instead of in Docker containers. This allows easier access to logs, debuggers, and faster iteration.
+
+**Prerequisites**: SuperMQ must still be running (via `make start-supermq`), and you must have a valid `config.toml` in your working directory.
+
+First, stop the Docker-based Propeller services:
+
+```bash
+docker stop propeller-manager propeller-proxy propeller-proplet
+```
+
+#### Starting the Manager
+
+In a terminal, run:
+
+```bash
+propeller-manager
+```
+
+Expected output:
+```json
+{"time":"2026-02-13T12:12:38.938209887+03:00","level":"INFO","msg":"MQTT connection established"}
+{"time":"2026-02-13T12:12:38.938257698+03:00","level":"WARN","msg":"COORDINATOR_URL not configured - FL features will not be available"}
+{"time":"2026-02-13T12:12:38.964151961+03:00","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"25.777171ms"}
+{"time":"2026-02-13T12:12:38.964414628+03:00","level":"INFO","msg":"cron scheduler started","check_interval":60000000000}
+{"time":"2026-02-13T12:12:38.964522773+03:00","level":"INFO","msg":"manager service http server listening at localhost:7070 without TLS"}
+```
+
+The manager exposes an HTTP API on `localhost:7070`.
+
+#### Starting the Proplet
+
+In another terminal:
+
+```bash
+propeller-proplet
+```
+
+Expected output:
+```
+2026-02-13T09:13:11.246621Z  INFO Starting Proplet (Rust) - Instance ID: 67b2bcb2-9c56-4c57-b163-085d6ec2c313
+2026-02-13T09:13:11.249067Z  INFO MQTT client created (TLS: false)
+2026-02-13T09:13:11.249145Z  INFO Using Wasmtime runtime
+2026-02-13T09:13:11.249230Z  INFO Starting MQTT event loop
+2026-02-13T09:13:11.739449Z  INFO Starting PropletService
+2026-02-13T09:13:11.739491Z  INFO Published discovery message
+2026-02-13T09:13:11.739499Z  INFO Subscribed to topic: m/.../control/manager/start
+2026-02-13T09:13:11.739507Z  INFO Subscribed to topic: m/.../control/manager/stop
+2026-02-13T09:13:11.739517Z  INFO Subscribed to topic: m/.../registry/server
+```
+
+The proplet automatically registers itself with the manager.
+
+#### Starting the Proxy
+
+The proxy pulls WASM modules from OCI registries. Configure it with environment variables:
+
+```bash
+export PROXY_REGISTRY_URL="docker.io"
+export PROXY_AUTHENTICATE="TRUE"
+export PROXY_REGISTRY_USERNAME=""   # set if registry requires auth
+export PROXY_REGISTRY_PASSWORD=""   # set if registry requires auth
+
+propeller-proxy
+```
+
+Expected output:
+```json
+{"time":"2026-02-13T12:14:14.683354969+03:00","level":"INFO","msg":"MQTT connection established"}
+{"time":"2026-02-13T12:14:14.683506536+03:00","level":"INFO","msg":"successfully initialized MQTT and HTTP config"}
+{"time":"2026-02-13T12:14:14.683571649+03:00","level":"INFO","msg":"starting proxy service"}
+{"time":"2026-02-13T12:14:14.705055456+03:00","level":"INFO","msg":"successfully subscribed to topic"}
+```
+
+### Postman Collection
+
+A Postman collection for the Propeller API is available at [`public/postman_collection.json`](../postman_collection.json). Import this into Postman to quickly test all API endpoints.
+
 ## Troubleshooting
 
 ### TinyGo WASM Build Failures
