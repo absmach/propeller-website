@@ -97,22 +97,47 @@ The Manager exposes its REST API on port `7070` by default.
 | `GET` | `/tasks` | List all tasks (supports `?offset=` and `?limit=`) |
 | `GET` | `/tasks/{id}` | Get a specific task by ID |
 | `PUT` | `/tasks/{id}` | Update a task (e.g. set `file` as base64-encoded Wasm) |
-| `PUT` | `/tasks/{id}/upload` | Upload a `.wasm` file directly (`multipart/form-data`) |
+| `PUT` | `/tasks/{id}/upload` | Upload a `.wasm` file directly (`multipart/form-data`, max 100 MB) |
 | `DELETE` | `/tasks/{id}` | Delete a task |
 | `POST` | `/tasks/{id}/start` | Start a task (schedules it to a proplet) |
 | `POST` | `/tasks/{id}/stop` | Stop a running task |
 | `GET` | `/tasks/{id}/metrics` | Get stored process metrics for a task |
 | `GET` | `/tasks/{id}/results` | Get stored execution results for a task |
 
+#### Task Fields
+
+Tasks support a wide range of fields for different execution scenarios:
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `name` | string | Human-readable task name |
+| `image_url` | string | OCI registry URL for the Wasm binary |
+| `file` | []byte | Base64-encoded Wasm binary (alternative to `image_url`) |
+| `cli_args` | []string | Command-line arguments passed to the Wasm module |
+| `inputs` | []uint64 | Input values for simple tasks (e.g., compute demos) |
+| `env` | map | Environment variables for the Wasm module |
+| `daemon` | bool | If true, task runs continuously until stopped |
+| `encrypted` | bool | If true, the Wasm binary is encrypted (requires KBS) |
+| `kbs_resource_path` | string | KBS resource path for encrypted binaries (TEE only) |
+| `monitoring_profile` | object | CPU/memory usage monitoring configuration |
+| `priority` | int | Dispatch priority (0–100, default 50) |
+| `schedule` | string | Cron expression for scheduled tasks |
+| `timezone` | string | Timezone for scheduled tasks (default UTC) |
+| `is_recurring` | bool | If true, task re-runs according to `schedule` |
+
 ### Jobs
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
 | `POST` | `/jobs` | Create a new job |
-| `GET` | `/jobs` | List all jobs |
+| `GET` | `/jobs` | List all jobs (supports `?offset=` and `?limit=`) |
 | `GET` | `/jobs/{id}` | Get a specific job by ID |
 | `POST` | `/jobs/{id}/start` | Start a job (executes all its tasks per `execution_mode`) |
 | `POST` | `/jobs/{id}/stop` | Stop a running job |
+
+:::note Jobs are Immutable
+Jobs cannot be updated or deleted once created. To modify a job, create a new one with the desired configuration.
+:::
 
 ### Workflows
 
@@ -134,8 +159,12 @@ The Manager exposes its REST API on port `7070` by default.
 
 | Method | Path | Description |
 | ------ | ---- | ----------- |
-| `GET` | `/health` | Health check endpoint |
+| `GET` | `/health` | Health check endpoint (returns manager instance ID) |
 | `GET` | `/metrics` | Prometheus metrics endpoint |
+
+:::tip Full API Reference
+For detailed request/response schemas and examples, see the [API Reference](/docs/api).
+:::
 
 ## Jobs
 
@@ -282,4 +311,13 @@ All task, proplet, job, and workflow state is persisted through a pluggable stor
 1. Proplet starts and publishes a discovery message to `control/proplet/create`.
 2. Manager records the proplet ID and channel.
 3. Proplet sends periodic heartbeats to `control/proplet/alive`.
-4. Manager marks proplets as alive/dead based on heartbeat recency.
+4. Manager marks proplets as alive/dead based on heartbeat recency (10-second threshold).
+
+## Next Steps
+
+| Topic | Description |
+| ----- | ----------- |
+| [Proplet](/docs/proplet) | Configure the Proplet runtime that executes tasks |
+| [TEE](/docs/tee) | Run encrypted workloads in Confidential VMs |
+| [Monitoring](/docs/monitoring) | Enable process-level metrics collection |
+| [API Reference](/docs/api) | Full REST API documentation |
