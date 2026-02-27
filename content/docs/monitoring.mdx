@@ -5,8 +5,6 @@ description: Real-time monitoring and metrics collection for WebAssembly tasks
 
 ## Overview
 
-Propeller tracks OS-level metrics for every WebAssembly task running on proplets. The system collects CPU usage, memory consumption, disk I/O, thread counts, and more with minimal performance overhead.
-
 Propeller tracks OS-level metrics for every WebAssembly task running on proplets. The system collects CPU usage, memory consumption, disk I/O, thread counts, and more with minimal performance overhead. The Rust proplet includes built-in monitoring using the `sysinfo` crate for cross-platform metrics. This provides compatibility across Linux, macOS, and Windows environments.
 
 ## Architecture
@@ -582,7 +580,7 @@ CPU percentage is calculated over the collection interval. Use intervals ≥ 1 s
 | Field                      | Type    | Description                   |
 | -------------------------- | ------- | ----------------------------- |
 | `enabled`                  | boolean | Enable/disable monitoring     |
-| `interval`                 | integer | Collection interval (seconds) |
+| `interval`                 | integer | Collection interval in seconds (1–120) |
 | `collect_cpu`              | boolean | Track CPU usage               |
 | `collect_memory`           | boolean | Track memory usage            |
 | `collect_disk_io`          | boolean | Track disk I/O                |
@@ -683,3 +681,11 @@ curl -X POST "http://localhost:7070/tasks/{task_id}/start"
 ```
 
 Metrics will appear in the MQTT subscriber terminal every 10 seconds.
+
+## Next Steps
+
+| Topic | Description |
+| ----- | ----------- |
+| [Manager](/docs/manager) | Configure task metrics storage and API endpoints |
+| [Proplet](/docs/proplet) | Configure the Proplet runtime and monitoring defaults |
+| [TEE](/docs/tee) | Run monitored workloads in Confidential VMs |
