@@ -699,7 +699,7 @@ CONFIG_ESP32_WIFI_STA_AUTO_DHCPV4=y
 
 Create a board-specific overlay file (e.g., `boards/nrf52840dk_nrf52840.overlay`):
 
-```dts
+```c
 /* Enable WiFi via ESP-AT co-processor connected to UART */
 &uart1 {
     status = "okay";
