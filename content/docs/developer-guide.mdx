@@ -19,12 +19,25 @@ git remote add upstream https://github.com/absmach/propeller.git
 
 To build Propeller, you will need the following:
 
-- [A Go compiler (Go 1.25.5 or later)](https://go.dev/doc/install)
-- [Rust](https://rustup.rs/)
+- [A Go compiler (Go 1.25.5)](https://go.dev/doc/install)
+- [Rust](https://rustup.rs/) (required for `make proplet` and `make all`)
 - [Make](https://www.gnu.org/software/make/manual/make.html)
-- [Docker](https://docs.docker.com/)
-- [Wasmtime](https://wasmtime.dev/)
-- [TinyGo](https://tinygo.org/getting-started/install/)
+- [Docker](https://docs.docker.com/) (required for `make start-supermq` and Docker image builds)
+- [Wasmtime](https://wasmtime.dev/) (required to test compiled Wasm examples locally)
+- [TinyGo](https://tinygo.org/getting-started/install/) (required for Wasm example builds)
+- [Mockery](https://vektra.github.io/mockery/latest/installation/) (required for `make test` and `make test-all`)
+
+:::note TinyGo Go Version Constraint
+TinyGo supports Go versions 1.19 through 1.23, but the project's `go.mod` requires Go 1.25.5. This creates a compatibility issue for building WASM examples.
+
+**Workaround**: Install Go 1.23.5 separately and it will be used automatically:
+```bash
+go install golang.org/dl/go1.23.5@latest
+~/go/bin/go1.23.5 download
+```
+
+The Makefile has been updated to use Go 1.23.5 for WASM builds instead of 1.25.5. This allows `make addition`, `make compute`, and other WASM examples to compile successfully while the rest of the project uses Go 1.25.5.
+:::
 
 ### Building
 
@@ -34,7 +47,17 @@ Use the GNU Make tool to build all Propeller services:
 make all
 ```
 
-This will build Propeller for your platforms.
+This will build all Go services (manager, cli, proxy), Rust proplet, and WASM examples for your platform. **Note**: This requires both Go and Rust toolchains to be installed.
+
+:::tip Building Only Go Services
+To build only the Go services without Rust and WASM dependencies:
+
+```bash
+make manager cli proxy
+```
+
+This is useful for testing the core services without a full development environment setup.
+:::
 
 To build Propeller for other platforms, use the following:
 
@@ -61,7 +84,7 @@ make manager
 
 The built binaries will be located in the `build` directory.
 
-The Rust proplet is built separately. Use:
+The Rust proplet is built separately (requires Rust installed). Use:
 
 ```bash
 make proplet
@@ -69,29 +92,33 @@ make proplet
 
 This runs `cargo build --release` inside the `proplet` directory and copies the resulting binary to `build/proplet`.
 
+For more information on the proplet, see the [Proplet Documentation](proplet.mdx).
+
 ### Building examples
 
-You can build examples using the following:
+Available WASM examples can be built using:
 
 ```bash
 make <example>
 ```
 
-For example, to build the `addition` example, use the following:
+Available examples include: `addition`, `compute`, `hello-world`, `http-client`, `http-server`, and `filesystem`.
+
+For example, to build the `addition` example:
 
 ```bash
 make addition
 ```
 
-This compiles the addition example to wasm and can be located in the `build` directory.
+This compiles the example to WebAssembly format. The compiled `.wasm` file is located in the `build` directory.
 
-To test the addition example, use the following:
+To test the compiled Wasm example locally with Wasmtime (requires Wasmtime installed):
 
 ```bash
 wasmtime --invoke add ./build/addition.wasm 1 2
 ```
 
-This will output something like:
+Expected output:
 
 ```bash
 warning: using `--invoke` with a function that takes arguments is experimental and may break in the future
@@ -99,15 +126,18 @@ warning: using `--invoke` with a function that returns values is experimental an
 3
 ```
 
+:::note Example-specific Requirements
+Some examples require specific configuration or environment variables when running under Propeller:
+
+- **http-client/http-server**: Require `PROPLET_HTTP_ENABLED=true` configuration
+- **filesystem**: Requires `PROPLET_DIRS=/tmp` or your desired directory mount
+
+These variables are configured when running the proplet service, not during the build.
+:::
+
 ## Installing
 
-Once you have built Propeller, you can install it using the following:
-
-```bash
-make install
-```
-
-This will install Propeller to the `GOBIN` directory.
+Once you have built the Go services, you can install them using:
 
 ```bash
 export GOBIN=~/go/bin
@@ -115,7 +145,39 @@ export PATH=$GOBIN:$PATH
 make install
 ```
 
+Example output:
+```bash
+cp build/cli /home/jeff/go/bin/propeller-cli
+cp build/manager /home/jeff/go/bin/propeller-manager
+cp build/proxy /home/jeff/go/bin/propeller-proxy
+```
+
+:::note GOBIN Environment Variable
+The `make install` target copies binaries from the `build` directory to `$GOBIN` with a `propeller-` prefix. The `$GOBIN` variable **must** be set before running `make install`, or the command will fail with a permission error. If `$GOBIN` is not set, it defaults to `$HOME/go/bin`.
+
+After installation, ensure `$GOBIN` is in your `PATH`:
+```bash
+export PATH=$GOBIN:$PATH
+```
+
+This installs:
+- `$GOBIN/propeller-cli` - Command-line interface (17 MB)
+- `$GOBIN/propeller-manager` - Task orchestrator service (25 MB)
+- `$GOBIN/propeller-proxy` - Wasm module proxy service (7 MB)
+:::
+
 ## Testing
+
+:::note Mockery Dependency
+The project uses [mockery](https://vektra.github.io/mockery/latest/installation/) to generate mock interfaces for testing. The `make test` and `make test-all` targets automatically run `mockery --config .mockery.yaml` to generate mocks before running tests.
+
+**Important**: The project migrated from mockery v2 to v3. If you have an older version installed, update it:
+```bash
+go install github.com/vektra/mockery/v2@latest
+```
+
+For mockery v3 compatibility (recommended), the project uses `pkgname: mocks` and generates individual mock files for each interface.
+:::
 
 To run the Go service tests:
 
@@ -123,131 +185,168 @@ To run the Go service tests:
 make test
 ```
 
+Example output:
+```bash
+Generating mocks...
+mockery --config .mockery.yaml
+
+ok      github.com/absmach/propeller/manager    0.218s
+PASS
+```
+
+This target runs tests for the manager service and other core packages.
+
 To run all tests, including the Rust proplet test suite:
 
 ```bash
 make test-all
 ```
 
+This runs Go tests with `go test -v ./...` and Rust tests with `cargo test --release`.
+
 ## Linter
 
-Propeller uses [golangci-lint](https://golangci-lint.run/) to lint the code. You can run the linter using the following:
+Propeller uses [golangci-lint](https://golangci-lint.run/) to lint the code. Install golangci-lint:
+
+```bash
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+```
+
+Then run the linter:
 
 ```bash
 make lint
 ```
 
+This lints all Go code and runs `cargo fmt --all -- --check` and `cargo clippy` on the Rust proplet code.
+
+:::note Linter Performance
+The linting process can take 2-3 minutes or longer depending on system resources. This is normal behavior. The linter performs comprehensive code quality checks across the entire codebase.
+:::
+
 ## SuperMQ
 
 ### Starting SuperMQ
 
-To start SuperMQ, use the following:
+To start SuperMQ (the message broker infrastructure for Propeller), use:
 
 ```bash
 make start-supermq
 ```
 
-This will in the background run `docker compose -f docker/compose.yaml up -d` which will start the SuperMQ services.
+This runs `docker compose -f docker/compose.yaml --env-file docker/.env up -d` and starts all required SuperMQ services.
 
-You can override the configuration or add some extra parameters to the docker compose configuration.
+Example output:
+```bash
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
+WARN[0000] Found orphan containers ([supermq-ws]) for this project. If you removed
+or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.
+[+] up 30/30
+ ✔ Container supermq-auth-redis      Started                                6.3s
+ ✔ Container supermq-auth-db         Started                                4.9s
+ ✔ Container supermq-users-db        Started                                2.5s
+ ✔ Container supermq-channels-redis  Started                                4.5s
+ ✔ Container supermq-domains-db      Started                                3.0s
+ ✔ Container supermq-clients-redis   Started                                5.1s
+ ✔ Container supermq-nats            Started                                4.4s
+ ✔ Container supermq-domains-redis   Started                                2.6s
+ ✔ Container supermq-spicedb-db      Started                                1.9s
+ ✔ Container supermq-clients-db      Started                                5.1s
+ ✔ Container supermq-channels-db     Started                                6.1s
+ ✔ Container supermq-rabbitmq        Started                                5.7s
+ ✔ Container supermq-jaeger          Started                                4.7s
+ ✔ Container supermq-groups-db       Started                                6.6s
+ ✔ Container supermq-spicedb-migrate Started                                3.8s
+ ✔ Container supermq-notifications   Started                                0.0s
+ ✔ Container supermq-spicedb         Started                                0.0s
+ ✔ Container supermq-auth            Started                                0.0s
+ ✔ Container supermq-domains         Started                                1.1s
+ ✔ Container supermq-users           Started                                0.0s
+ ✔ Container supermq-clients         Started                                0.0s
+ ✔ Container supermq-http            Started                                0.0s
+ ✔ Container supermq-coap            Started                                0.0s
+ ✔ Container supermq-mqtt            Started                                0.0s
+ ✔ Container propeller-manager       Started                                0.0s
+ ✔ Container propeller-proxy         Started                                0.0s
+ ✔ Container supermq-nginx           Started                                0.9s
+```
 
-After this is done, you will need to provision propeller using the following command
+:::note Prerequisites for make start-supermq
+- Docker must be installed and running
+- No other services should be bound to the ports specified in `docker/.env` (typically 1883 for MQTT, 5672 for RabbitMQ, etc.)
+:::
+
+### Provisioning Propeller
+
+After SuperMQ is running, provision Propeller resources:
 
 ```bash
 propeller-cli provision
 ```
 
-[![asciicast](https://asciinema.org/a/pPzOgCInOAK5LBXb.svg)](https://asciinema.org/a/pPzOgCInOAK5LBXb)
+This interactive command:
+1. Creates SuperMQ domain, channel, and user credentials
+2. Generates a `config.toml` file with all necessary configuration
+3. Sets up clients for manager, proplet, and proxy services
 
-After this is done, `config.toml` file will be created for easier setup, we can copy it to the `docker` folder and uncomment `config.toml` configuration for manager, proplet and proxy.
+The generated `config.toml` contains SuperMQ credentials (domain_id, channel_id, client_id, client_key) that are required for all services to communicate.
+
+### Using config.toml with Docker Compose
+
+Copy the generated config to the docker folder:
 
 ```bash
 cp config.toml docker
 ```
 
-The changes on the docker compose file looks like this
+Then uncomment the volumes sections in `docker/compose.yaml` to mount the config file into containers. This allows you to use a single `config.toml` instead of setting environment variables.
 
-```diff
-diff --git a/docker/compose.yaml b/docker/compose.yaml
-index 46302ea..e872f29 100644
---- a/docker/compose.yaml
-+++ b/docker/compose.yaml
-@@ -1607,8 +1607,8 @@ services:
-       - supermq-base-net
-     # To use a custom config.toml, uncomment the following line and ensure ./config.toml exists.
-     # If you are using environment variables for configuration, leave this commented out.
--    # volumes:
--    #   - ./config.toml:/config.toml
-+    volumes:
-+      - ./config.toml:/config.toml
+### Configuring Docker Containers with config.toml
 
-   proplet:
-     image: ghcr.io/absmach/propeller/proplet:${PROP_RELEASE_TAG}
-@@ -1642,8 +1642,8 @@ services:
-       - supermq-base-net
-     # To use a custom config.toml, uncomment the following line and ensure ./config.toml exists.
-     # If you are using environment variables for configuration, leave this commented out.
--    # volumes:
--    #   - ./config.toml:/home/proplet/config.toml
-+    volumes:
-+      - ./config.toml:/home/proplet/config.toml
+To configure Docker containers to use your generated `config.toml`, update the `docker/compose.yaml` file to uncomment the volumes sections for manager, proplet, and proxy services.
 
-   proxy:
-     image: ghcr.io/absmach/propeller/proxy:${PROP_RELEASE_TAG}
-@@ -1671,5 +1671,5 @@ services:
-       - supermq-base-net
-     # To use a custom config.toml, uncomment the following line and ensure ./config.toml exists.
-     # If you are using environment variables for configuration, leave this commented out.
--    # volumes:
--    #   - ./config.toml:/config.toml
-+    volumes:
-+      - ./config.toml:/config.toml
+For the manager service:
+```yaml
+volumes:
+  - ./config.toml:/config.toml
 ```
 
-Then run `make start-supermq` again to start SuperMQ.
+For the proplet service:
+```yaml
+volumes:
+  - ./config.toml:/home/proplet/config.toml
+```
 
-The logs from then manager should look like this:
+For the proxy service:
+```yaml
+volumes:
+  - ./config.toml:/config.toml
+```
+
+After uncommenting these lines, restart SuperMQ:
 
 ```bash
-{"time":"2026-02-11T16:57:43.822945669Z","level":"INFO","msg":"MQTT connection lost"}
+make stop-supermq
+make start-supermq
+```
+
+### Verifying Service Connectivity
+
+Once services are running, verify they connected to MQTT:
+
+**Manager logs** (healthy state):
+```
 {"time":"2026-02-11T16:57:43.883167345Z","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"60.157736ms"}
 {"time":"2026-02-11T16:57:43.883519119Z","level":"INFO","msg":"manager service http server listening at manager:7070 without TLS"}
 ```
 
-The logs from the proplet should look like this:
-
-```bash
+**Proplet logs** (healthy state):
+```
 2026-02-11T17:34:32.841840Z  INFO Starting Proplet (Rust) - Instance ID: f34cddff-2855-4e3f-9b55-9d83b982b315
-2026-02-11T17:34:32.841888Z  INFO MQTT client created (TLS: false)
-2026-02-11T17:34:32.841931Z  INFO Using external Wasm runtime: wasmtime
-2026-02-11T17:34:32.842001Z  INFO Starting MQTT event loop
-2026-02-11T17:34:32.846168Z DEBUG Received MQTT packet: ConnAck(ConnAck { session_present: false, code: Success })
-2026-02-11T17:34:32.877390Z  INFO Starting PropletService
 2026-02-11T17:34:32.877439Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/create
 2026-02-11T17:34:32.877443Z  INFO Published discovery message
 2026-02-11T17:34:32.877463Z  INFO Subscribed to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/manager/start
 2026-02-11T17:34:32.877467Z  INFO Subscribed to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/manager/stop
-2026-02-11T17:34:32.877472Z  INFO Subscribed to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/registry/server
-2026-02-11T17:34:32.878594Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/alive
-2026-02-11T17:34:32.878615Z DEBUG Published liveliness update
-2026-02-11T17:34:32.879956Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/metrics
-2026-02-11T17:34:32.880019Z DEBUG Published proplet metrics
-2026-02-11T17:34:32.882250Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 1 })
-2026-02-11T17:34:32.897028Z DEBUG Received MQTT packet: SubAck(SubAck { pkid: 2, return_codes: [Success(AtLeastOnce)] })
-2026-02-11T17:34:32.902466Z DEBUG Received MQTT packet: SubAck(SubAck { pkid: 3, return_codes: [Success(AtLeastOnce)] })
-2026-02-11T17:34:32.908233Z DEBUG Received MQTT packet: SubAck(SubAck { pkid: 4, return_codes: [Success(AtLeastOnce)] })
-2026-02-11T17:34:32.909485Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 5 })
-2026-02-11T17:34:32.909510Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 6 })
-2026-02-11T17:34:42.878374Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/alive
-2026-02-11T17:34:42.878387Z DEBUG Published liveliness update
-2026-02-11T17:34:42.879526Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/metrics
-2026-02-11T17:34:42.879540Z DEBUG Published proplet metrics
-2026-02-11T17:34:42.881430Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 7 })
-2026-02-11T17:34:42.883416Z DEBUG Received MQTT packet: PubAck(PubAck { pkid: 8 })
-2026-02-11T17:34:52.878418Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/alive
-2026-02-11T17:34:52.878441Z DEBUG Published liveliness update
-2026-02-11T17:34:52.880337Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/metrics
-2026-02-11T17:34:52.880366Z DEBUG Published proplet metrics
 ```
 
 ### Stopping SuperMQ
@@ -256,4 +355,82 @@ SuperMQ can be stopped using the following:
 
 ```bash
 make stop-supermq
+```
+## Troubleshooting
+
+### TinyGo WASM Build Failures
+
+**Problem**: Building WASM examples with `make addition` fails with:
+```
+requires go version 1.19 through 1.23, got go1.25
+```
+
+**Solution**: The project uses Go 1.25.5 but TinyGo only supports Go 1.19-1.23. Install Go 1.23.5:
+```bash
+go install golang.org/dl/go1.23.5@latest
+~/go/bin/go1.23.5 download
+```
+
+The Makefile has been updated to automatically use Go 1.23.5 for WASM builds.
+
+### Installation Permission Denied
+
+**Problem**: `make install` fails with:
+```
+cp: cannot create regular file '/propeller-*': Permission denied
+```
+
+**Solution**: The `$GOBIN` environment variable must be set before running `make install`:
+```bash
+export GOBIN=~/go/bin
+make install
+```
+
+Without `$GOBIN`, the install target tries to write binaries to the system root directory, which requires elevated permissions.
+
+### Mockery Configuration Issues
+
+**Problem**: Tests fail with mockery errors or undefined mock functions like `NewPubSub`.
+
+**Solution**: The project has been migrated to mockery v3. Ensure you have the latest version:
+```bash
+go install github.com/vektra/mockery/v2@latest
+```
+
+The `.mockery.yaml` configuration file has been updated for mockery v3 compatibility. If you have custom mockery configs, refer to the [mockery v3 migration guide](https://vektra.github.io/mockery/latest/migration/).
+
+### WASM Not Compiling
+
+**Problem**: WASM examples don't compile after upgrading tools.
+
+**Causes**:
+1. TinyGo version incompatible with Go version - see "TinyGo WASM Build Failures" above
+2. Missing wasip2 support - ensure you have TinyGo 0.34.0 or later with wasip2 target
+
+**Verify setup**:
+```bash
+tinygo version  # Should be 0.34.0 or later
+go version      # Should be 1.25.5 (Go 1.23.5 will be used for WASM builds)
+wasmtime --version  # Should be 42.0.1 or later
+```
+
+### SuperMQ Container Startup Issues
+
+**Problem**: Some SuperMQ containers keep restarting or failing to start.
+
+**Solution**: Check container logs:
+```bash
+docker compose -f docker/compose.yaml logs [service-name]
+```
+
+Common issues:
+- Port conflicts: Ensure ports in `docker/.env` are available
+- Disk space: Verify sufficient disk space for database containers
+- Memory: SuperMQ requires 4GB+ RAM to start all services
+
+To clean up and restart:
+```bash
+make stop-supermq
+docker compose -f docker/compose.yaml down -v  # Remove volumes
+make start-supermq
 ```
