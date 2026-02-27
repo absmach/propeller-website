@@ -1,0 +1,251 @@
+---
+title: DAG Workflow
+description: DAG workflow example
+---
+
+This is a DAG (Directed Acyclic Graph) workflow example. It demonstrates how to create and execute workflows where tasks have dependencies on other tasks. The manager validates the DAG to prevent cycles and ensures tasks execute in proper order based on their dependencies.
+
+## Source Code
+
+The source code for the addition example used in this workflow is available in the [examples/addition](https://github.com/absmach/propeller/blob/main/examples/addition/addition.go) directory.
+
+<CodeFromSource
+  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/addition/addition.go"
+  lang="go"
+/>
+
+## Build Wasm
+
+Build the addition example that will be used across all workflow tasks:
+
+```bash
+cd propeller
+make addition
+```
+
+Your output should look like this:
+
+```bash
+GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasip1 examples/addition/addition.go
+```
+
+## Create Workflow
+
+Create a workflow with three tasks in a DAG structure where task2 and task3 depend on task1:
+
+```bash
+curl -X POST "http://localhost:7070/workflows" \
+-H "Content-Type: application/json" \
+-d '{
+  "tasks": [
+    {
+      "name": "add",
+      "inputs": [10, 20]
+    },
+    {
+      "name": "add",
+      "inputs": [5, 15],
+      "depends_on": ["task1-id"]
+    },
+    {
+      "name": "add",
+      "inputs": [100, 200],
+      "depends_on": ["task1-id"]
+    }
+  ]
+}'
+```
+
+Your output should look like this:
+
+```json
+{
+  "tasks": [
+    {
+      "id": "a1b2c3d4-1234-5678-9abc-def012345678",
+      "name": "add",
+      "kind": "standard",
+      "state": 0,
+      "inputs": [10, 20],
+      "workflow_id": "workflow-abc123",
+      "daemon": false,
+      "encrypted": false,
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-02-27T10:00:00.000000000Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z",
+      "priority": 50
+    },
+    {
+      "id": "b2c3d4e5-2345-6789-abcd-ef0123456789",
+      "name": "add",
+      "kind": "standard",
+      "state": 0,
+      "inputs": [5, 15],
+      "depends_on": ["a1b2c3d4-1234-5678-9abc-def012345678"],
+      "workflow_id": "workflow-abc123",
+      "daemon": false,
+      "encrypted": false,
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-02-27T10:00:00.000000000Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z",
+      "priority": 50
+    },
+    {
+      "id": "c3d4e5f6-3456-789a-bcde-f01234567890",
+      "name": "add",
+      "kind": "standard",
+      "state": 0,
+      "inputs": [100, 200],
+      "depends_on": ["a1b2c3d4-1234-5678-9abc-def012345678"],
+      "workflow_id": "workflow-abc123",
+      "daemon": false,
+      "encrypted": false,
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-02-27T10:00:00.000000000Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z",
+      "priority": 50
+    }
+  ]
+}
+```
+
+## Upload Wasm
+
+Upload the wasm file to each task in the workflow:
+
+```bash
+curl -X PUT "http://localhost:7070/tasks/a1b2c3d4-1234-5678-9abc-def012345678/upload" \
+-F "file=@$(pwd)/build/addition.wasm"
+
+curl -X PUT "http://localhost:7070/tasks/b2c3d4e5-2345-6789-abcd-ef0123456789/upload" \
+-F "file=@$(pwd)/build/addition.wasm"
+
+curl -X PUT "http://localhost:7070/tasks/c3d4e5f6-3456-789a-bcde-f01234567890/upload" \
+-F "file=@$(pwd)/build/addition.wasm"
+```
+
+Your output should look like this for each upload:
+
+```json
+{
+  "id": "a1b2c3d4-1234-5678-9abc-def012345678",
+  "name": "add",
+  "kind": "standard",
+  "state": 0,
+  "file": "...<redacted>...",
+  "inputs": [10, 20],
+  "workflow_id": "workflow-abc123",
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-02-27T10:00:00.000000000Z",
+  "updated_at": "2026-02-27T10:01:00.000000000Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+## Start Workflow
+
+Start the first task (root of the DAG). The manager will automatically schedule dependent tasks when their dependencies complete:
+
+```bash
+curl -X POST "http://localhost:7070/tasks/a1b2c3d4-1234-5678-9abc-def012345678/start"
+```
+
+Your output should look like this:
+
+```json
+{ "started": true }
+```
+
+## Check Workflow Status
+
+Check the status of all tasks in the workflow:
+
+```bash
+curl -X GET "http://localhost:7070/tasks?workflow_id=workflow-abc123"
+```
+
+Your output should look like this after the workflow completes:
+
+```json
+{
+  "offset": 0,
+  "limit": 100,
+  "total": 3,
+  "tasks": [
+    {
+      "id": "a1b2c3d4-1234-5678-9abc-def012345678",
+      "name": "add",
+      "state": 3,
+      "inputs": [10, 20],
+      "workflow_id": "workflow-abc123",
+      "results": "30",
+      "proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895"
+    },
+    {
+      "id": "b2c3d4e5-2345-6789-abcd-ef0123456789",
+      "name": "add",
+      "state": 3,
+      "inputs": [5, 15],
+      "depends_on": ["a1b2c3d4-1234-5678-9abc-def012345678"],
+      "workflow_id": "workflow-abc123",
+      "results": "20",
+      "proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895"
+    },
+    {
+      "id": "c3d4e5f6-3456-789a-bcde-f01234567890",
+      "name": "add",
+      "state": 3,
+      "inputs": [100, 200],
+      "depends_on": ["a1b2c3d4-1234-5678-9abc-def012345678"],
+      "workflow_id": "workflow-abc123",
+      "results": "300",
+      "proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895"
+    }
+  ]
+}
+```
+
+## Conditional Execution
+
+Tasks can be configured to run only when their dependencies succeed or fail using the `run_if` field:
+
+```bash
+curl -X POST "http://localhost:7070/workflows" \
+-H "Content-Type: application/json" \
+-d '{
+  "tasks": [
+    {
+      "name": "add",
+      "inputs": [10, 20]
+    },
+    {
+      "name": "add",
+      "inputs": [5, 15],
+      "depends_on": ["task1-id"],
+      "run_if": "success"
+    },
+    {
+      "name": "add",
+      "inputs": [0, 0],
+      "depends_on": ["task1-id"],
+      "run_if": "failure"
+    }
+  ]
+}'
+```
+
+In this example:
+- Task 2 only runs if Task 1 succeeds
+- Task 3 only runs if Task 1 fails (error handling path)
+
+Task states: `0` (pending), `1` (scheduled), `2` (running), `3` (completed), `4` (failed), `5` (skipped), `6` (interrupted).
