@@ -352,6 +352,16 @@ Tasks are the fundamental unit of work in Propeller. Each task represents a WebA
 
 For a hands-on tutorial with commands and expected outputs, see the [Getting Started](/docs/getting-started) guide. For the complete task data model including all fields and states, see the [Reference](/docs/reference#task) documentation.
 
+### WASM Module Deployment
+
+Tasks execute independently on proplets—possibly on different nodes—so each task needs access to its WASM module. There are two ways to provide it:
+
+1. **Upload directly**: Use `PUT /tasks/{id}/upload` with a multipart form to upload a `.wasm` file. The module is stored with the task and delivered to the proplet when execution starts.
+
+2. **Reference via URL**: Set `image_url` when creating the task to reference a WASM module hosted in an OCI registry (Docker Hub, GHCR, private registries). The [Proxy service](/docs/proxy) fetches the module from the registry, chunks it for efficient transfer, and delivers it to the proplet over MQTT.
+
+The URL approach is recommended for production deployments. It keeps your WASM binaries versioned in a registry, avoids embedding large files in API requests, and allows multiple proplets to fetch the same module without re-uploading. See the [Proxy documentation](/docs/proxy) for setup instructions and authentication configuration.
+
 ### Manager's Role in Task Execution
 
 When you call `POST /tasks/{id}/start`, the Manager performs a multi-step orchestration:

@@ -540,7 +540,9 @@ Each proplet submits an update with this structure:
 
 ## WASM Training Client
 
-The FL training client runs as a WebAssembly module executed by the proplet. The WASM binary is fetched from a container registry (GHCR or local) via the Proxy service.
+The FL training client runs as a WebAssembly module executed by the proplet. When you specify an `image_url` in your FL task, the [Proxy service](/docs/proxy) fetches the WASM binary from the container registry (Docker Hub, GHCR, or a private registry), chunks it for MQTT transfer, and delivers it to the proplet.
+
+This is the same module delivery mechanism used for standard tasks—see the [Manager documentation](/docs/manager#wasm-module-deployment) for details. For FL, the WASM module contains your training algorithm (e.g., logistic regression with SGD).
 
 ### Environment Variables
 
