@@ -1,0 +1,141 @@
+---
+title: Byzantine-Robust Aggregation
+description: Implementing Byzantine-robust aggregation for secure federated learning in Propeller
+---
+
+Byzantine-robust aggregation protects against malicious or faulty proplets that may submit corrupted model updates. Instead of weighted averaging, this approach uses median aggregation to filter out outliers.
+
+## Overview
+
+In standard FedAvg, a single malicious proplet can significantly skew the global model. Byzantine-robust aggregation uses statistical methods (median, trimmed mean) to ensure that outlier updates don't corrupt the aggregated model.
+
+## Aggregator Modification
+
+Modify `examples/fl-demo/aggregator/main.go` to use median aggregation:
+
+```go
+import "sort"
+
+// Median aggregation instead of weighted average
+func medianAggregate(updates []Update) []float64 {
+    if len(updates) == 0 {
+        return nil
+    }
+
+    numWeights := len(updates[0].Update["w"].([]interface{}))
+    result := make([]float64, numWeights)
+
+    for j := 0; j < numWeights; j++ {
+        values := make([]float64, len(updates))
+        for i, u := range updates {
+            w := u.Update["w"].([]interface{})
+            values[i] = w[j].(float64)
+        }
+        sort.Float64s(values)
+        result[j] = values[len(values)/2]  // median
+    }
+
+    return result
+}
+```
+
+## Alternative: Trimmed Mean
+
+For a less aggressive approach, use trimmed mean which removes the top and bottom percentiles before averaging:
+
+```go
+func trimmedMeanAggregate(updates []Update, trimPercent float64) []float64 {
+    if len(updates) == 0 {
+        return nil
+    }
+
+    numWeights := len(updates[0].Update["w"].([]interface{}))
+    result := make([]float64, numWeights)
+    trimCount := int(float64(len(updates)) * trimPercent)
+
+    for j := 0; j < numWeights; j++ {
+        values := make([]float64, len(updates))
+        for i, u := range updates {
+            w := u.Update["w"].([]interface{})
+            values[i] = w[j].(float64)
+        }
+        sort.Float64s(values)
+
+        // Remove top and bottom trimCount values
+        trimmedValues := values[trimCount : len(values)-trimCount]
+
+        // Average remaining values
+        sum := 0.0
+        for _, v := range trimmedValues {
+            sum += v
+        }
+        result[j] = sum / float64(len(trimmedValues))
+    }
+
+    return result
+}
+```
+
+## Key Changes
+
+| Component | Change Required |
+|-----------|-----------------|
+| WASM Client | No changes needed |
+| Aggregator | Replace FedAvg with median or trimmed mean |
+
+## Usage in aggregateHandler
+
+Replace the aggregation logic in `aggregateHandler`:
+
+```go
+func aggregateHandler(w http.ResponseWriter, r *http.Request) {
+    var req AggregateRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+        return
+    }
+
+    // Use median aggregation instead of weighted average
+    aggregatedW := medianAggregate(req.Updates)
+
+    // Aggregate bias separately
+    biasValues := make([]float64, len(req.Updates))
+    for i, u := range req.Updates {
+        biasValues[i] = u.Update["b"].(float64)
+    }
+    sort.Float64s(biasValues)
+    aggregatedB := biasValues[len(biasValues)/2]
+
+    model := AggregatedModel{
+        W: aggregatedW,
+        B: aggregatedB,
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(model)
+}
+```
+
+## Rebuild and Deploy
+
+After modifying the Aggregator:
+
+```bash
+# From repository root
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
+  --env-file docker/.env up -d --build aggregator
+```
+
+## Trade-offs
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| Median | Strong outlier resistance | Ignores sample counts |
+| Trimmed Mean | Balances robustness with efficiency | Requires choosing trim percentage |
+| FedAvg (default) | Optimal for benign environments | Vulnerable to Byzantine failures |
+
+## Use Cases
+
+- Untrusted or semi-trusted edge environments
+- Public federated learning deployments
+- Environments with unreliable hardware that may produce corrupted updates

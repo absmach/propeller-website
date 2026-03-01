@@ -367,7 +367,7 @@ The training algorithm runs inside the WASM client at `examples/fl-demo/client-w
 
 **To implement a different training algorithm:**
 
-1. **Modify the training loop** in `fl-client.go` (lines 180-240):
+1. **Modify the training loop** in `fl-client.go`:
 
 ```go
 // Current: Logistic regression with SGD
@@ -498,56 +498,12 @@ docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
 | **Coordinator passthrough** | The Coordinator forwards updates unchanged; it doesn't parse model contents |
 | **Testing** | Test with a single proplet first before scaling to multiple participants |
 
-### Example: Implementing FedProx
+### Algorithm Examples
 
-FedProx adds a proximal term to limit how far local updates can deviate from the global model:
+For detailed implementation guides, see:
 
-**1. WASM Client modification** (`fl-client.go`):
-
-```go
-// Add proximal term during training
-mu := 0.01  // proximal coefficient
-
-for j := 0; j < len(weights) && j < len(x); j++ {
-    // Standard gradient
-    gradient := lr * err * x[j]
-    // Proximal term: penalize deviation from global weights
-    proximal := mu * (weights[j] - globalWeights[j])
-    weights[j] -= gradient + proximal
-}
-```
-
-**2. Aggregator** - No changes needed (FedProx uses standard FedAvg aggregation)
-
-### Example: Implementing Byzantine-Robust Aggregation
-
-For environments where some proplets may submit malicious updates:
-
-**Aggregator modification** (`aggregator/main.go`):
-
-```go
-// Median aggregation instead of weighted average
-func medianAggregate(updates []Update) []float64 {
-    if len(updates) == 0 {
-        return nil
-    }
-
-    numWeights := len(updates[0].Update["w"].([]interface{}))
-    result := make([]float64, numWeights)
-
-    for j := 0; j < numWeights; j++ {
-        values := make([]float64, len(updates))
-        for i, u := range updates {
-            w := u.Update["w"].([]interface{})
-            values[i] = w[j].(float64)
-        }
-        sort.Float64s(values)
-        result[j] = values[len(values)/2]  // median
-    }
-
-    return result
-}
-```
+- [FedProx Algorithm](/docs/examples/fedprox) - Adding proximal regularization for non-IID data
+- [Byzantine-Robust Aggregation](/docs/examples/byzantine-robust) - Median-based aggregation for untrusted environments
 
 ### Update Message Format
 
