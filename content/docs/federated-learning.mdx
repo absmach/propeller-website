@@ -488,30 +488,6 @@ The demo includes:
 | Local Data Store | 8083 |
 | MQTT (via nginx) | 1883 |
 
-## Error Handling
-
-### HTTP Endpoint Failures
-
-- **Coordinator Unavailable**: Manager returns 503 Service Unavailable
-- **Malformed Update Payloads**: Coordinator returns 400 Bad Request
-- **Task Request Errors**: Coordinator returns 404 Not Found
-
-### Aggregator Service Failures
-
-- **Aggregator Unavailable**: Coordinator implements retry with exponential backoff (3 attempts)
-- **Aggregation Errors**: Aggregator returns 500, Coordinator marks round as failed
-- **Timeout**: Coordinator sets configurable timeout (default 30 seconds)
-
-### Proplet Failures
-
-- **Proplet Timeout**: Coordinator excludes proplet from aggregation, continues with remaining participants
-- **WASM Execution Errors**: Proplet reports error via special error update message
-
-### Network-Related Failures
-
-- **HTTP to MQTT Fallback**: Triggered after 3 consecutive HTTP failures
-- **MQTT Connection Loss**: Proplet attempts reconnection (5 attempts before marking unhealthy)
-
 ## Troubleshooting
 
 ### "Skipping participant: proplet not found" Error
