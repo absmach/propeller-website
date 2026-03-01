@@ -249,18 +249,129 @@ Use cases:
 
 #### Observability
 
+The Manager provides built-in observability through Prometheus metrics and OpenTelemetry distributed tracing. These tools help you monitor system health, debug performance issues, and trace requests across the Manager and proplets.
+
+**Prometheus Metrics** are always enabled at `/metrics`. OpenTelemetry tracing requires configuration.
+
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
-| `MANAGER_OTEL_URL` | OpenTelemetry collector URL | `""` (disabled) |
+| `MANAGER_OTEL_URL` | OpenTelemetry collector URL (OTLP/HTTP) | `""` (tracing disabled) |
 | `MANAGER_TRACE_RATIO` | Fraction of requests to trace (0.0–1.0) | `0` |
 
+##### Prometheus Metrics
+
+The Manager exposes Prometheus-compatible metrics at `http://localhost:7070/metrics`. No configuration needed—metrics are always available.
+
+**Available metrics include:**
+
+| Metric | Type | Description |
+| ------ | ---- | ----------- |
+| `manager_api_request_count` | Counter | Total API requests by method and status |
+| `manager_api_request_latency_seconds` | Histogram | Request latency distribution |
+| Task state counters | Gauge | Number of tasks in each state |
+
+**Scrape configuration for Prometheus:**
+
+```yaml
+scrape_configs:
+  - job_name: 'propeller-manager'
+    static_configs:
+      - targets: ['localhost:7070']
+    scrape_interval: 15s
+```
+
+##### OpenTelemetry Tracing
+
+Enable distributed tracing to follow requests from the HTTP API through MQTT to proplet execution. This is invaluable for debugging slow requests, failed tasks, and message delivery issues.
+
+**Setup with Jaeger:**
+
+```bash
+# Start Jaeger (all-in-one for development)
+docker run -d --name jaeger \
+  -p 4318:4318 \
+  -p 16686:16686 \
+  jaegertracing/all-in-one:latest
+
+# Configure Manager to send traces
+export MANAGER_OTEL_URL=http://localhost:4318
+export MANAGER_TRACE_RATIO=1.0  # Trace all requests (development)
+```
+
+Access the Jaeger UI at `http://localhost:16686` to view traces.
+
+**Trace ratio tuning:**
+- `0` — No tracing (default, zero overhead)
+- `0.1` — Sample 10% of requests (production recommendation)
+- `1.0` — Trace every request (development/debugging only)
+
+In production, start with `0.1` and adjust based on observed overhead and debugging needs. Tracing adds latency and storage costs proportional to the sample rate.
+
+##### Middleware Stack
+
+Every API request passes through three middleware layers in order:
+
+1. **Logging** → Records method name, duration, and errors to structured logs
+2. **Tracing** → Adds OpenTelemetry spans (when enabled)
+3. **Metrics** → Increments counters and records latency histograms
+
+This means even with tracing disabled, you still get logging and metrics for every request.
+
 #### Federated Learning
+
+Propeller supports federated machine learning workflows where proplets train local models and contribute updates to a central coordinator. This keeps training data on edge devices while still producing a globally optimized model.
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
 | `COORDINATOR_URL` | External FL Coordinator service URL | `""` (FL disabled) |
 
-When `COORDINATOR_URL` is not set, the Manager logs a warning at startup and FL endpoints return errors.
+**Architecture:** The Manager acts as a proxy between proplets and an external FL Coordinator service. The coordinator handles aggregation algorithms (FedAvg, etc.) while the Manager handles task distribution and result collection.
+
+```
+Proplet → MQTT → Manager → HTTP → FL Coordinator
+                    ↑
+               Aggregates
+               model updates
+```
+
+##### Enabling Federated Learning
+
+Set `COORDINATOR_URL` to your FL Coordinator's base URL:
+
+```bash
+export COORDINATOR_URL=http://fl-coordinator:8080
+```
+
+The Manager then proxies these FL endpoints to the coordinator:
+
+| Endpoint | Purpose |
+| -------- | ------- |
+| `POST /fl/experiments` | Configure FL experiment (rounds, aggregation method) |
+| `POST /fl/task` | Request training task for a proplet |
+| `POST /fl/update` | Submit model update from proplet |
+| `GET /fl/rounds/{id}` | Check round completion status |
+
+##### When FL is Disabled
+
+When `COORDINATOR_URL` is not set:
+- The Manager logs a warning at startup: `"COORDINATOR_URL not configured - FL features will not be available"`
+- All FL endpoints return an error: `"COORDINATOR_URL must be configured"`
+- Standard task, job, and workflow operations work normally
+
+This allows you to run Propeller without FL dependencies when you only need standard compute workloads.
+
+##### FL Coordinator Requirements
+
+The external coordinator must implement these HTTP endpoints:
+
+| Method | Path | Request | Response |
+| ------ | ---- | ------- | -------- |
+| `POST` | `/experiments` | Experiment config JSON | Experiment ID |
+| `POST` | `/task` | `{round_id, proplet_id}` | Training task with model weights |
+| `POST` | `/update` | Model gradients (CBOR) | Acknowledgment |
+| `GET` | `/rounds/{id}` | — | Round status |
+
+For a reference implementation, see the [Federated Learning](/docs/federated-learning) documentation.
 
 ## Task Operations
 
