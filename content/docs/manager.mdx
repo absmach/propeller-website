@@ -325,14 +325,7 @@ Propeller supports federated machine learning workflows where proplets train loc
 | -------- | ----------- | ------- |
 | `COORDINATOR_URL` | External FL Coordinator service URL | `""` (FL disabled) |
 
-**Architecture:** The Manager acts as a proxy between proplets and an external FL Coordinator service. The coordinator handles aggregation algorithms (FedAvg, etc.) while the Manager handles task distribution and result collection.
-
-```
-Proplet → MQTT → Manager → HTTP → FL Coordinator
-                    ↑
-               Aggregates
-               model updates
-```
+The Manager acts as a proxy between proplets and an external FL Coordinator service. The coordinator handles aggregation algorithms (FedAvg, etc.) while the Manager handles task distribution and result collection. For a complete overview of the architecture and training round lifecycle, see the [Federated Learning](/docs/federated-learning) documentation.
 
 ##### Enabling Federated Learning
 
@@ -342,14 +335,7 @@ Set `COORDINATOR_URL` to your FL Coordinator's base URL:
 export COORDINATOR_URL=http://fl-coordinator:8080
 ```
 
-The Manager then proxies these FL endpoints to the coordinator:
-
-| Endpoint | Purpose |
-| -------- | ------- |
-| `POST /fl/experiments` | Configure FL experiment (rounds, aggregation method) |
-| `POST /fl/task` | Request training task for a proplet |
-| `POST /fl/update` | Submit model update from proplet |
-| `GET /fl/rounds/{id}` | Check round completion status |
+The Manager then proxies FL endpoints to the coordinator. For the complete endpoint reference, see the [Federated Learning API](/docs/api/federated-ml).
 
 ##### When FL is Disabled
 
@@ -359,19 +345,6 @@ When `COORDINATOR_URL` is not set:
 - Standard task, job, and workflow operations work normally
 
 This allows you to run Propeller without FL dependencies when you only need standard compute workloads.
-
-##### FL Coordinator Requirements
-
-The external coordinator must implement these HTTP endpoints:
-
-| Method | Path | Request | Response |
-| ------ | ---- | ------- | -------- |
-| `POST` | `/experiments` | Experiment config JSON | Experiment ID |
-| `POST` | `/task` | `{round_id, proplet_id}` | Training task with model weights |
-| `POST` | `/update` | Model gradients (CBOR) | Acknowledgment |
-| `GET` | `/rounds/{id}` | — | Round status |
-
-For a reference implementation, see the [Federated Learning](/docs/federated-learning) documentation.
 
 ## Task Operations
 
