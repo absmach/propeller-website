@@ -146,6 +146,8 @@ Workflows provide DAG-based (Directed Acyclic Graph) task orchestration with exp
 
 ### Creating a Workflow
 
+When tasks have dependencies, specify explicit `id` values so `depends_on` can reference them:
+
 ```bash
 curl -X POST "http://localhost:7070/workflows" \
 -H "Content-Type: application/json" \
@@ -153,31 +155,36 @@ curl -X POST "http://localhost:7070/workflows" \
   "name": "etl-workflow",
   "tasks": [
     {
+      "id": "fetch-a",
       "name": "fetch-source-a",
       "image_url": "docker.io/myorg/fetch:v1",
       "env": {"SOURCE": "database-a"}
     },
     {
+      "id": "fetch-b",
       "name": "fetch-source-b",
       "image_url": "docker.io/myorg/fetch:v1",
       "env": {"SOURCE": "database-b"}
     },
     {
+      "id": "merge",
       "name": "merge-data",
       "image_url": "docker.io/myorg/merge:v1",
-      "depends_on": ["<fetch-source-a-id>", "<fetch-source-b-id>"],
+      "depends_on": ["fetch-a", "fetch-b"],
       "run_if": "success"
     },
     {
+      "id": "report",
       "name": "generate-report",
       "image_url": "docker.io/myorg/report:v1",
-      "depends_on": ["<merge-data-id>"],
+      "depends_on": ["merge"],
       "run_if": "success"
     },
     {
+      "id": "alert",
       "name": "send-alert",
       "image_url": "docker.io/myorg/alert:v1",
-      "depends_on": ["<merge-data-id>"],
+      "depends_on": ["merge"],
       "run_if": "failure"
     }
   ]
@@ -190,20 +197,21 @@ Expected response:
   "id": "workflow-xyz789",
   "name": "etl-workflow",
   "tasks": [
-    {"id": "task-001", "name": "fetch-source-a", "depends_on": [], "run_if": "success"},
-    {"id": "task-002", "name": "fetch-source-b", "depends_on": [], "run_if": "success"},
-    {"id": "task-003", "name": "merge-data", "depends_on": ["task-001", "task-002"], "run_if": "success"},
-    {"id": "task-004", "name": "generate-report", "depends_on": ["task-003"], "run_if": "success"},
-    {"id": "task-005", "name": "send-alert", "depends_on": ["task-003"], "run_if": "failure"}
+    {"id": "fetch-a", "name": "fetch-source-a", "depends_on": [], "run_if": "success"},
+    {"id": "fetch-b", "name": "fetch-source-b", "depends_on": [], "run_if": "success"},
+    {"id": "merge", "name": "merge-data", "depends_on": ["fetch-a", "fetch-b"], "run_if": "success"},
+    {"id": "report", "name": "generate-report", "depends_on": ["merge"], "run_if": "success"},
+    {"id": "alert", "name": "send-alert", "depends_on": ["merge"], "run_if": "failure"}
   ],
   "created_at": "2026-02-27T10:00:00Z"
 }
 ```
 
-### Dependency Fields
+### Task and Dependency Fields
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
+| `id` | string | Task identifier. If omitted, auto-generated as a UUID. Specify explicitly when other tasks need to reference it in `depends_on`. |
 | `depends_on` | array of string | Task IDs that must complete before this task starts |
 | `run_if` | string | Condition for execution: `success`, `failure`, or `always` |
 | `workflow_id` | string (auto) | ID of the workflow this task belongs to |
