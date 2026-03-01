@@ -5,12 +5,6 @@ description: Execute multi-step workflows with task dependencies using DAG orche
 
 This example demonstrates DAG (Directed Acyclic Graph) workflow execution in Propeller. DAG workflows allow you to define task dependencies where child tasks only execute after their parent tasks complete successfully.
 
-**What you'll learn:**
-- Creating workflows with task dependencies
-- Specifying task IDs for dependency references
-- Automatic scheduling of dependent tasks
-- Conditional execution with `run_if`
-
 ## Prerequisites
 
 Ensure you have:
@@ -20,12 +14,15 @@ Ensure you have:
 
 ## Source Code
 
-The addition example exports a `main` function that adds two integers:
+This example uses the [addition-wat](https://github.com/absmach/propeller/tree/main/examples/addition-wat) example, which exports a `main` function that adds two i32 integers:
 
-<CodeFromSource
-  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/addition-wat/addition.wat"
-  lang="wat"
-/>
+```lisp
+(module
+    (func (export "main") (param i32 i32) (result i32)
+        local.get 0
+        local.get 1
+        i32.add))
+```
 
 ## Build WASM
 
@@ -397,27 +394,11 @@ curl -X POST "http://localhost:7070/workflows" \
 }
 ```
 
-| `run_if` value | Behavior |
-|----------------|----------|
-| `success` | Task runs only if all dependencies completed successfully (state 3) |
-| `failure` | Task runs only if any dependency failed (state 4) |
-| (omitted) | Task runs when all dependencies complete, regardless of outcome |
-
-In the example above:
+In this example:
 - **pipeline-002** runs only if pipeline-001 succeeds (happy path)
 - **pipeline-003** runs only if pipeline-001 fails (error handling)
 
-## Task States
-
-| State | Value | Description |
-|-------|-------|-------------|
-| Pending | 0 | Task created but not scheduled |
-| Scheduled | 1 | Task queued for execution |
-| Running | 2 | Task currently executing |
-| Completed | 3 | Task finished successfully |
-| Failed | 4 | Task execution failed |
-| Skipped | 5 | Task skipped due to `run_if` condition |
-| Interrupted | 6 | Task was cancelled |
+For the full list of `run_if` values and task states, see [Task Scheduling & Workflows](/docs/task-scheduling#run_if-values).
 
 ## DAG Validation
 
@@ -434,8 +415,3 @@ Invalid workflows return an error:
   "error": "dependency validation failed: missing dependency: task X depends on Y which does not exist"
 }
 ```
-
-## Next Steps
-
-- [Task Scheduling](/docs/task-scheduling) - Learn about jobs, cron scheduling, and advanced workflow patterns
-- [Compute Example](/docs/examples/compute) - See a more complex multi-step workflow
