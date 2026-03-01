@@ -788,23 +788,19 @@ The Manager's cron loop calls `StartTask` for due tasks, which then goes through
 
 ### Task Execution Flow
 
-```
-1. Client → POST /tasks        → Manager creates task in Pending state
-2. Client → POST /tasks/{id}/start → Manager selects proplet, publishes MQTT command
-3. Manager → MQTT "start"      → Proplet receives task
-4. Proplet → Executes Wasm     → Produces results
-5. Proplet → MQTT "results"    → Manager receives results
-6. Manager → Updates state     → Task moves to Completed/Failed
-```
+![Task Execution Flow](./images/manager-task-execution-flow.svg)
+
+The diagram above illustrates the complete lifecycle of a task from creation to completion. The flow begins when a client sends a `POST /tasks` request, which creates the task in a Pending state within the Manager's database. When the client subsequently calls `POST /tasks/{id}/start`, the Manager selects an available proplet using its round-robin scheduler and publishes a start command over MQTT.
+
+The proplet receives this command on the `control/manager/start` topic, downloads the Wasm binary, and begins execution. As the Wasm module runs, it produces results that the proplet collects. Upon completion, the proplet publishes these results back to the Manager via the `control/proplet/results` topic. The Manager then updates the task's state to either Completed or Failed based on whether an error was present in the results.
 
 ### Proplet Registration Flow
 
-```
-1. Proplet starts             → Publishes discovery to control/proplet/create
-2. Manager receives           → Records proplet ID and channel
-3. Proplet sends heartbeats   → Every few seconds to control/proplet/alive
-4. Manager tracks liveliness  → Proplet eligible for scheduling if heartbeat < 10s old
-```
+![Proplet Registration Flow](./images/manager-proplet-registration-flow.svg)
+
+This diagram shows how proplets join the system and maintain their availability status. When a proplet starts, it immediately publishes a discovery message to the `control/proplet/create` MQTT topic containing its unique identifier. The Manager receives this message, generates a human-readable name for the proplet, and creates a database record.
+
+After registration, the proplet enters a continuous heartbeat loop, sending alive signals every few seconds to `control/proplet/alive`. The Manager tracks these heartbeats in the proplet's `AliveHistory` array, keeping the most recent 10 timestamps. A proplet is considered alive—and therefore eligible for task scheduling—only if its last heartbeat arrived within 10 seconds. Dead proplets are automatically excluded from round-robin selection until they resume sending heartbeats.
 
 ## API Reference
 
