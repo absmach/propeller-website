@@ -141,6 +141,13 @@ Your output should look like this:
 }
 ```
 
+The response shows all three tasks created with `state: 0` (Pending). Key fields:
+
+- **workflow_id**: All tasks share the same ID, linking them as a single workflow
+- **depends_on**: Task 2 and Task 3 both list `task-001`, establishing the fan-out dependency
+- **inputs**: The integer pairs that will be passed to the `main` function
+- **start_time / finish_time**: Zero values (`0001-01-01`) indicate the tasks haven't run yet
+
 The `depends_on` field references task IDs that must complete before this task runs. The manager validates:
 - All referenced task IDs exist in the workflow
 - No circular dependencies exist (DAG validation)
