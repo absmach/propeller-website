@@ -294,6 +294,15 @@ curl -X POST "http://localhost:7070/workflows" \
 }'
 ```
 
+**Request fields:**
+
+| Field | Description |
+|-------|-------------|
+| `id` | Explicit task identifier used by `depends_on` references. Required for tasks that others depend on. |
+| `depends_on` | Array of task IDs that must complete before this task starts. `fetch-a` and `fetch-b` have no dependencies (root tasks), while `merge` depends on both. |
+| `run_if` | Conditional execution—`merge` and `report` run on success; `alert` runs only if `merge` fails. |
+| `image_url` | WASM module location. Multiple tasks can share the same image with different `env` values. |
+
 Your output should look like this:
 
 ```json
@@ -311,17 +320,14 @@ Your output should look like this:
 }
 ```
 
-**Request fields:**
-- **id**: Explicit task identifier used by `depends_on` references. Required for tasks that others depend on.
-- **depends_on**: Array of task IDs that must complete before this task starts. `fetch-a` and `fetch-b` have no dependencies (root tasks), while `merge` depends on both.
-- **run_if**: Conditional execution—`merge` and `report` run on success; `alert` runs only if `merge` fails.
-- **image_url**: WASM module location. Multiple tasks can share the same image with different `env` values.
-
 **Response fields:**
-- **id** (workflow): System-assigned workflow identifier (`workflow-xyz789`).
-- **depends_on**: Normalized to empty array `[]` for root tasks.
-- **run_if**: Defaults to `success` for tasks without explicit conditions.
-- **created_at**: Timestamp when the workflow was registered.
+
+| Field | Description |
+|-------|-------------|
+| `id` (workflow) | System-assigned workflow identifier (`workflow-xyz789`). |
+| `depends_on` | Normalized to empty array `[]` for root tasks. |
+| `run_if` | Defaults to `success` for tasks without explicit conditions. |
+| `created_at` | Timestamp when the workflow was registered. |
 
 ### Task and Dependency Fields
 
@@ -345,7 +351,9 @@ Tasks execute independently on proplets—possibly on different nodes—so each 
 
 ### Data Passing Between Tasks
 
-Tasks can pass results to downstream tasks through the workflow coordinator:
+When tasks depend on each other, downstream tasks often need access to results from upstream tasks. For example, a data transformation task needs the raw data extracted by its parent task, or an aggregation task needs outputs from multiple parallel processing tasks.
+
+Propeller passes task results through the workflow coordinator. Each task receives the outputs from the tasks listed in its `depends_on` array—and only those outputs. This scoped data passing keeps workflows efficient and predictable.
 
 ![Data Passing Between Tasks](./images/DAG/DAG-data-passing-between-tasks.svg)
 
@@ -356,6 +364,12 @@ Tasks can pass results to downstream tasks through the workflow coordinator:
 - Each task receives only the outputs from tasks listed in its `depends_on` array
 
 ### run_if Values
+
+Conditional execution lets you build workflows that respond to task outcomes. Common use cases include:
+
+- **Success handlers**: Send notifications, trigger deployments, or start downstream processing only when upstream tasks succeed
+- **Failure handlers**: Send alerts, run cleanup routines, or log diagnostics when tasks fail
+- **Always handlers**: Update status dashboards, release locks, or perform cleanup regardless of outcome
 
 ![Conditional Branching](./images/DAG/DAG-conditional-branching.svg)
 
@@ -385,60 +399,7 @@ The workflow coordinator will:
 4. Start dependent tasks when their prerequisites are satisfied
 5. Evaluate `run_if` conditions before starting each task
 
-### Using the CLI
-
-```bash
-# Create a workflow from a JSON file
-propeller-cli workflows create --file workflow.json
-
-# View workflow details
-propeller-cli workflows view workflow-xyz789
-
-# Start a workflow
-propeller-cli workflows start workflow-xyz789
-
-# List all workflows
-propeller-cli workflows --offset 0 --limit 100
-```
-
-### Example workflow.json
-
-```json
-{
-  "name": "ml-pipeline",
-  "tasks": [
-    {
-      "name": "download-dataset",
-      "image_url": "docker.io/myorg/download:v1",
-      "env": {"DATASET_URL": "s3://bucket/data.csv"}
-    },
-    {
-      "name": "preprocess",
-      "image_url": "docker.io/myorg/preprocess:v1",
-      "depends_on": ["download-dataset"]
-    },
-    {
-      "name": "train-model",
-      "image_url": "docker.io/myorg/train:v1",
-      "depends_on": ["preprocess"],
-      "env": {"EPOCHS": "100"}
-    },
-    {
-      "name": "evaluate",
-      "image_url": "docker.io/myorg/evaluate:v1",
-      "depends_on": ["train-model"],
-      "run_if": "success"
-    },
-    {
-      "name": "notify-failure",
-      "image_url": "docker.io/myorg/notify:v1",
-      "depends_on": ["train-model"],
-      "run_if": "failure",
-      "env": {"CHANNEL": "slack"}
-    }
-  ]
-}
-```
+For a complete working example with real WASM modules and actual API responses, see [DAG Workflows and Jobs](/docs/examples/dag).
 
 ## Workflow vs Job Comparison
 
@@ -455,6 +416,13 @@ propeller-cli workflows --offset 0 --limit 100
 The workflow coordinator validates DAG structure before execution:
 
 ### Circular Dependency Detection
+
+A **circular dependency** occurs when tasks form a loop—Task A depends on Task B, which depends on Task C, which depends back on Task A. This creates an impossible execution order where no task can start because each is waiting for another.
+
+Circular dependencies are not allowed because:
+- **Deadlock**: Tasks wait forever since their prerequisites never complete
+- **Invalid DAG**: A graph with cycles is not acyclic, violating the DAG definition
+- **Unpredictable behavior**: The workflow has no valid starting point
 
 The coordinator detects and rejects circular dependencies:
 
@@ -506,9 +474,15 @@ The coordinator performs topological sorting to determine execution order:
 
 ### Priority-Based Scheduling
 
-Priority scheduling controls task dispatch order based on priority values. When multiple tasks are pending, the Manager dispatches higher-priority tasks first:
+Priority scheduling controls task dispatch order based on priority values. When multiple tasks are pending, the Manager dispatches higher-priority tasks first.
+
+#### How Priority Works
+
+Each task has a `priority` field (0–100). When the Manager has multiple pending tasks, it dispatches the highest-priority task first. This ensures urgent work gets processed before background tasks, even if background tasks were created earlier.
 
 ![Priority Within Level](./images/DAG/DAG-priority-within-level.svg)
+
+#### Setting Task Priority
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
@@ -520,11 +494,15 @@ curl -X POST "http://localhost:7070/tasks" \
 }'
 ```
 
+#### Priority Levels
+
 | Priority | Range | Description |
 | -------- | ----- | ----------- |
 | Low | 0–30 | Background tasks, batch processing |
 | Normal | 31–70 | Default priority (50) |
 | High | 71–100 | Urgent tasks, real-time processing |
+
+#### Priority vs Proplet Selection
 
 Priority determines **which task** is dispatched next. Round Robin determines **which proplet** receives the task. A high-priority task will be dispatched before lower-priority tasks, but proplet selection still cycles evenly.
 
@@ -684,162 +662,4 @@ Daemon tasks:
 - Automatically restart on the same proplet if they crash
 - Don't count toward workflow completion
 
-## Example: Complete ETL Pipeline
-
-![Example DAG](./images/DAG/Example-DAG.svg)
-
-### Step 1: Define the Workflow
-
-Create `etl-workflow.json`:
-
-```json
-{
-  "name": "daily-etl",
-  "tasks": [
-    {
-      "name": "extract-sales",
-      "image_url": "docker.io/myorg/extract:v1",
-      "env": {"TABLE": "sales"},
-      "priority": 80
-    },
-    {
-      "name": "extract-inventory",
-      "image_url": "docker.io/myorg/extract:v1",
-      "env": {"TABLE": "inventory"},
-      "priority": 80
-    },
-    {
-      "name": "extract-customers",
-      "image_url": "docker.io/myorg/extract:v1",
-      "env": {"TABLE": "customers"},
-      "priority": 80
-    },
-    {
-      "name": "transform-join",
-      "image_url": "docker.io/myorg/transform:v1",
-      "depends_on": ["extract-sales", "extract-inventory", "extract-customers"],
-      "run_if": "success"
-    },
-    {
-      "name": "load-warehouse",
-      "image_url": "docker.io/myorg/load:v1",
-      "depends_on": ["transform-join"],
-      "run_if": "success"
-    },
-    {
-      "name": "generate-report",
-      "image_url": "docker.io/myorg/report:v1",
-      "depends_on": ["load-warehouse"],
-      "run_if": "success"
-    },
-    {
-      "name": "notify-success",
-      "image_url": "docker.io/myorg/notify:v1",
-      "depends_on": ["generate-report"],
-      "run_if": "success",
-      "env": {"CHANNEL": "slack", "MESSAGE": "ETL completed successfully"}
-    },
-    {
-      "name": "notify-failure",
-      "image_url": "docker.io/myorg/notify:v1",
-      "depends_on": ["transform-join", "load-warehouse"],
-      "run_if": "failure",
-      "env": {"CHANNEL": "pagerduty", "MESSAGE": "ETL pipeline failed"}
-    }
-  ]
-}
-```
-
-### Step 2: Create and Start
-
-```bash
-# Create the workflow
-propeller-cli workflows create --file etl-workflow.json
-
-# Start the workflow
-propeller-cli workflows start workflow-abc123
-```
-
-### Step 3: Monitor Progress
-
-```bash
-# Watch task states
-watch -n 2 'curl -s http://localhost:7070/workflows/workflow-abc123 | jq ".tasks[] | {name, state}"'
-```
-
-Expected progression:
-```json
-{"name": "extract-sales", "state": 2}
-{"name": "extract-inventory", "state": 2}
-{"name": "extract-customers", "state": 2}
-{"name": "transform-join", "state": 0}
-{"name": "load-warehouse", "state": 0}
-...
-```
-
-### Step 4: Schedule Daily Runs
-
-Convert to a scheduled workflow:
-
-```bash
-curl -X PUT "http://localhost:7070/workflows/workflow-abc123" \
--H "Content-Type: application/json" \
--d '{
-  "schedule": "0 2 * * *",
-  "timezone": "America/New_York",
-  "is_recurring": true
-}'
-```
-
-## Troubleshooting
-
-### Task Stuck in Pending
-
-1. Check proplet availability:
-   ```bash
-   curl http://localhost:7070/proplets | jq '.proplets[] | {id, alive}'
-   ```
-
-2. Verify dependencies are satisfied:
-   ```bash
-   curl http://localhost:7070/tasks/task-abc | jq '{depends_on, state}'
-   ```
-
-3. Check priority isn't too low:
-   ```bash
-   curl http://localhost:7070/tasks | jq '.tasks | sort_by(.priority) | reverse'
-   ```
-
-### Workflow Tasks Not Starting
-
-1. Verify DAG validation passed:
-   ```bash
-   curl http://localhost:7070/workflows/workflow-abc | jq '.validation_errors'
-   ```
-
-2. Check `run_if` conditions:
-   - If `run_if: success` but a dependency failed → task will be `Skipped`
-   - If `run_if: failure` but dependencies succeeded → task will be `Skipped`
-
-3. Verify workflow was started:
-   ```bash
-   curl -X POST http://localhost:7070/workflows/workflow-abc/start
-   ```
-
-### Cron Tasks Not Running
-
-1. Verify cron expression is valid:
-   ```bash
-   # Test with online cron parser
-   echo "0 * * * *" | crontab -l
-   ```
-
-2. Check `is_recurring` is true:
-   ```bash
-   curl http://localhost:7070/tasks/task-abc | jq '{schedule, is_recurring, next_run}'
-   ```
-
-3. Verify timezone is correct:
-   ```bash
-   TZ="America/New_York" date
-   ```
+For complete working examples including ETL pipelines and troubleshooting guides, see [DAG Workflows and Jobs](/docs/examples/dag).

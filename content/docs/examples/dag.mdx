@@ -621,3 +621,88 @@ After completion:
 With fast-executing tasks, the timing difference is subtle. For long-running tasks, sequential mode ensures each task completes before the next starts (fail-fast behavior).
 
 For a comparison of workflows vs jobs and detailed job configuration options, see [Workflow vs Job Comparison](/docs/task-scheduling#workflow-vs-job-comparison).
+
+---
+
+## Troubleshooting
+
+Common issues when working with DAG workflows and jobs.
+
+### Task Stuck in Pending
+
+If a task remains in `state: 0` (Pending) and doesn't start:
+
+**1. Check proplet availability**
+
+At least one proplet must be alive to execute tasks:
+
+```bash
+curl http://localhost:7070/proplets | jq '.proplets[] | {id, alive}'
+```
+
+**2. Verify dependencies are satisfied**
+
+Tasks with unmet dependencies stay pending:
+
+```bash
+curl http://localhost:7070/tasks/task-abc | jq '{depends_on, state}'
+```
+
+**3. Check priority isn't too low**
+
+Higher-priority tasks get dispatched first:
+
+```bash
+curl http://localhost:7070/tasks | jq '.tasks | sort_by(.priority) | reverse'
+```
+
+### Workflow Tasks Not Starting
+
+**1. Verify DAG validation passed**
+
+Invalid DAGs (circular dependencies, missing task references) are rejected:
+
+```bash
+curl http://localhost:7070/workflows/workflow-abc | jq '.validation_errors'
+```
+
+**2. Check run_if conditions**
+
+Tasks may be skipped based on dependency outcomes:
+- `run_if: success` but a dependency failed → task will be `Skipped`
+- `run_if: failure` but dependencies succeeded → task will be `Skipped`
+
+**3. Verify workflow was started**
+
+Workflows don't auto-start—you must start the root task:
+
+```bash
+curl -X POST http://localhost:7070/tasks/{root-task-id}/start
+```
+
+### Cron Tasks Not Running
+
+**1. Verify cron expression is valid**
+
+Use a cron validator or parser:
+
+```bash
+# Example: check if expression would run
+echo "0 * * * *"  # Every hour at minute 0
+```
+
+**2. Check is_recurring is true**
+
+Tasks without `is_recurring: true` only run once:
+
+```bash
+curl http://localhost:7070/tasks/task-abc | jq '{schedule, is_recurring, next_run}'
+```
+
+**3. Verify timezone is correct**
+
+Cron evaluation uses the specified timezone:
+
+```bash
+TZ="America/New_York" date
+```
