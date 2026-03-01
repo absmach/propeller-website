@@ -209,6 +209,20 @@ Workflows execute tasks based on dependency relationships and conditional logic.
 
 Only one downstream task executes—never both. This pattern is ideal for notifications, cleanup, or any action that depends on whether the upstream task succeeded or failed.
 
+#### Task Dependencies
+
+The following diagram shows how `depends_on` chains tasks together:
+
+![Task Dependencies](./images/DAG/DAG-dependency.svg)
+
+**Execution flow:**
+- **Task A** has no dependencies and runs first
+- **Task B** depends on Task A (`depends_on: ["task-a"]`)
+- **Task C** depends on both Task A and Task B (`depends_on: ["task-a", "task-b"]`)
+- Task C waits for **all** its dependencies to complete before starting
+
+This pattern is common when a task needs results from multiple upstream tasks before it can proceed.
+
 #### Fan-Out and Fan-In
 
 DAG workflows support two common parallel execution patterns for distributing and consolidating work.
@@ -310,14 +324,6 @@ Your output should look like this:
 - **created_at**: Timestamp when the workflow was registered.
 
 ### Task and Dependency Fields
-
-![Task Dependencies](./images/DAG/DAG-dependency.svg)
-
-**Diagram explanation:**
-- **Task A** has no dependencies and runs first
-- **Task B** depends on Task A (`depends_on: ["task-a"]`)
-- **Task C** depends on both Task A and Task B (`depends_on: ["task-a", "task-b"]`)
-- Task C waits for **all** its dependencies to complete before starting
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
