@@ -64,7 +64,7 @@ The Manager is configured through environment variables. These are the most comm
 
 #### MQTT Connection
 
-The Manager communicates with proplets over MQTT using the SuperMQ message broker:
+The Manager communicates with proplets over MQTT using the [SuperMQ](https://github.com/absmach/supermq) message broker. SuperMQ provides secure, multi-tenant messaging with built-in authentication and authorization—ensuring that only authorized components can publish and subscribe to Propeller's control channels.
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
@@ -75,6 +75,65 @@ The Manager communicates with proplets over MQTT using the SuperMQ message broke
 | `MANAGER_CHANNEL_ID` | SuperMQ channel identifier | From `config.toml` |
 | `MANAGER_CLIENT_ID` | MQTT client ID for authentication | From `config.toml` |
 | `MANAGER_CLIENT_KEY` | MQTT client key for authentication | From `config.toml` |
+
+**QoS Levels:**
+- `0` (At most once): Fire and forget—fastest but messages may be lost
+- `1` (At least once): Guaranteed delivery but may have duplicates
+- `2` (Exactly once): Guaranteed single delivery—recommended for Propeller
+
+##### Provisioning with config.toml
+
+The `MANAGER_DOMAIN_ID`, `MANAGER_CHANNEL_ID`, `MANAGER_CLIENT_ID`, and `MANAGER_CLIENT_KEY` values come from SuperMQ provisioning. The `propeller-cli provision` command automates this setup by:
+
+1. Authenticating with your SuperMQ instance
+2. Creating a domain (logical isolation boundary)
+3. Creating clients (Manager, Proplets, Proxy)
+4. Creating a channel (shared communication topic)
+5. Connecting all clients to the channel with publish/subscribe permissions
+6. Writing credentials to `config.toml`
+
+Run the provisioning wizard:
+
+```bash
+propeller-cli provision
+```
+
+The wizard prompts for SuperMQ credentials and generates a `config.toml` file:
+
+```toml
+# SuperMQ Configuration
+
+[manager]
+domain_id = "73cc3c8f-2c6c-4c08-903b-f1f426d5d9bf"
+client_id = "47c7fcf5-2d9a-41e6-8e0c-97303736019e"
+client_key = "26975130-4cd7-4791-8050-c1698ac31e10"
+channel_id = "9856d353-88d3-4eb6-82bd-117eadf69c74"
+
+[proplet]
+domain_id = "73cc3c8f-2c6c-4c08-903b-f1f426d5d9bf"
+client_id = "ec182939-7940-4b25-869e-47b245ddec09"
+client_key = "21076163-f7b9-439e-94b9-f17f69ce3d28"
+channel_id = "9856d353-88d3-4eb6-82bd-117eadf69c74"
+
+[proxy]
+domain_id = "73cc3c8f-2c6c-4c08-903b-f1f426d5d9bf"
+client_id = "ec182939-7940-4b25-869e-47b245ddec09"
+client_key = "21076163-f7b9-439e-94b9-f17f69ce3d28"
+channel_id = "9856d353-88d3-4eb6-82bd-117eadf69c74"
+```
+
+Each section contains:
+
+| Field | Purpose |
+| ----- | ------- |
+| `domain_id` | SuperMQ domain for multi-tenant isolation |
+| `client_id` | Unique identifier for MQTT authentication |
+| `client_key` | Secret key for MQTT authentication |
+| `channel_id` | Shared channel for Manager-Proplet communication |
+
+The Manager, Proplets, and Proxy all share the same `domain_id` and `channel_id` but have unique `client_id`/`client_key` pairs. This allows them to communicate securely on a shared channel while maintaining distinct identities.
+
+When starting Docker Compose, the `docker/.env` file references these values, which are loaded from `config.toml`. You can also set them directly as environment variables to override the file.
 
 #### HTTP Server
 
