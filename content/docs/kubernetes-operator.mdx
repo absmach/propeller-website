@@ -77,6 +77,15 @@ You can watch this in real-time:
 kubectl get tasks -w
 ```
 
+Your output should look like this:
+```
+NAME            PHASE       FUNCTION   PROPLET          START TIME   FINISH TIME   PREFERRED TYPE   AGE
+addition-task   pending     main       -                -            -             any              0s
+addition-task   scheduled   main       demo-worker      -            -             any              1s
+addition-task   running     main       demo-worker      2s           -             any              3s
+addition-task   completed   main       demo-worker      2s           1s            any              5s
+```
+
 ## Getting Started
 
 ### Prerequisites
@@ -88,6 +97,10 @@ Before installing the operator, you need:
 2. **kubectl configured** — The operator deploys via standard manifests. Verify your context:
    ```bash
    kubectl config current-context
+   ```
+   Your output should look like this:
+   ```
+   k3d-k3s-default
    ```
 
 3. **An MQTT broker** — The operator communicates with Proplets via MQTT. If you're running the full Propeller stack, you already have SuperMQ. Otherwise, any MQTT 3.1.1+ broker works (Mosquitto, EMQX, HiveMQ).
@@ -107,16 +120,41 @@ Install Custom Resource Definitions into your cluster:
 make install
 ```
 
+Your output should look like this:
+```
+/home/user/go/bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+kustomize build config/crd | kubectl apply -f -
+customresourcedefinition.apiextensions.k8s.io/proplets.propeller.propeller.abstractmachines.fr created
+customresourcedefinition.apiextensions.k8s.io/tasks.propeller.propeller.abstractmachines.fr created
+```
+
 This registers the `Proplet` and `Task` types with the Kubernetes API. You can verify:
 
 ```bash
 kubectl api-resources | grep propeller
 ```
 
+Your output should look like this:
+```
+proplets    propeller.propeller.abstractmachines.fr/v1   true    Proplet
+tasks       propeller.propeller.abstractmachines.fr/v1   true    Task
+```
+
 Deploy the operator (controller + RBAC + ServiceAccount):
 
 ```bash
 make deploy
+```
+
+Your output should look like this:
+```
+namespace/propeller-k8s-operator-system created
+serviceaccount/propeller-k8s-operator-controller-manager created
+role.rbac.authorization.k8s.io/propeller-k8s-operator-leader-election-role created
+clusterrole.rbac.authorization.k8s.io/propeller-k8s-operator-manager-role created
+rolebinding.rbac.authorization.k8s.io/propeller-k8s-operator-leader-election-rolebinding created
+clusterrolebinding.rbac.authorization.k8s.io/propeller-k8s-operator-manager-rolebinding created
+deployment.apps/propeller-k8s-operator-controller-manager created
 ```
 
 Check that the operator pod is running:
@@ -446,6 +484,12 @@ The operator created a Deployment for you:
 kubectl get deployments
 ```
 
+Your output should look like this:
+```
+NAME                                    READY   UP-TO-DATE   AVAILABLE   AGE
+demo-worker                             1/1     1            1           45s
+```
+
 ### 3. Create a Task
 
 Save this as `task.yaml` — a simple WASM module that adds two numbers:
@@ -526,6 +570,17 @@ If you're running the full Propeller stack, use the provisioning CLI:
 propeller-cli provision
 ```
 
+Your output should look like this:
+```
+✓ Connected to SuperMQ at http://localhost:9000
+✓ Created domain: cbba98e5-84a9-422c-ad00-f6ee21d6695a
+✓ Created channel: 16722ec1-ce8a-446d-a829-d83459f1c40e
+✓ Created client (manager): ef007c37-3253-4860-9986-cc9262a8e0f1
+✓ Created client (proplet): fa407362-9c5f-41b8-9a09-9d0c0b039287
+✓ Connected all clients to channel
+✓ Wrote credentials to config.toml
+```
+
 This creates the domain, channel, and client credentials, writing them to `config.toml`. Copy the values into your Proplet manifests.
 
 For Kubernetes deployments, consider storing credentials in Secrets and referencing them via environment variables in your Proplet image.
@@ -549,10 +604,31 @@ cd propeller-k8s-operator
 make build
 ```
 
+Your output should look like this:
+```
+Cloning into 'propeller-k8s-operator'...
+remote: Enumerating objects: 156, done.
+remote: Counting objects: 100% (156/156), done.
+remote: Compressing objects: 100% (98/98), done.
+Receiving objects: 100% (156/156), 45.23 KiB | 1.50 MiB/s, done.
+go build -o bin/manager cmd/main.go
+```
+
 This produces the controller binary. To build a container image:
 
 ```bash
 make docker-build IMG=your-registry/propeller-operator:dev
+```
+
+Your output should look like this:
+```
+docker build -t your-registry/propeller-operator:dev .
+[+] Building 15.2s (17/17) FINISHED
+ => [internal] load build definition                                    0.0s
+ => => transferring dockerfile                                          0.0s
+ => [internal] load .dockerignore                                       0.0s
+ => exporting to image                                                  0.3s
+ => => naming to your-registry/propeller-operator:dev                   0.0s
 ```
 
 ### Running Tests
@@ -563,11 +639,43 @@ Unit tests:
 make test
 ```
 
+Your output should look like this:
+```
+go test ./... -coverprofile cover.out
+?       github.com/absmach/propeller-k8s-operator/cmd   [no test files]
+ok      github.com/absmach/propeller-k8s-operator/internal/controller   4.523s  coverage: 78.2% of statements
+ok      github.com/absmach/propeller-k8s-operator/api/v1                0.234s  coverage: 92.1% of statements
+```
+
 Integration tests require a cluster. If using k3d:
 
 ```bash
 k3d cluster create propeller-test
+```
+
+Your output should look like this:
+```
+INFO[0000] Creating cluster "propeller-test"
+INFO[0001] Cluster "propeller-test" created successfully!
+INFO[0001] You can now use it like this:
+kubectl cluster-info
+```
+
+Then run integration tests:
+
+```bash
 make test-integration
+```
+
+Your output should look like this:
+```
+go test ./... -tags=integration -v
+=== RUN   TestPropletReconciler
+--- PASS: TestPropletReconciler (2.34s)
+=== RUN   TestTaskScheduling
+--- PASS: TestTaskScheduling (1.56s)
+PASS
+ok      github.com/absmach/propeller-k8s-operator/internal/controller   3.90s
 ```
 
 ### Running Locally
@@ -576,6 +684,14 @@ For development, you can run the operator outside the cluster while it communica
 
 ```bash
 make run
+```
+
+Your output should look like this:
+```
+go run ./cmd/main.go
+2026-03-02T10:15:30.123Z    INFO    controller-runtime.metrics    Metrics server listening    {"addr": ":8080"}
+2026-03-02T10:15:30.124Z    INFO    setup    starting manager
+2026-03-02T10:15:30.124Z    INFO    controller-runtime.manager    Starting workers    {"count": 2}
 ```
 
 This runs the controller against whatever cluster your current `kubectl` context points to. Changes take effect immediately without rebuilding images.
@@ -591,6 +707,14 @@ kubectl delete tasks --all
 kubectl delete proplets --all
 ```
 
+Your output should look like this:
+```
+task.propeller.propeller.abstractmachines.fr "addition-task" deleted
+task.propeller.propeller.abstractmachines.fr "ml-inference-task" deleted
+proplet.propeller.propeller.abstractmachines.fr "demo-worker" deleted
+proplet.propeller.propeller.abstractmachines.fr "warehouse-sensor-01" deleted
+```
+
 This ensures clean shutdown—Tasks complete or fail gracefully, Proplet pods terminate.
 
 ### Remove the Operator
@@ -601,12 +725,31 @@ Undeploy the controller and its RBAC resources:
 make undeploy
 ```
 
+Your output should look like this:
+```
+kustomize build config/default | kubectl delete -f -
+deployment.apps "propeller-k8s-operator-controller-manager" deleted
+clusterrolebinding.rbac.authorization.k8s.io "propeller-k8s-operator-manager-rolebinding" deleted
+rolebinding.rbac.authorization.k8s.io "propeller-k8s-operator-leader-election-rolebinding" deleted
+clusterrole.rbac.authorization.k8s.io "propeller-k8s-operator-manager-role" deleted
+role.rbac.authorization.k8s.io "propeller-k8s-operator-leader-election-role" deleted
+serviceaccount "propeller-k8s-operator-controller-manager" deleted
+namespace "propeller-k8s-operator-system" deleted
+```
+
 ### Remove CRDs
 
 Finally, remove the Custom Resource Definitions:
 
 ```bash
 make uninstall
+```
+
+Your output should look like this:
+```
+kustomize build config/crd | kubectl delete -f -
+customresourcedefinition.apiextensions.k8s.io "proplets.propeller.propeller.abstractmachines.fr" deleted
+customresourcedefinition.apiextensions.k8s.io "tasks.propeller.propeller.abstractmachines.fr" deleted
 ```
 
 After this, `kubectl get proplets` and `kubectl get tasks` will return "resource not found."
@@ -639,6 +782,13 @@ Look at the `propletSelector` requirements—do any Proplets match? Run:
 
 ```bash
 kubectl get proplets --show-labels
+```
+
+Your output should look like this:
+```
+NAME                  TYPE       PHASE     READY   LABELS
+demo-worker           k8s        Running   True    environment=production,tier=compute
+warehouse-sensor-01   external   Running   True    floor=ground,location=warehouse-a
 ```
 
 ### Task Failed
