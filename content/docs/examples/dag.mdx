@@ -53,7 +53,15 @@ This confirms the file is a valid WebAssembly binary. "Version 0x1 (MVP)" indica
 
 ## Create Workflow
 
-Create a DAG workflow with three tasks. Task 2 and Task 3 both depend on Task 1, so they'll execute in parallel after Task 1 completes.
+Create a DAG workflow with three tasks. Three tasks is the minimum needed to demonstrate parallel fan-out: Task 1 is the root, and Task 2 and Task 3 both depend on it. When Task 1 completes, Tasks 2 and 3 start simultaneously.
+
+```
+    task-001
+       │
+   ┌───┴───┐
+   │       │
+task-002  task-003
+```
 
 **Important:** Specify task IDs explicitly so dependencies can reference them:
 
