@@ -209,29 +209,25 @@ Workflows execute tasks based on dependency relationships and conditional logic.
 
 Only one downstream task executes—never both. This pattern is ideal for notifications, cleanup, or any action that depends on whether the upstream task succeeded or failed.
 
-#### Fan-Out and Fan-In
+#### Fan-Out
 
-DAG workflows support two common parallel execution patterns:
+A single parent task triggers multiple child tasks. All children start simultaneously when the parent completes. This pattern maximizes parallelism for independent work.
 
 ![Fan-Out and Fan-In](./images/DAG/DAG-fanout-fanin.svg)
 
-**Execution flow (image processing pipeline):**
-1. **Ingest** task runs first—loads the source image
-2. **Fan-out**: Ingest triggers three parallel tasks:
-   - **Resize** — scales the image
-   - **Watermark** — adds branding overlay
-   - **Compress** — reduces file size
-3. **Fan-in**: **Merge & Upload** waits for all three to complete, then combines results and uploads
+**Example (image processing pipeline):**
+- **Ingest** task runs first—loads the source image
+- Ingest triggers three parallel tasks: **Resize**, **Watermark**, **Compress**
+- All three run simultaneously since they have no dependencies on each other
 
-**Fan-out (one-to-many):**
-- A single parent task triggers multiple child tasks
-- All children start simultaneously when the parent completes
-- Maximizes parallelism for independent work
+#### Fan-In
 
-**Fan-in (many-to-one):**
-- Multiple tasks converge into a single downstream task
-- The downstream task waits for **all** upstream tasks to complete
-- Used for aggregation, merging results, or synchronization points
+Multiple tasks converge into a single downstream task. The downstream task waits for **all** upstream tasks to complete. This pattern is used for aggregation, merging results, or synchronization points.
+
+**Example (image processing pipeline):**
+- **Merge & Upload** depends on Resize, Watermark, and Compress
+- It waits for all three to complete before starting
+- Combines results and uploads the final processed image
 
 ### Creating a Workflow
 
