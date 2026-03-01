@@ -357,6 +357,198 @@ b_aggregated = Σ(sᵢ × bᵢ) / Σ(sᵢ)
 
 Other federated learning aggregation algorithms include FedProx, SCAFFOLD, and FedPer. For more details, see [Understanding Aggregation Algorithms in Federated Learning](https://medium.com/@praburam_93885/understanding-aggregation-algorithms-in-federated-learning-834ed2bbe860).
 
+## Customizing Algorithms
+
+Propeller's FL architecture is modular, allowing you to customize both the training algorithm (WASM client) and the aggregation algorithm (Aggregator service) by modifying the respective components.
+
+### Customizing the Training Algorithm
+
+The training algorithm runs inside the WASM client at `examples/fl-demo/client-wasm/fl-client.go`. The default implementation uses logistic regression with SGD.
+
+**To implement a different training algorithm:**
+
+1. **Modify the training loop** in `fl-client.go` (lines 180-240):
+
+```go
+// Current: Logistic regression with SGD
+// Replace this section with your algorithm
+
+for epoch := 0; epoch < epochs; epoch++ {
+    // Shuffle dataset
+    for i := len(dataset) - 1; i > 0; i-- {
+        j := rand.Intn(i + 1)
+        dataset[i], dataset[j] = dataset[j], dataset[i]
+    }
+
+    // Process samples - CUSTOMIZE THIS SECTION
+    for batchStart := 0; batchStart < len(dataset); batchStart += batchSize {
+        // Your training logic here
+        // Example: Neural network forward/backward pass
+        // Example: Decision tree update
+        // Example: K-means clustering step
+    }
+}
+```
+
+2. **Update the model structure** if your algorithm requires different parameters:
+
+```go
+// Current model structure
+model := map[string]interface{}{
+    "w": []float64{...},  // weights
+    "b": 0.0,             // bias
+}
+
+// Example: Neural network with multiple layers
+model := map[string]interface{}{
+    "layer1_w": [][]float64{...},
+    "layer1_b": []float64{...},
+    "layer2_w": [][]float64{...},
+    "layer2_b": []float64{...},
+}
+```
+
+3. **Rebuild the WASM binary**:
+
+```bash
+cd examples/fl-demo/client-wasm
+GOTOOLCHAIN=go1.25.5 GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
+```
+
+4. **Push to GHCR**:
+
+```bash
+docker run --rm \
+  -v "$(pwd):/workspace" \
+  -w /workspace \
+  -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" \
+  ghcr.io/oras-project/oras:v1.3.0 \
+  push ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest \
+  fl-client.wasm:application/wasm
+```
+
+### Customizing the Aggregation Algorithm
+
+The aggregation algorithm runs in the Aggregator service at `examples/fl-demo/aggregator/main.go`. The default implementation uses weighted Federated Averaging (FedAvg).
+
+**To implement a different aggregation algorithm:**
+
+1. **Modify `aggregateHandler`** in `aggregator/main.go`:
+
+```go
+func aggregateHandler(w http.ResponseWriter, r *http.Request) {
+    var req AggregateRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
+        return
+    }
+
+    // CUSTOMIZE: Replace FedAvg with your algorithm
+    // Example implementations:
+
+    // FedAvg (current default):
+    // aggregatedW[j] += weight[j] * numSamples
+    // aggregatedW[j] /= totalSamples
+
+    // FedProx: Add proximal term penalty
+    // aggregatedW[j] = fedAvgW[j] - mu * (localW[j] - globalW[j])
+
+    // Median aggregation (Byzantine-robust):
+    // aggregatedW[j] = median(allUpdates[j])
+
+    // Trimmed mean (outlier-resistant):
+    // Sort values, remove top/bottom 10%, average remainder
+
+    model := AggregatedModel{
+        W: aggregatedW,
+        B: aggregatedB,
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(model)
+}
+```
+
+2. **Update the model structure** to match your WASM client:
+
+```go
+// Must match the structure sent by your WASM client
+type AggregatedModel struct {
+    W       []float64 `json:"w"`
+    B       float64   `json:"b"`
+    // Add additional fields as needed
+    Version int       `json:"version,omitempty"`
+}
+```
+
+3. **Rebuild and restart the Aggregator**:
+
+```bash
+# From repository root
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
+  --env-file docker/.env up -d --build aggregator
+```
+
+### Important Considerations
+
+| Consideration | Details |
+|---------------|---------|
+| **Model compatibility** | WASM client output structure must match Aggregator input expectations |
+| **Update format** | Both components must agree on the `update` field structure in JSON |
+| **Coordinator passthrough** | The Coordinator forwards updates unchanged; it doesn't parse model contents |
+| **Testing** | Test with a single proplet first before scaling to multiple participants |
+
+### Example: Implementing FedProx
+
+FedProx adds a proximal term to limit how far local updates can deviate from the global model:
+
+**1. WASM Client modification** (`fl-client.go`):
+
+```go
+// Add proximal term during training
+mu := 0.01  // proximal coefficient
+
+for j := 0; j < len(weights) && j < len(x); j++ {
+    // Standard gradient
+    gradient := lr * err * x[j]
+    // Proximal term: penalize deviation from global weights
+    proximal := mu * (weights[j] - globalWeights[j])
+    weights[j] -= gradient + proximal
+}
+```
+
+**2. Aggregator** - No changes needed (FedProx uses standard FedAvg aggregation)
+
+### Example: Implementing Byzantine-Robust Aggregation
+
+For environments where some proplets may submit malicious updates:
+
+**Aggregator modification** (`aggregator/main.go`):
+
+```go
+// Median aggregation instead of weighted average
+func medianAggregate(updates []Update) []float64 {
+    if len(updates) == 0 {
+        return nil
+    }
+
+    numWeights := len(updates[0].Update["w"].([]interface{}))
+    result := make([]float64, numWeights)
+
+    for j := 0; j < numWeights; j++ {
+        values := make([]float64, len(updates))
+        for i, u := range updates {
+            w := u.Update["w"].([]interface{})
+            values[i] = w[j].(float64)
+        }
+        sort.Float64s(values)
+        result[j] = values[len(values)/2]  // median
+    }
+
+    return result
+}
+```
+
 ### Update Message Format
 
 Each proplet submits an update with this structure:
