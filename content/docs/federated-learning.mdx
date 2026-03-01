@@ -174,11 +174,11 @@ The proplet executes the WASM module with the fetched model and dataset:
 2. **Training Algorithm**: The WASM module performs logistic regression training with Stochastic Gradient Descent (SGD):
    - Shuffles the dataset at the start of each epoch
    - Processes samples in mini-batches of size `batch_size`
-   - For each sample, computes: $z = w \cdot x + b$
-   - Applies sigmoid activation: $p = 1/(1 + e^{-z})$
-   - Computes error: $\text{err} = p - y$
-   - Updates weights: $w_i = w_i - \text{lr} \times \text{err} \times x_i$
-   - Updates bias: $b = b - \text{lr} \times \text{err}$
+   - For each sample, computes: `z = w · x + b`
+   - Applies sigmoid activation: `p = 1/(1 + exp(-z))`
+   - Computes error: `err = p - y`
+   - Updates weights: `w[i] = w[i] - lr × err × x[i]`
+   - Updates bias: `b = b - lr × err`
 
 3. **Update Output**: After training, the WASM module outputs a JSON update containing the trained weights
 
