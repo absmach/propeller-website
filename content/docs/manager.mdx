@@ -177,23 +177,47 @@ This requires clients to present valid certificates signed by the configured CA.
 
 #### Storage Backend
 
+The Manager persists task definitions, proplet registrations, job configurations, and execution metrics to a storage backend. Propeller supports four backends to match different deployment scenarios—from quick local testing to production-grade durability.
+
+**Why four backends?** Different environments have different requirements:
+
+- **Development** needs zero setup and fast iteration
+- **Edge deployments** need persistence without external dependencies
+- **Production** needs durability, backups, and operational tooling
+
 Select your storage backend with `MANAGER_STORAGE_TYPE`:
 
-| Backend | Best For | Additional Config |
-| ------- | -------- | ----------------- |
-| `memory` | Development and testing | None (state lost on restart) |
-| `sqlite` | Single-node or edge deployments | `MANAGER_SQLITE_PATH` |
-| `postgres` | Production with durability requirements | PostgreSQL connection vars |
-| `badger` | High-performance edge deployments | `MANAGER_BADGER_PATH` |
+| Backend | Default | Best For | Trade-offs |
+| ------- | ------- | -------- | ---------- |
+| `memory` | ✓ | Development, testing, CI pipelines | Zero setup; all state lost on restart |
+| `sqlite` | | Single-node production, edge gateways | File-based persistence; no external dependencies; limited concurrent writes |
+| `postgres` | | Multi-node production, enterprise deployments | Full SQL capabilities, ACID transactions, replication; requires PostgreSQL server |
+| `badger` | | High-throughput edge, embedded systems | Fast key-value store; no SQL queries; good for high write volumes |
 
-**SQLite configuration:**
+**Default: `memory`** — The Manager defaults to in-memory storage so you can start immediately without database setup. This is ideal for:
+- Local development and experimentation
+- Automated testing in CI/CD pipelines
+- Quick demos and proof-of-concept work
+
+However, **all state is lost when the Manager restarts**. Tasks, proplets, and jobs disappear. Never use `memory` in production.
+
+##### Switching Storage Backends
+
+Set `MANAGER_STORAGE_TYPE` to change backends. Each backend has additional configuration:
+
+**SQLite** — Best for single-node deployments where you need persistence without running a database server. The entire state lives in one file, making backups simple (`cp propeller.db propeller.db.backup`).
 
 ```bash
 export MANAGER_STORAGE_TYPE=sqlite
 export MANAGER_SQLITE_PATH=./propeller.db
 ```
 
-**PostgreSQL configuration:**
+Use cases:
+- Edge gateways managing local proplets
+- Small-scale production (under ~100 concurrent tasks)
+- Deployments where PostgreSQL is overkill
+
+**PostgreSQL** — Best for production deployments that need durability, concurrent access, and operational tooling. Supports multiple Manager replicas, point-in-time recovery, and standard database monitoring.
 
 ```bash
 export MANAGER_STORAGE_TYPE=postgres
@@ -204,6 +228,24 @@ export MANAGER_POSTGRES_PASS=propeller
 export MANAGER_POSTGRES_DB=propeller
 export MANAGER_POSTGRES_SSLMODE=disable
 ```
+
+Use cases:
+- Production deployments with SLA requirements
+- Multi-Manager high-availability setups
+- Environments with existing PostgreSQL infrastructure
+- When you need SQL queries for reporting or debugging
+
+**Badger** — Best for high-write-throughput scenarios on edge devices. Badger is an embedded key-value store optimized for SSDs, offering faster writes than SQLite for metrics-heavy workloads.
+
+```bash
+export MANAGER_STORAGE_TYPE=badger
+export MANAGER_BADGER_PATH=./data/badger
+```
+
+Use cases:
+- Edge devices collecting high-frequency metrics
+- Embedded systems with limited memory
+- When SQLite write performance becomes a bottleneck
 
 #### Observability
 
