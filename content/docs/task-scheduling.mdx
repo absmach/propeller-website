@@ -215,18 +215,23 @@ DAG workflows support two common parallel execution patterns:
 
 ![Fan-Out and Fan-In](./images/DAG/DAG-fanout-fanin.svg)
 
+**Execution flow (image processing pipeline):**
+1. **Ingest** task runs first—loads the source image
+2. **Fan-out**: Ingest triggers three parallel tasks:
+   - **Resize** — scales the image
+   - **Watermark** — adds branding overlay
+   - **Compress** — reduces file size
+3. **Fan-in**: **Merge & Upload** waits for all three to complete, then combines results and uploads
+
 **Fan-out (one-to-many):**
 - A single parent task triggers multiple child tasks
 - All children start simultaneously when the parent completes
-- Maximizes parallelism for independent work (e.g., fetching from multiple data sources)
+- Maximizes parallelism for independent work
 
 **Fan-in (many-to-one):**
 - Multiple tasks converge into a single downstream task
 - The downstream task waits for **all** upstream tasks to complete
 - Used for aggregation, merging results, or synchronization points
-
-- **Fan-out**: A single task triggers multiple downstream tasks that run in parallel.
-- **Fan-in**: Multiple parallel tasks converge into a single task that waits for all of them.
 
 ### Creating a Workflow
 
