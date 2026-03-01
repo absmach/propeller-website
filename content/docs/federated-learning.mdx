@@ -361,9 +361,20 @@ Other federated learning aggregation algorithms include FedProx, SCAFFOLD, and F
 
 Propeller's FL architecture is modular, allowing you to customize both the training algorithm (WASM client) and the aggregation algorithm (Aggregator service) by modifying the respective components.
 
+### Why These Defaults?
+
+Propeller uses **logistic regression with SGD** for training and **FedAvg** for aggregation as defaults for several reasons:
+
+| Component | Default | Why |
+|-----------|---------|-----|
+| Training | Logistic Regression + SGD | Simple gradient-based algorithm that works well with federated optimization. Compact model size (weights + bias) ideal for edge devices with limited memory. Easy to implement in WASM with no external dependencies. |
+| Aggregation | FedAvg | Communication-efficient (one round-trip per training round). Proven effective across heterogeneous data distributions. Simple weighted averaging that works with any gradient-based model. |
+
+These choices prioritize **simplicity and portability** over raw performance—making them ideal starting points that you can customize for your specific use case.
+
 ### Customizing the Training Algorithm
 
-The training algorithm runs inside the WASM client at `examples/fl-demo/client-wasm/fl-client.go`. The default implementation uses logistic regression with SGD.
+The training algorithm runs inside the WASM client at `examples/fl-demo/client-wasm/fl-client.go`. The default implementation uses [logistic regression with SGD](https://satishkumarmoparthi.medium.com/logistic-regression-with-l2-regularization-using-sgd-from-scratch-893692b48362).
 
 **To implement a different training algorithm:**
 
