@@ -227,6 +227,13 @@ The `depends_on` field references task IDs that must complete before this task r
 - All referenced task IDs exist in the workflow
 - No circular dependencies exist (DAG validation)
 
+### WASM Module Deployment
+
+Tasks execute independently on proplets—possibly on different nodes—so each task needs access to its WASM module. There are two ways to provide it:
+
+1. **Upload directly**: Use `PUT /tasks/{id}/upload` with a multipart form to upload a `.wasm` file. The module is stored with the task record.
+2. **Reference via URL**: Set `image_url` when creating the task to reference a shared WASM file from a URL (e.g., OCI registry, HTTP server). The proplet fetches the module when execution begins.
+
 ### run_if Values
 
 | Value | Behavior |
