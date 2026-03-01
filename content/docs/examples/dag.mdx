@@ -87,36 +87,48 @@ Response:
       "id": "task-001",
       "name": "main",
       "state": 0,
+      "cli_args": null,
       "inputs": [10, 20],
-      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
       "daemon": false,
       "encrypted": false,
-      "created_at": "2026-03-01T15:22:02.147249373Z",
-      "updated_at": "0001-01-01T00:00:00Z"
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-03-01T15:21:52.857522851Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z"
     },
     {
       "id": "task-002",
       "name": "main",
       "state": 0,
+      "cli_args": null,
       "inputs": [5, 15],
-      "depends_on": ["task-001"],
-      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
       "daemon": false,
       "encrypted": false,
-      "created_at": "2026-03-01T15:22:02.147249790Z",
-      "updated_at": "0001-01-01T00:00:00Z"
+      "depends_on": ["task-001"],
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-03-01T15:21:52.857523790Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z"
     },
     {
       "id": "task-003",
       "name": "main",
       "state": 0,
+      "cli_args": null,
       "inputs": [100, 200],
-      "depends_on": ["task-001"],
-      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
       "daemon": false,
       "encrypted": false,
-      "created_at": "2026-03-01T15:22:02.147250208Z",
-      "updated_at": "0001-01-01T00:00:00Z"
+      "depends_on": ["task-001"],
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-03-01T15:21:52.857524208Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z"
     }
   ]
 }
@@ -133,15 +145,76 @@ Upload the WASM module to each task:
 ```bash
 curl -X PUT "http://localhost:7070/tasks/task-001/upload" \
 -F "file=@build/addition.wasm"
+```
 
+```json
+{
+  "id": "task-001",
+  "name": "main",
+  "state": 0,
+  "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+  "cli_args": null,
+  "inputs": [10, 20],
+  "daemon": false,
+  "encrypted": false,
+  "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-01T15:21:52.857522851Z",
+  "updated_at": "2026-03-01T15:21:55.123456789Z",
+  "next_run": "0001-01-01T00:00:00Z"
+}
+```
+
+```bash
 curl -X PUT "http://localhost:7070/tasks/task-002/upload" \
 -F "file=@build/addition.wasm"
+```
 
+```json
+{
+  "id": "task-002",
+  "name": "main",
+  "state": 0,
+  "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+  "cli_args": null,
+  "inputs": [5, 15],
+  "depends_on": ["task-001"],
+  "daemon": false,
+  "encrypted": false,
+  "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-01T15:21:52.857523790Z",
+  "updated_at": "2026-03-01T15:21:56.234567890Z",
+  "next_run": "0001-01-01T00:00:00Z"
+}
+```
+
+```bash
 curl -X PUT "http://localhost:7070/tasks/task-003/upload" \
 -F "file=@build/addition.wasm"
 ```
 
-Each upload returns the updated task with the embedded WASM (base64 encoded in the `file` field).
+```json
+{
+  "id": "task-003",
+  "name": "main",
+  "state": 0,
+  "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+  "cli_args": null,
+  "inputs": [100, 200],
+  "depends_on": ["task-001"],
+  "daemon": false,
+  "encrypted": false,
+  "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-01T15:21:52.857524208Z",
+  "updated_at": "2026-03-01T15:21:57.345678901Z",
+  "next_run": "0001-01-01T00:00:00Z"
+}
+```
 
 ## Start Workflow
 
@@ -175,36 +248,57 @@ After completion:
       "id": "task-001",
       "name": "main",
       "state": 3,
+      "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+      "cli_args": null,
       "inputs": [10, 20],
-      "results": "30\n",
-      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+      "daemon": false,
+      "encrypted": false,
       "proplet_id": "ec182939-7940-4b25-869e-47b245ddec09",
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+      "results": "30\n",
       "start_time": "2026-03-01T15:22:08.180655563Z",
-      "finish_time": "2026-03-01T15:22:08.309737353Z"
+      "finish_time": "2026-03-01T15:22:08.309737353Z",
+      "created_at": "2026-03-01T15:21:52.857522851Z",
+      "updated_at": "2026-03-01T15:22:08.309737353Z",
+      "next_run": "0001-01-01T00:00:00Z"
     },
     {
       "id": "task-002",
       "name": "main",
       "state": 3,
+      "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+      "cli_args": null,
       "inputs": [5, 15],
+      "daemon": false,
+      "encrypted": false,
       "depends_on": ["task-001"],
-      "results": "20\n",
-      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
       "proplet_id": "ec182939-7940-4b25-869e-47b245ddec09",
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+      "results": "20\n",
       "start_time": "2026-03-01T15:22:08.333634221Z",
-      "finish_time": "2026-03-01T15:22:08.513905318Z"
+      "finish_time": "2026-03-01T15:22:08.513905318Z",
+      "created_at": "2026-03-01T15:21:52.857523790Z",
+      "updated_at": "2026-03-01T15:22:08.513905318Z",
+      "next_run": "0001-01-01T00:00:00Z"
     },
     {
       "id": "task-003",
       "name": "main",
       "state": 3,
+      "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+      "cli_args": null,
       "inputs": [100, 200],
+      "daemon": false,
+      "encrypted": false,
       "depends_on": ["task-001"],
-      "results": "300\n",
-      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
       "proplet_id": "ec182939-7940-4b25-869e-47b245ddec09",
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+      "results": "300\n",
       "start_time": "2026-03-01T15:22:08.371892377Z",
-      "finish_time": "2026-03-01T15:22:08.537613640Z"
+      "finish_time": "2026-03-01T15:22:08.537613640Z",
+      "created_at": "2026-03-01T15:21:52.857524208Z",
+      "updated_at": "2026-03-01T15:22:08.537613640Z",
+      "next_run": "0001-01-01T00:00:00Z"
     }
   ]
 }
@@ -245,6 +339,62 @@ curl -X POST "http://localhost:7070/workflows" \
     }
   ]
 }'
+```
+
+```json
+{
+  "tasks": [
+    {
+      "id": "pipeline-001",
+      "name": "main",
+      "state": 0,
+      "cli_args": null,
+      "inputs": [10, 20],
+      "daemon": false,
+      "encrypted": false,
+      "workflow_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-03-01T16:00:00.000000000Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z"
+    },
+    {
+      "id": "pipeline-002",
+      "name": "main",
+      "state": 0,
+      "cli_args": null,
+      "inputs": [5, 15],
+      "daemon": false,
+      "encrypted": false,
+      "depends_on": ["pipeline-001"],
+      "run_if": "success",
+      "workflow_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-03-01T16:00:00.000000001Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z"
+    },
+    {
+      "id": "pipeline-003",
+      "name": "main",
+      "state": 0,
+      "cli_args": null,
+      "inputs": [0, 0],
+      "daemon": false,
+      "encrypted": false,
+      "depends_on": ["pipeline-001"],
+      "run_if": "failure",
+      "workflow_id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-03-01T16:00:00.000000002Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z"
+    }
+  ]
+}
 ```
 
 | `run_if` value | Behavior |
