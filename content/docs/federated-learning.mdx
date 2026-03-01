@@ -269,6 +269,22 @@ The proplet passes training context to the WASM module via environment variables
 | `PROPLET_ID` | SuperMQ client UUID of this proplet |
 | `COORDINATOR_URL` | URL of coordinator service |
 | `MODEL_REGISTRY_URL` | URL of model registry service |
+| `ML_BACKEND` | Backend mode: `standard`, `tinyml`, or `auto` |
+
+### ML Backend Selection
+
+The proplet supports multiple ML backends optimized for different hardware:
+
+| Backend | Max Memory | GPU Support | Use Case |
+|---------|------------|-------------|----------|
+| `standard` | 512 MB | Yes | Full-featured Linux devices |
+| `tinyml` | 64 MB | No | Resource-constrained embedded devices |
+| `auto` | - | - | Auto-detect based on hyperparameters |
+
+Backend selection logic (when set to `auto`):
+1. Check `ML_BACKEND` environment variable
+2. If `batch_size` ≤ 8, select TinyML backend
+3. Otherwise, select Standard backend
 
 ### Expected Output
 
