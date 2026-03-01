@@ -81,6 +81,8 @@ The Manager communicates with proplets over MQTT using the [SuperMQ](https://git
 - `1` (At least once): Guaranteed delivery but may have duplicates
 - `2` (Exactly once): Guaranteed single delivery—recommended for Propeller
 
+**Why QoS 2?** Propeller uses QoS 2 because task scheduling requires exactly-once semantics. With QoS 1, a task start command could be delivered twice, causing the proplet to execute the same task multiple times—wasting resources and corrupting results. Similarly, duplicate result messages could trigger downstream workflow tasks prematurely or update task state incorrectly. QoS 2's four-step handshake (PUBLISH → PUBREC → PUBREL → PUBCOMP) ensures each message is processed exactly once, maintaining consistent state across the Manager and all proplets.
+
 ##### Provisioning with config.toml
 
 The `MANAGER_DOMAIN_ID`, `MANAGER_CHANNEL_ID`, `MANAGER_CLIENT_ID`, and `MANAGER_CLIENT_KEY` values come from SuperMQ provisioning. The `propeller-cli provision` command automates this setup by:
