@@ -5,28 +5,30 @@ description: Configure task dependencies, DAG-based workflows, jobs, and schedul
 
 ## Overview
 
-Propeller provides task orchestration for edge computing workloads where tasks execute as WebAssembly modules on distributed proplets. The Manager coordinates task distribution, dependency resolution, and execution lifecycle across the network.
+When you need to run multiple tasks that depend on each other—like "download data, then process it, then generate a report"—you need a way to ensure they run in the right order. Propeller handles this automatically using a concept called a DAG.
 
-### Understanding DAGs
+### What is a DAG?
 
-Task orchestration in Propeller uses [Directed Acyclic Graphs (DAGs)](https://www.datacamp.com/blog/what-is-a-dag) to model dependencies between tasks. A DAG is a directed graph where:
+A [DAG (Directed Acyclic Graph)](https://www.datacamp.com/blog/what-is-a-dag) is simply a way to describe "what depends on what." Think of it like a recipe:
 
-- **Nodes** represent individual tasks (WASM modules to execute)
-- **Edges** represent dependencies between tasks (directed, one-way relationships)
-- **Acyclic** means no cycles—once execution starts at a node, it only moves forward, never returning to a previous node
+1. You can't bake a cake until you've mixed the batter
+2. You can't mix the batter until you've gathered the ingredients
+3. But while the cake bakes, you can prepare the frosting (these are independent)
 
-The acyclic property is critical: it ensures tasks execute in order without infinite loops. DAGs often have a hierarchical structure where tasks at higher levels depend on completion of tasks at lower levels.
+In Propeller terms:
 
-**Why DAGs for task orchestration:**
+- **Tasks** are the steps (like "gather ingredients" or "mix batter")
+- **Dependencies** are the arrows showing which tasks must finish before others can start
+- **Acyclic** means the workflow only moves forward—no loops or going back
 
-| Benefit | Description |
-|---------|-------------|
-| **Execution order** | DAGs enforce a logical sequence—tasks run only after their dependencies complete |
-| **Parallel execution** | Independent tasks at the same level can run simultaneously |
-| **Error isolation** | If one task fails, DAGs identify affected downstream tasks without rerunning the entire workflow |
-| **Visual clarity** | The graph structure makes it easy to understand and communicate complex workflows |
+The key benefit: tasks that don't depend on each other can run at the same time (in parallel), making your workflow faster.
 
-This model enables multi-step workflows like ETL pipelines, ML training jobs, and data processing chains where each step depends on previous results.
+| Benefit | What it means |
+|---------|---------------|
+| **Correct order** | Tasks wait for their dependencies to finish before starting |
+| **Faster execution** | Independent tasks run in parallel instead of waiting in line |
+| **Easy debugging** | When something fails, you can see exactly which tasks were affected |
+| **Clear visualization** | The graph shows your entire workflow at a glance |
 
 ## Jobs
 
