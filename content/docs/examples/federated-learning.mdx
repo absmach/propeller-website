@@ -676,13 +676,13 @@ docker logs fl-demo-coordinator 2>&1 | tail -10
 
 :::tip Reading the Logs
 Key milestones to look for:
-1. ✅ `launched task for FL round participant` - Manager dispatched tasks
-2. ✅ `successfully fetched container` - Proxy downloaded WASM from GHCR
-3. ✅ `Successfully fetched model` - Proplet loaded initial weights
-4. ✅ `Successfully fetched dataset` - Proplet loaded local training data
-5. ✅ `Task ... completed successfully` - Local training finished
-6. ✅ `Round complete` - Coordinator received k_of_n updates
-7. ✅ `Aggregated model stored` - FedAvg completed, new model saved
+1. `launched task for FL round participant` - Manager dispatched tasks
+2. `successfully fetched container` - Proxy downloaded WASM from GHCR
+3. `Successfully fetched model` - Proplet loaded initial weights
+4. `Successfully fetched dataset` - Proplet loaded local training data
+5. `Task ... completed successfully` - Local training finished
+6. `Round complete` - Coordinator received k_of_n updates
+7. `Aggregated model stored` - FedAvg completed, new model saved
 :::
 
 ## Step 13: Verify the Trained Model
@@ -728,9 +728,9 @@ curl -s http://localhost:8084/models/1 | jq .
 | **Trained (v1)** | [0.016, 0.0003, 0.014] | -0.00026 |
 
 The non-zero weights and bias confirm that:
-- ✅ Proplets successfully trained on their local datasets (64 samples each)
-- ✅ Weight updates were aggregated using FedAvg
-- ✅ The global model was updated without raw data leaving the devices
+- Proplets successfully trained on their local datasets (64 samples each)
+- Weight updates were aggregated using FedAvg
+- The global model was updated without raw data leaving the devices
 
 ## Step 14: Run Additional Training Rounds
 
@@ -920,11 +920,11 @@ Configure experiment failed ... error":"invalid data type
 **Solution:** The `/fl/experiments` endpoint expects the configuration directly, NOT wrapped in a `config` object:
 
 ```bash
-# WRONG ❌
+# WRONG
 curl -X POST http://localhost:7070/fl/experiments \
   -d '{"config": {"experiment_id": "...", ...}}'
 
-# CORRECT ✅
+# CORRECT
 curl -X POST http://localhost:7070/fl/experiments \
   -d '{"experiment_id": "...", "round_id": "...", ...}'
 ```
@@ -975,13 +975,13 @@ docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-fil
 
 You've successfully completed an end-to-end federated learning demo:
 
-1. ✅ Built and started 36 containerized services (SuperMQ + Propeller + FL)
-2. ✅ Provisioned SuperMQ resources (domain, clients, channel)
-3. ✅ Built WASM training client and pushed to GHCR
-4. ✅ Configured proxy for authenticated GHCR access
-5. ✅ Triggered FL experiment via manager API
-6. ✅ Proplets trained locally on 64 samples each
-7. ✅ Coordinator collected updates and triggered aggregation
-8. ✅ FedAvg produced a trained global model
+1. Built and started 36 containerized services (SuperMQ + Propeller + FL)
+2. Provisioned SuperMQ resources (domain, clients, channel)
+3. Built WASM training client and pushed to GHCR
+4. Configured proxy for authenticated GHCR access
+5. Triggered FL experiment via manager API
+6. Proplets trained locally on 64 samples each
+7. Coordinator collected updates and triggered aggregation
+8. FedAvg produced a trained global model
 
 **Key privacy guarantee:** The raw training data never left the proplets — only weight updates were shared and aggregated.
