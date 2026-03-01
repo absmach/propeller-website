@@ -198,7 +198,7 @@ curl -X PUT "http://localhost:7070/tasks/task-003/upload" \
 
 ## Start Workflow
 
-Start the root task. The manager automatically schedules dependent tasks when their dependencies complete:
+Start the root task (`task-001`). The manager automatically schedules dependent tasks (`task-002` and `task-003`) when their dependencies complete:
 
 ```bash
 curl -X POST "http://localhost:7070/tasks/task-001/start"
