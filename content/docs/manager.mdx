@@ -352,9 +352,125 @@ Tasks are the fundamental unit of work in Propeller. Each task represents a WebA
 
 For a hands-on tutorial with commands and expected outputs, see the [Getting Started](/docs/getting-started) guide. For the complete task data model including all fields and states, see the [Reference](/docs/reference#task) documentation.
 
+### Manager's Role in Task Execution
+
+When you call `POST /tasks/{id}/start`, the Manager performs a multi-step orchestration:
+
+**1. Dependency checking** — If the task has `depends_on` set, the Manager verifies all dependencies exist and are completed. This ensures workflow ordering is respected before any execution begins.
+
+**2. Proplet selection** — If no `proplet_id` is specified in the task, the Manager calls its scheduler to pick one:
+
+```go
+// From manager/service.go
+p, err = svc.SelectProplet(ctx, t)
+```
+
+The default round-robin scheduler cycles through alive proplets, skipping any that haven't sent a heartbeat within the last 10 seconds.
+
+If `proplet_id` IS specified, the Manager validates that proplet is alive before proceeding:
+
+```go
+// From manager/service.go
+if !p.Alive {
+    return fmt.Errorf("specified proplet %s is not alive", t.PropletID)
+}
+```
+
+**3. Task-proplet binding** — The Manager records which proplet owns the task in the `task_proplet` repository. This mapping is used later for stop commands and result routing.
+
+**4. MQTT publish** — The Manager publishes a start command to the control topic:
+
+```
+m/{domain_id}/c/{channel_id}/control/manager/start
+```
+
+The payload includes the task definition, Wasm binary location, and execution parameters.
+
+**5. State transition** — The task moves from `Pending` → `Running` in the database.
+
+**6. Proplet task count** — The Manager increments the selected proplet's `TaskCount` to track load.
+
+### Stopping Tasks
+
+When you call `POST /tasks/{id}/stop`, the Manager:
+
+1. Looks up the task-proplet mapping to find which proplet is running the task
+2. Publishes a stop command to:
+   ```
+   m/{domain_id}/c/{channel_id}/control/manager/stop
+   ```
+3. Deletes the task-proplet mapping
+4. Decrements the proplet's `TaskCount`
+
+The proplet receives the stop command and terminates the Wasm execution.
+
+### Result Handling
+
+When a proplet completes a task, it publishes results to:
+
+```
+m/{domain_id}/c/{channel_id}/control/proplet/results
+```
+
+The Manager receives this message and:
+
+1. Updates the task's `Results` field with the output
+2. Sets `State` to `Completed` (or `Failed` if an error message is present)
+3. Records `FinishTime`
+4. Triggers the workflow coordinator (see [Workflows](#workflows) below)
+
 ## Proplet Management
 
-Proplets are the edge runtimes that execute tasks. The Manager tracks their availability through MQTT heartbeats.
+Proplets are the edge runtimes that execute tasks. The Manager tracks their availability through MQTT heartbeats and manages their lifecycle.
+
+For detailed proplet configuration and capabilities, see the [Proplet](/docs/proplet) documentation.
+
+### Manager's Role in Proplet Tracking
+
+The Manager subscribes to three proplet-related MQTT topics:
+
+| Topic | Purpose |
+| ----- | ------- |
+| `control/proplet/create` | New proplet registration |
+| `control/proplet/alive` | Heartbeat signals |
+| `control/proplet/metrics` | Resource utilization reports |
+
+**Proplet Registration** — When a proplet starts, it publishes a discovery message:
+
+```json
+{"proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895"}
+```
+
+The Manager's `createPropletHandler` receives this and:
+
+1. Generates a human-readable name (e.g., "crimson-falcon")
+2. Creates a proplet record in the database
+3. Logs the successful registration
+
+**Heartbeat Processing** — Proplets send heartbeats every few seconds. The Manager's `updateLivenessHandler`:
+
+1. Looks up the proplet by ID
+2. If not found, auto-registers it (handles restart scenarios)
+3. Sets `Alive = true`
+4. Appends the current timestamp to `AliveHistory` (kept to last 10 entries)
+5. Persists the updated record
+
+### Proplet Liveness
+
+A proplet is considered alive if it sent a heartbeat within the last 10 seconds:
+
+```go
+// From pkg/proplet/proplet.go
+func (p *Proplet) SetAlive() {
+    if len(p.AliveHistory) > 0 {
+        p.Alive = time.Since(p.AliveHistory[len(p.AliveHistory)-1]) <= aliveThreshold
+    }
+}
+```
+
+The Manager recalculates liveness on every `GetProplet` and `ListProplets` call. This ensures scheduling decisions use fresh state.
+
+**Dead proplets are excluded from scheduling** — The round-robin scheduler skips any proplet where `Alive == false`. If ALL proplets are dead, task start commands fail with `ErrDeadProplets`.
 
 ### Listing Proplets
 
@@ -369,6 +485,9 @@ Your output should look like this:
   "proplets": [
     {
       "id": "a95517f9-5655-4cf5-a7c8-aa00290b3895",
+      "name": "crimson-falcon",
+      "alive": true,
+      "task_count": 2,
       "alive_history": ["2026-03-01T12:00:00Z", "2026-03-01T12:00:10Z"]
     }
   ],
@@ -378,23 +497,42 @@ Your output should look like this:
 }
 ```
 
-### Proplet Liveliness
+### Deleting Proplets
 
-A proplet is considered alive if it sent a heartbeat within the last 10 seconds. The Manager stores the last 10 heartbeat timestamps for debugging connectivity issues.
+Proplets with active tasks cannot be deleted:
 
-Proplets send heartbeats to the MQTT topic:
-
+```go
+// From manager/service.go
+if p.TaskCount > 0 {
+    return fmt.Errorf("proplet %s has %d active tasks", propletID, p.TaskCount)
+}
 ```
-m/{domain_id}/c/{channel_id}/control/proplet/alive
-```
 
-Dead proplets are excluded from scheduling—tasks are only dispatched to alive proplets.
+Stop all tasks on a proplet before removing it:
+
+```bash
+# Check proplet's task count
+curl "http://localhost:7070/proplets/a95517f9-5655-4cf5-a7c8-aa00290b3895"
+
+# Delete (only succeeds if task_count == 0)
+curl -X DELETE "http://localhost:7070/proplets/a95517f9-5655-4cf5-a7c8-aa00290b3895"
+```
 
 ## Jobs
 
-Jobs group multiple tasks together and execute them with a common strategy. Unlike workflows, job tasks don't have dependencies—they run based on the execution mode.
+Jobs group multiple tasks together and execute them with a common strategy. Unlike workflows, job tasks don't have inter-task dependencies—they run based on the execution mode.
 
-### Creating a Job
+For DAG-based task ordering with dependencies, see [Workflows](#workflows) below.
+
+### Manager's Role in Job Execution
+
+**Job Creation** (`POST /jobs`) — The Manager's `CreateJob` method:
+
+1. Generates a job ID (or uses one provided in the request)
+2. Assigns all tasks to the same `job_id`
+3. Validates the DAG structure (even for jobs, cycles are rejected)
+4. Stores the job with its `execution_mode`
+5. Persists each task individually
 
 ```bash
 curl -X POST "http://localhost:7070/jobs" \
@@ -425,29 +563,76 @@ Your output should look like this:
 
 ### Execution Modes
 
-| Mode | Behavior |
-| ---- | -------- |
-| `parallel` | All tasks start simultaneously on different proplets |
-| `sequential` | Tasks run one at a time in order; first failure stops the job |
-| `configurable` | Mode is read from `JOB_EXECUTION_MODE` environment variable at runtime |
+**Job Start** (`POST /jobs/{id}/start`) — The Manager's `StartJob` method dispatches tasks based on the stored execution mode:
+
+| Mode | Manager Behavior |
+| ---- | ---------------- |
+| `parallel` | Calls `StartTask` for ALL tasks simultaneously; each gets its own proplet |
+| `sequential` | Calls `StartTask` for the first task only; subsequent tasks start when previous completes |
+| `configurable` | Reads mode from `JOB_EXECUTION_MODE` environment variable at runtime |
+
+```go
+// From manager/service.go
+switch executionMode {
+case ExecutionModeParallel:
+    return svc.startJobParallel(ctx, tasks)
+case ExecutionModeSequential:
+    return svc.startJobSequential(ctx, tasks)
+case ExecutionModeConfigurable:
+    return svc.startJobConfigurable(ctx, tasks)
+}
+```
+
+**Sequential chaining** — When a task completes, the Manager checks if it belongs to a job. If so, and the job is sequential, it automatically starts the next task in order.
+
+**Failure handling** — If ANY task in a job fails, the Manager stops all remaining running tasks:
+
+```go
+// From manager/service.go
+if t.State == task.Failed {
+    svc.logger.Info("task failed, stopping remaining job tasks", "job_id", t.JobID)
+    svc.stopJobTasks(ctx, jobTasks)
+}
+```
 
 ### Starting and Stopping Jobs
 
 ```bash
-# Start all tasks in the job
+# Start all tasks according to execution mode
 curl -X POST "http://localhost:7070/jobs/{job_id}/start"
 
 # Stop all running tasks in the job
 curl -X POST "http://localhost:7070/jobs/{job_id}/stop"
 ```
 
-Jobs cannot be updated or deleted once created. To modify a job, create a new one with the desired configuration.
+**Stop behavior** — `StopJob` iterates through all job tasks and calls `StopTask` on each, publishing stop commands to the respective proplets.
 
 ## Workflows
 
-Workflows use DAG-based ordering to express dependencies between tasks. See [Task Scheduling](/docs/task-scheduling) for detailed workflow documentation.
+Workflows use DAG-based ordering to express dependencies between tasks. A task only starts when all its dependencies have completed.
 
-### Creating a Workflow
+For detailed workflow patterns, conditional execution, and examples, see [Task Scheduling](/docs/task-scheduling).
+
+### Manager's Role in Workflow Orchestration
+
+The Manager uses a **WorkflowCoordinator** component to handle DAG-based execution:
+
+```go
+// From manager/workflow.go
+type WorkflowCoordinator struct {
+    taskRepo storage.TaskRepository
+    service  Service
+    logger   *slog.Logger
+}
+```
+
+**Workflow Creation** (`POST /workflows`) — The Manager's `CreateWorkflow` method:
+
+1. Generates a shared `workflow_id` for all tasks
+2. Validates all `depends_on` references exist within the workflow
+3. Runs DAG validation to detect cycles
+4. Validates `run_if` values (`success`, `failure`, or empty)
+5. Persists all tasks atomically (rollback on failure)
 
 ```bash
 curl -X POST "http://localhost:7070/workflows" \
@@ -465,19 +650,137 @@ curl -X POST "http://localhost:7070/workflows" \
 }'
 ```
 
-The `run_if` field controls conditional execution:
+**DAG Validation** — Before persisting, the Manager validates the task graph:
 
-| Value | Behavior |
-| ----- | -------- |
-| `success` | Run only if all dependencies completed successfully (default) |
-| `failure` | Run only if any dependency failed |
-| `always` | Always run regardless of dependency outcome |
+```go
+// From manager/service.go
+if err := dag.ValidateDependenciesExist(tasks); err != nil {
+    return nil, fmt.Errorf("dependency validation failed: %w", err)
+}
+
+if err := dag.ValidateDAG(tasks); err != nil {
+    return nil, fmt.Errorf("DAG validation failed: %w", err)
+}
+```
+
+Invalid workflows are rejected immediately with a descriptive error.
+
+### Workflow Coordinator
+
+When any task completes, the Manager calls `OnTaskCompletion`:
+
+```go
+// From manager/workflow.go
+func (wc *WorkflowCoordinator) OnTaskCompletion(ctx context.Context, taskID string) error {
+    t, err := wc.service.GetTask(ctx, taskID)
+    if t.WorkflowID == "" {
+        return nil  // Not part of a workflow
+    }
+    return wc.CheckAndStartReadyTasks(ctx, t.WorkflowID)
+}
+```
+
+**CheckAndStartReadyTasks** scans the workflow for tasks that:
+- Have all dependencies in terminal state (Completed, Failed, or Skipped)
+- Are not already Running or Scheduled
+- Pass conditional execution evaluation
+
+### Conditional Execution
+
+The `run_if` field controls when a task should execute based on dependency outcomes:
+
+| Value | Manager Behavior |
+| ----- | ---------------- |
+| `success` (default) | Start only if ALL dependencies completed successfully |
+| `failure` | Start only if ANY dependency failed |
+
+```go
+// From manager/workflow.go
+func (wc *WorkflowCoordinator) EvaluateConditionalExecution(ctx context.Context, t task.Task, parentStates map[string]task.State) bool {
+    switch runIf {
+    case task.RunIfSuccess:
+        // All parents must be Completed
+        for _, depID := range t.DependsOn {
+            if state != task.Completed {
+                return false
+            }
+        }
+        return true
+
+    case task.RunIfFailure:
+        // At least one parent must be Failed
+        for _, depID := range t.DependsOn {
+            if state == task.Failed {
+                return true
+            }
+        }
+        return false
+    }
+}
+```
+
+**Skipped tasks** — If conditional execution returns `false`, the task is marked `Skipped` rather than started. This allows downstream tasks to evaluate their own conditions.
+
+### Workflow Execution Flow
+
+```
+1. POST /workflows          → Manager validates DAG and creates all tasks
+2. POST /tasks/{root}/start → User starts the root task(s)
+3. Root task completes      → Manager calls OnTaskCompletion
+4. Coordinator evaluates    → CheckAndStartReadyTasks finds eligible tasks
+5. Dependent tasks start    → Repeat until all tasks terminal
+```
+
+The workflow coordinator runs automatically—you only need to start the root task(s).
 
 ## Scheduling
 
-The Manager includes a built-in cron scheduler for recurring tasks.
+The Manager handles two types of scheduling: **one-time proplet selection** when starting tasks, and **recurring execution** via the built-in cron scheduler.
 
-### Creating a Scheduled Task
+### Proplet Selection (Round-Robin)
+
+When a task starts without a specified `proplet_id`, the Manager's scheduler selects one:
+
+```go
+// From pkg/scheduler/roundrobin.go
+func (r *roundRobin) SelectProplet(t task.Task, proplets []proplet.Proplet) (proplet.Proplet, error) {
+    if len(proplets) == 0 {
+        return proplet.Proplet{}, ErrNoProplet
+    }
+
+    // Count alive proplets
+    alive := 0
+    for i := range proplets {
+        if proplets[i].Alive {
+            alive += 1
+        }
+    }
+    if alive == 0 {
+        return proplet.Proplet{}, ErrDeadProplers
+    }
+
+    // Round-robin selection
+    r.LastProplet = (r.LastProplet + 1) % len(proplets)
+    p := proplets[r.LastProplet]
+
+    // Skip dead proplets
+    if !p.Alive {
+        return r.SelectProplet(t, proplets)
+    }
+
+    return p, nil
+}
+```
+
+**Key behaviors:**
+- Cycles through proplets in order, wrapping around
+- Skips dead proplets (no heartbeat in last 10 seconds)
+- Fails immediately if no proplets exist or all are dead
+- Does NOT consider current load (`TaskCount`)—simple round-robin only
+
+### Cron Scheduler (Recurring Tasks)
+
+For recurring tasks, the Manager runs a cron scheduler that checks for due tasks every 60 seconds:
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
@@ -491,47 +794,26 @@ curl -X POST "http://localhost:7070/tasks" \
 }'
 ```
 
-The scheduler checks for due tasks every 60 seconds.
+The `schedule` field uses standard cron syntax (minute, hour, day, month, weekday).
 
-### Scheduling Algorithms
+**Manager's cron loop:**
+1. Every 60 seconds, scan all tasks with `is_recurring = true`
+2. Parse the `schedule` using the specified `timezone`
+3. If the task is due, call `StartTask`
+4. Track last execution to prevent duplicate runs
 
-The Manager uses two scheduling mechanisms:
+### Priority Ordering
 
-| Mechanism | Purpose | Behavior |
-| --------- | ------- | -------- |
-| **Round Robin** | Proplet selection | Cycles evenly across alive proplets |
-| **Priority Ordering** | Task dispatch order | Higher priority (0–100) dispatched first; ties broken by creation time |
+Tasks have an optional `priority` field (0–100, higher = more important). The Manager uses priority when:
+- Multiple tasks are due simultaneously in cron
+- Sequential job execution determines next task
 
-Priority determines which task gets dispatched next. Round Robin determines which proplet receives it.
+Priority affects dispatch ORDER, not proplet selection. A priority=100 task is started before a priority=0 task, but both go through round-robin for proplet assignment.
 
-## Observability
-
-### Prometheus Metrics
-
-The Manager exposes Prometheus metrics at `/metrics`:
-
-```bash
-curl http://localhost:7070/metrics
-```
-
-Metrics include request counts, latencies, and task state distributions.
-
-### OpenTelemetry Tracing
-
-Enable distributed tracing by setting:
-
-```bash
-export MANAGER_OTEL_URL=http://jaeger:4318
-export MANAGER_TRACE_RATIO=0.1  # Sample 10% of requests
-```
-
-### Middleware Stack
-
-Every request passes through three middleware layers:
-
-1. **Logging**: Logs method calls with duration and errors
-2. **Metrics**: Records call counts and latencies for Prometheus
-3. **Tracing**: Adds OpenTelemetry spans when configured
+| Mechanism | What It Controls |
+| --------- | ---------------- |
+| **Round Robin** | WHICH proplet receives the task |
+| **Priority** | WHEN the task is dispatched (relative to other pending tasks) |
 
 ## Data Flow
 
