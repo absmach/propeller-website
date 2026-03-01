@@ -26,31 +26,7 @@ The Manager acts as an intermediary between HTTP clients and MQTT-connected prop
 
 This separation allows clients to use familiar REST APIs while proplets communicate over lightweight MQTT—ideal for constrained edge devices.
 
-## Architecture
-
-![Propeller Architecture](./images/architecture.svg)
-
-The Manager sits at the center of the Propeller architecture:
-
-| Component | Communication | Role |
-| --------- | ------------- | ---- |
-| **Clients** | HTTP to Manager | Submit tasks, query status, retrieve results |
-| **Manager** | HTTP (in) + MQTT (out) | Orchestrates tasks, manages state, schedules execution |
-| **Proplets** | MQTT to Manager | Execute tasks, report results, send heartbeats |
-| **Proxy** | MQTT from Proplets | Fetches Wasm binaries from container registries |
-| **Storage** | Internal | Persists tasks, proplets, jobs, and metrics |
-
-### Service Components
-
-The Manager is built from several internal components, each with a specific responsibility:
-
-| Component | Source | Purpose |
-| --------- | ------ | ------- |
-| `Service` | [manager/service.go](https://github.com/absmach/propeller/blob/main/manager/service.go) | Core business logic for all operations |
-| `WorkflowCoordinator` | [manager/service.go](https://github.com/absmach/propeller/blob/main/manager/service.go) | Manages DAG-based workflow execution |
-| `CronScheduler` | [manager/cron.go](https://github.com/absmach/propeller/blob/main/manager/cron.go) | Handles scheduled and recurring tasks |
-| `API` | [manager/api/transport.go](https://github.com/absmach/propeller/blob/main/manager/api/transport.go) | HTTP endpoint handlers |
-| `Middleware` | [manager/middleware/](https://github.com/absmach/propeller/tree/main/manager/middleware) | Logging, metrics, and tracing layers |
+For the full system architecture and component overview, see the [Architecture](/docs/architecture) documentation.
 
 ## Running the Manager
 
