@@ -137,27 +137,6 @@ Retrieve all jobs with pagination support:
 curl "http://localhost:7070/jobs?offset=0&limit=100"
 ```
 
-### Using the CLI
-
-The Propeller CLI provides shorthand commands for job management:
-
-```bash
-# Create a job
-propeller-cli jobs create data-pipeline --execution-mode sequential
-
-# View job details
-propeller-cli jobs view job-abc123
-
-# Start a job
-propeller-cli jobs start job-abc123
-
-# Stop a job
-propeller-cli jobs stop job-abc123
-
-# List all jobs
-propeller-cli jobs --offset 0 --limit 100
-```
-
 ### Immutable Jobs
 
 Jobs cannot be updated or deleted once created. To modify a job, create a new one with the desired configuration.
