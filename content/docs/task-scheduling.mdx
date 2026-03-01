@@ -11,6 +11,8 @@ Propeller schedules and executes tasks across distributed edge devices. When tas
 
 A [DAG (Directed Acyclic Graph)](https://www.datacamp.com/blog/what-is-a-dag) defines which tasks must complete before others can start:
 
+![Basic DAG](./images/DAG/DAG-Basic%20DAG.svg)
+
 - **Tasks** are the individual steps in your workflow
 - **Dependencies** specify which tasks must finish first
 - **Acyclic** means the workflow only moves forward—no circular dependencies
@@ -195,38 +197,16 @@ Workflows provide DAG-based task orchestration with dependencies and conditional
 
 ### DAG Concepts
 
-```
-        ┌─────────┐
-        │  start  │
-        └────┬────┘
-             │
-     ┌───────┴───────┐
-     │               │
-┌────▼────┐     ┌────▼────┐
-│ fetch-a │     │ fetch-b │
-└────┬────┘     └────┬────┘
-     │               │
-     └───────┬───────┘
-             │
-        ┌────▼────┐
-        │ process │
-        └────┬────┘
-             │
-     ┌───────┴───────┐
-     │               │
-┌────▼────┐     ┌────▼────┐
-│ success │     │ cleanup │
-│ (run_if │     │ (run_if │
-│ success)│     │ failure)│
-└─────────┘     └─────────┘
-```
+![DAG Run-If Success/Failure Branching](./images/DAG/DAG-run-if-success-failure-branching.svg)
 
 #### Fan-Out and Fan-In
 
 DAG workflows support two common parallel execution patterns:
 
-- **Fan-out**: A single task triggers multiple downstream tasks that run in parallel. In the diagram above, `start` fans out to `fetch-a` and `fetch-b`.
-- **Fan-in**: Multiple parallel tasks converge into a single task that waits for all of them. Above, `fetch-a` and `fetch-b` fan in to `process`.
+![Fan-Out and Fan-In](./images/DAG/DAG-fanout-fanin.svg)
+
+- **Fan-out**: A single task triggers multiple downstream tasks that run in parallel.
+- **Fan-in**: Multiple parallel tasks converge into a single task that waits for all of them.
 
 ### Creating a Workflow
 
@@ -293,6 +273,8 @@ Expected response:
 
 ### Task and Dependency Fields
 
+![Task Dependencies](./images/DAG/DAG-dependency.svg)
+
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `id` | string | Task identifier. If omitted, auto-generated as a UUID. Specify explicitly when other tasks need to reference it in `depends_on`. |
@@ -308,10 +290,14 @@ The `depends_on` field references task IDs that must complete before this task r
 
 Tasks execute independently on proplets—possibly on different nodes—so each task needs access to its WASM module. There are two ways to provide it:
 
+![Data Passing Between Tasks](./images/DAG/DAG-data-passing-between-tasks.svg)
+
 1. **Upload directly**: Use `PUT /tasks/{id}/upload` with a multipart form to upload a `.wasm` file. The module is stored with the task record.
 2. **Reference via URL**: Set `image_url` when creating the task to reference a shared WASM file from a URL (e.g., OCI registry, HTTP server). The proplet fetches the module when execution begins.
 
 ### run_if Values
+
+![Conditional Branching](./images/DAG/DAG-conditional-branching.svg)
 
 | Value | Behavior |
 | ----- | -------- |
@@ -454,6 +440,8 @@ The coordinator performs topological sorting to determine execution order:
 ### Priority-Based Scheduling
 
 Priority scheduling controls task dispatch order based on priority values. When multiple tasks are pending, the Manager dispatches higher-priority tasks first:
+
+![Priority Within Level](./images/DAG/DAG-priority-within-level.svg)
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
@@ -630,6 +618,8 @@ Daemon tasks:
 - Don't count toward workflow completion
 
 ## Example: Complete ETL Pipeline
+
+![Example DAG](./images/DAG/Example-DAG.svg)
 
 ### Step 1: Define the Workflow
 
