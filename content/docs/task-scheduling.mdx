@@ -144,6 +144,13 @@ Workflows provide DAG-based (Directed Acyclic Graph) task orchestration with exp
 └─────────┘     └─────────┘
 ```
 
+#### Fan-Out and Fan-In
+
+DAG workflows support two common parallel execution patterns:
+
+- **Fan-out**: A single task triggers multiple downstream tasks that run in parallel. In the diagram above, `start` fans out to `fetch-a` and `fetch-b`.
+- **Fan-in**: Multiple parallel tasks converge into a single task that waits for all of them. Above, `fetch-a` and `fetch-b` fan in to `process`.
+
 ### Creating a Workflow
 
 When tasks have dependencies, specify explicit `id` values so `depends_on` can reference them:
