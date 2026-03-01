@@ -605,17 +605,45 @@ Response:
 
 ### Stopping a Recurring Task
 
+Stop a recurring task to halt future scheduled executions:
+
 ```bash
 curl -X POST "http://localhost:7070/tasks/task-abc123/stop"
 ```
 
-Or update to disable recurrence:
+Your output should look like this:
+
+```json
+{}
+```
+
+The empty response indicates the task was successfully stopped. The task's `state` changes to `6` (Interrupted).
+
+Alternatively, update the task to disable recurrence while keeping the task definition:
 
 ```bash
 curl -X PUT "http://localhost:7070/tasks/task-abc123" \
 -H "Content-Type: application/json" \
 -d '{"is_recurring": false}'
 ```
+
+Your output should look like this:
+
+```json
+{
+  "id": "task-abc123",
+  "name": "hourly-cleanup",
+  "state": 0,
+  "is_recurring": false,
+  "schedule": "0 * * * *",
+  "updated_at": "2026-03-01T18:25:26.423162005Z"
+}
+```
+
+The response returns the full updated task. Key changes:
+- **is_recurring**: Now `false`—the task won't run on schedule
+- **updated_at**: Reflects when the change was applied
+- **schedule**: Retained for reference, but won't trigger execution
 
 ## Task States
 
@@ -631,17 +659,31 @@ Tasks move through these states during execution:
 | `5` | `Skipped` | Task skipped (e.g., `run_if` condition not met) |
 | `6` | `Interrupted` | Task was stopped externally |
 
+![Task State Transitions](/docs/images/DAG/DAG-state-transitions-in-workflows.svg)
+
+### Interrupted Tasks
+
+A task enters the `Interrupted` state (`6`) when it's stopped before natural completion. This can happen through:
+
+- **Manual stop**: Calling `POST /tasks/{id}/stop` on a running or pending task
+- **Job stop**: Calling `POST /jobs/{id}/stop` interrupts all tasks in the job
+- **Workflow cancellation**: Stopping a root task may interrupt dependent tasks
+- **System shutdown**: Proplet disconnection during execution
+
+Interrupted tasks:
+- Don't trigger downstream dependencies in workflows
+- Can be restarted with `POST /tasks/{id}/start`
+- Retain their configuration for debugging or retry
+
 ### State Transitions in Workflows
 
-```
-Pending → Scheduled → Running → Completed
-                           ↓
-                        Failed
-                           
-Dependencies met + run_if=success → Run
-Dependencies met + run_if=failure → Skip (if all succeeded)
-Dependencies met + run_if=always  → Run
-```
+The diagram above shows the complete state machine. Key transitions:
+
+- **Normal flow**: Pending → Scheduled → Running → Completed
+- **Error path**: Running → Failed
+- **Conditional skip**: Pending → Skipped (when `run_if` condition not met)
+- **Manual stop**: Any active state → Interrupted
+- **Recovery**: Interrupted → Pending (via restart)
 
 ## Daemon Tasks
 
@@ -655,6 +697,25 @@ curl -X POST "http://localhost:7070/tasks" \
   "image_url": "docker.io/myorg/api:v1",
   "daemon": true
 }'
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "8c5f2631-1ac9-4fc1-968d-a7cbdb14d660",
+  "name": "api-server",
+  "kind": "standard",
+  "state": 0,
+  "image_url": "docker.io/myorg/api:v1",
+  "daemon": true,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-01T18:39:34.055594605Z",
+  "updated_at": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
 ```
 
 Daemon tasks:
