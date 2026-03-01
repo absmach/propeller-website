@@ -3,36 +3,62 @@ title: Proxy Service
 description: Service for fetching and distributing WebAssembly modules from OCI registries
 ---
 
-The Proxy Service fetches WebAssembly modules from OCI-compliant registries, chunks them for efficient transfer, and publishes them over MQTT for Proplets to consume. It bridges HTTP (OCI registries) and MQTT (Propeller messaging) protocols.
+When you want to run WebAssembly modules stored in a container registry like Docker Hub, the Proxy handles everything between the registry and your edge devices. Instead of embedding binaries in your task definitions or manually uploading files, you simply reference an image URL, and the Proxy fetches, chunks, and delivers the module to whichever Proplet needs it.
 
-## Why the Proxy
+## Why You Need the Proxy
 
-### Decoupling Binary Distribution
+### The Problem: Getting Binaries to Edge Devices
 
-The Proxy separates binary fetching from task execution. Proplets request modules by name, and the Proxy handles registry authentication, download, chunking, and delivery. This keeps Proplets lightweight and focused on execution.
+Consider a fleet of 100 Proplets running at remote sites. You've compiled your WASM module and pushed it to Docker Hub. Now you need to get that binary onto each device. Without the Proxy, you'd have to either:
 
-### Efficient Large File Transfer
+- Upload the binary through the Manager API for every task (doesn't scale)
+- Give every Proplet registry credentials (security risk)
+- Embed binaries in task definitions (message size limits)
 
-MQTT has message size limits. The Proxy splits large WebAssembly modules into configurable chunks (default 512 KB) and streams them sequentially. Proplets reassemble chunks using the `ChunkPayload` structure:
+The Proxy solves this. Point it at your registry, and Proplets request modules by name. The Proxy authenticates once, fetches the binary, and streams it to whatever Proplet asked for it.
 
-```go
-type ChunkPayload struct {
-    AppName     string
-    ChunkIdx    int
-    TotalChunks int
-    Data        []byte
-}
-```
+### How It Solves Large File Transfer
 
-### Registry Abstraction
+MQTT, the messaging protocol Propeller uses, isn't designed for large binary transfers. Most brokers limit message sizes to 256 KB or 1 MB. A typical WASM module might be several megabytes.
 
-The Proxy supports any OCI-compliant registry (Docker Hub, GitHub Container Registry, private registries) with optional authentication. Proplets don't need registry credentials—they just request modules by image URL.
+The Proxy splits modules into chunks (512 KB by default) and sends them sequentially. Each Proplet reassembles the chunks in order. If a chunk fails, only that chunk needs to be resent—not the entire module.
+
+### Registry Flexibility
+
+The Proxy works with any OCI-compliant registry:
+
+- **Docker Hub** for public modules
+- **GitHub Container Registry** for organization-wide access
+- **AWS ECR**, **Google Artifact Registry**, or **Azure Container Registry** for cloud deployments
+- **Self-hosted registries** for air-gapped environments
+
+Proplets don't know or care which registry you use. They request `docker.io/your-org/module.wasm` or `localhost:5000/module.wasm` identically.
+
+## How It Works
+
+When you create a task with an `image_url`, here's the sequence:
+
+1. **Task Creation**: You POST a task to the Manager with `"image_url": "docker.io/your-org/compute.wasm"`
+
+2. **Assignment**: The Manager schedules the task to a Proplet and sends the task definition via MQTT
+
+3. **Module Request**: The Proplet sees it doesn't have the binary. It publishes a request to the registry topic asking for the module
+
+4. **Proxy Fetches**: The Proxy receives this request, authenticates with Docker Hub (or wherever), and downloads the OCI image
+
+5. **Chunking**: The Proxy extracts the WASM binary from the OCI layer and splits it into 512 KB chunks
+
+6. **Delivery**: Each chunk is published to MQTT. The Proplet receives them in order and reassembles the complete binary
+
+7. **Execution**: Once all chunks arrive, the Proplet loads the module and executes the task
+
+The Proplet never talks to the registry directly. It only speaks MQTT.
 
 ## Running the Proxy
 
 ### With Docker Compose
 
-The `docker-compose.yaml` includes the Proxy:
+If you're using the standard Propeller deployment, the Proxy is included in `docker-compose.yaml`. Configure it through environment variables:
 
 ```yaml
 proxy:
@@ -49,135 +75,182 @@ proxy:
     PROXY_CLIENT_KEY: ${PROXY_CLIENT_KEY}
 ```
 
-### Standalone
+### Standalone Binary
 
-Build and run the binary:
+For custom deployments, build and run the Proxy separately:
 
 ```bash
+# Build
 make all && make install
+
+# Set required environment variables (see Configuration below)
+export PROXY_REGISTRY_URL="docker.io"
+export PROXY_MQTT_ADDRESS="tcp://your-broker:1883"
+# ... other variables
+
+# Run
 propeller-proxy
 ```
 
-## Architecture
-
-The Proxy runs two concurrent streaming goroutines that communicate via an internal channel.
-
-### HTTP Stream
-
-The `StreamHTTP` method handles registry communication:
-
-1. Receives container requests from the `containerChan` channel
-2. Enforces concurrency limits (max 50 concurrent fetches)
-3. Deduplicates in-flight requests to prevent redundant downloads
-4. Fetches from the OCI registry using the ORAS library
-5. Splits the binary into chunks and sends them to `dataChan`
-
-The HTTP fetcher resolves the OCI manifest, finds the largest layer (the WASM binary), and downloads it. Authentication is configured once per Proxy instance.
-
-### MQTT Stream
-
-The `StreamMQTT` method handles Proplet delivery:
-
-1. Receives chunks from `dataChan`
-2. Publishes each chunk to the MQTT topic for Proplets
-3. Tracks delivery progress per container
-4. Logs completion when all chunks are sent
-
-### MQTT Topics
-
-| Topic Pattern | Direction | Purpose |
-|--------------|-----------|---------|
-| `m/{domain}/c/{channel}/registry/proplet` | Subscribe | Receives module requests from Proplets |
-| `m/{domain}/c/{channel}/registry/server` | Publish | Sends chunks back to Proplets |
-
 ## Configuration
+
+The Proxy is configured entirely through environment variables. No config files needed.
 
 ### Core Settings
 
+These control logging and instance identification:
+
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PROXY_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
-| `PROXY_INSTANCE_ID` | Unique ID for this Proxy instance | — |
+| `PROXY_LOG_LEVEL` | Log verbosity: `debug`, `info`, `warn`, or `error` | `info` |
+| `PROXY_INSTANCE_ID` | Unique identifier for this Proxy (useful when running multiple) | — |
 
-### MQTT Configuration
+### Connecting to the Message Broker
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `PROXY_MQTT_ADDRESS` | MQTT broker URL | `tcp://localhost:1883` | Yes |
-| `PROXY_MQTT_TIMEOUT` | Operation timeout | `30s` | No |
-| `PROXY_MQTT_QOS` | Quality of Service level | `2` | No |
-| `PROXY_DOMAIN_ID` | SuperMQ domain ID | — | Yes |
-| `PROXY_CHANNEL_ID` | Channel ID for MQTT | — | Yes |
-| `PROXY_CLIENT_ID` | Unique client identifier | — | Yes |
-| `PROXY_CLIENT_KEY` | MQTT authentication password | — | Yes |
-
-### Registry Configuration
+The Proxy needs to connect to the same MQTT broker (SuperMQ) as your Manager and Proplets:
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| `PROXY_REGISTRY_URL` | OCI registry URL | — | Yes |
-| `PROXY_AUTHENTICATE` | Enable registry auth | `false` | No |
-| `PROXY_REGISTRY_USERNAME` | Registry username | — | If auth enabled |
-| `PROXY_REGISTRY_PASSWORD` | Registry password | — | If auth enabled |
-| `PROXY_REGISTRY_TOKEN` | Access token (alternative to username/password) | — | If auth enabled |
-| `PROXY_CHUNK_SIZE` | Chunk size in bytes | `512000` | No |
+| `PROXY_MQTT_ADDRESS` | Full broker URL including protocol and port | `tcp://localhost:1883` | Yes |
+| `PROXY_MQTT_TIMEOUT` | How long to wait for broker responses | `30s` | No |
+| `PROXY_MQTT_QOS` | Delivery guarantee (2 = exactly once, recommended) | `2` | No |
+| `PROXY_DOMAIN_ID` | Your SuperMQ domain ID | — | Yes |
+| `PROXY_CHANNEL_ID` | Channel for registry communication | — | Yes |
+| `PROXY_CLIENT_ID` | Unique client ID for MQTT connection | — | Yes |
+| `PROXY_CLIENT_KEY` | Authentication secret for the broker | — | Yes |
 
-### Authentication
+Get these values from your SuperMQ setup. They should match what you used when provisioning the Propeller channel.
 
-The Proxy supports two authentication methods:
+### Connecting to the Container Registry
 
-**Token Authentication:**
-```bash
-export PROXY_AUTHENTICATE="true"
-export PROXY_REGISTRY_TOKEN="your_token"
-```
+Configure where the Proxy fetches modules from:
 
-**Username/Password Authentication:**
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `PROXY_REGISTRY_URL` | Base URL of your OCI registry | — | Yes |
+| `PROXY_AUTHENTICATE` | Whether the registry requires authentication | `false` | No |
+| `PROXY_REGISTRY_USERNAME` | Username for registry login | — | If auth enabled |
+| `PROXY_REGISTRY_PASSWORD` | Password for registry login | — | If auth enabled |
+| `PROXY_REGISTRY_TOKEN` | Alternative: access token instead of username/password | — | If auth enabled |
+| `PROXY_CHUNK_SIZE` | Size of each chunk in bytes (tune based on network) | `512000` | No |
+
+### Setting Up Authentication
+
+For private registries, you need credentials. The Proxy supports two methods:
+
+**Username and Password** (works with Docker Hub, most registries):
+
 ```bash
 export PROXY_AUTHENTICATE="true"
 export PROXY_REGISTRY_USERNAME="your_username"
 export PROXY_REGISTRY_PASSWORD="your_password"
 ```
 
-## Using Hosted Modules
+**Access Token** (for GitHub Container Registry, cloud registries):
 
-When using the Proxy, tasks specify an `image_url` instead of uploading binaries directly:
+```bash
+export PROXY_AUTHENTICATE="true"
+export PROXY_REGISTRY_TOKEN="ghp_xxxxxxxxxxxx"
+```
+
+For public registries (like Docker Hub public images), set `PROXY_AUTHENTICATE="false"` or omit it entirely.
+
+## Creating Tasks with Hosted Modules
+
+Once the Proxy is running, reference modules by their registry path:
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "image-resize",
+    "inputs": {"width": 800, "height": 600},
+    "image_url": "docker.io/your-org/image-resize.wasm"
+  }'
+```
+
+The key difference from direct uploads is `image_url` instead of uploading a file. The Proplet will request this module from the Proxy when the task starts.
+
+You can also use private registries:
 
 ```json
 {
-  "name": "add",
-  "inputs": [10, 20],
-  "image_url": "docker.io/your-username/add.wasm"
+  "name": "proprietary-analysis",
+  "inputs": {"data": "..."},
+  "image_url": "ghcr.io/your-org/private-module.wasm"
 }
 ```
 
-The Manager forwards this to the Proplet, which requests the module from the Proxy. See the [Manager documentation](/docs/manager) for task creation details.
+The Proplet doesn't need credentials—it just asks the Proxy, which handles authentication.
 
-## Deploying a Local OCI Registry
+## Setting Up a Local Registry for Development
 
-For development, you can run a local registry:
+During development, you probably don't want to push every iteration to Docker Hub. Run a local registry instead:
+
+### Start the Registry
 
 ```bash
 docker run -d -p 5000:5000 --name registry registry:3.0.0
 ```
 
-Push modules using `wasm-to-oci`:
+### Push Your Module
+
+Use `wasm-to-oci` to push WASM files as OCI artifacts:
 
 ```bash
-wasm-to-oci push ./build/addition.wasm localhost:5000/your-namespace/addition.wasm
+# Install wasm-to-oci if you haven't
+go install github.com/nicholasjng/wasm-to-oci@latest
+
+# Push your module
+wasm-to-oci push ./build/my-module.wasm localhost:5000/dev/my-module.wasm
 ```
 
-Configure the Proxy for the local registry:
+### Configure the Proxy
 
 ```bash
 export PROXY_REGISTRY_URL="localhost:5000"
 export PROXY_AUTHENTICATE="false"
 ```
 
+Now tasks can reference `localhost:5000/dev/my-module.wasm` and the whole flow works locally.
+
+## Under the Hood
+
+If you're curious about the internals or need to debug issues, here's how the Proxy is structured.
+
+### Two Concurrent Streams
+
+The Proxy runs two goroutines that communicate via channels:
+
+**HTTP Stream**: Handles registry communication. When a module request arrives, it authenticates with the registry, resolves the OCI manifest, downloads the WASM layer, and chunks it. Limits concurrent downloads to 50 to prevent overwhelming the registry.
+
+**MQTT Stream**: Takes chunks from the HTTP stream and publishes them to MQTT. Tracks which chunks have been sent for each module and logs completion.
+
+### MQTT Topics Used
+
+| Topic Pattern | Direction | Purpose |
+|--------------|-----------|---------|
+| `m/{domain}/c/{channel}/registry/proplet` | Subscribe | Receives module requests from Proplets |
+| `m/{domain}/c/{channel}/registry/server` | Publish | Sends chunks back to Proplets |
+
+### Chunk Format
+
+Each chunk is a JSON message with:
+
+```go
+type ChunkPayload struct {
+    AppName     string   // e.g., "docker.io/your-org/module.wasm"
+    ChunkIdx    int      // 0, 1, 2, ...
+    TotalChunks int      // Total number of chunks
+    Data        []byte   // The actual bytes (base64 encoded in JSON)
+}
+```
+
+The Proplet knows to wait for chunks 0 through TotalChunks-1, then concatenates them in order.
+
 ## Related Documentation
 
-| Topic | Description |
-|-------|-------------|
-| [Proplet](/docs/proplet) | Edge runtime that receives modules from the Proxy |
-| [Manager](/docs/manager) | Orchestrator that creates tasks with `image_url` |
-| [Getting Started](/docs/getting-started) | Full system setup including the Proxy |
+- [Proplet](/docs/proplet) — The edge runtime that receives and executes modules
+- [Manager](/docs/manager) — Where you create tasks with `image_url`
+- [Getting Started](/docs/getting-started) — Full system setup including the Proxy
+- [Examples](/docs/examples) — Working examples using hosted modules
