@@ -744,34 +744,34 @@ FL_DATASET_PARTICIPANTS="uuid1,uuid2,uuid3"
 
 ### Manager Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `COORDINATOR_URL` | URL of FL Coordinator service. If not set, FL features are disabled and a warning is logged. | `""` (FL disabled) |
-| `MANAGER_HTTP_PORT` | HTTP API port | 7070 |
-| `MANAGER_MQTT_ADDRESS` | MQTT broker address | tcp://mqtt-adapter:1883 |
-| `MANAGER_DOMAIN_ID` | SuperMQ domain ID | Required |
-| `MANAGER_CHANNEL_ID` | SuperMQ channel ID | Required |
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `COORDINATOR_URL` | URL of FL Coordinator service. If not set, FL features are disabled. | `""` | No |
+| `MANAGER_HTTP_PORT` | HTTP API port | `7070` | No |
+| `MANAGER_MQTT_ADDRESS` | MQTT broker address | `tcp://mqtt-adapter:1883` | No |
+| `MANAGER_DOMAIN_ID` | SuperMQ domain ID | - | Yes |
+| `MANAGER_CHANNEL_ID` | SuperMQ channel ID | - | Yes |
 
 ### Proplet Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `MODEL_REGISTRY_URL` | URL of Model Registry | Required for FL |
-| `DATA_STORE_URL` | URL of Local Data Store | Required for FL |
-| `COORDINATOR_URL` | URL of FL Coordinator | `http://coordinator-http:8080` |
-| `PROPLET_CLIENT_ID` | SuperMQ client UUID | Required |
-| `PROPLET_DOMAIN_ID` | SuperMQ domain ID | Required |
-| `PROPLET_CHANNEL_ID` | SuperMQ channel ID | Required |
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `MODEL_REGISTRY_URL` | URL of Model Registry | - | Yes (for FL) |
+| `DATA_STORE_URL` | URL of Local Data Store | - | Yes (for FL) |
+| `COORDINATOR_URL` | URL of FL Coordinator | `http://coordinator-http:8080` | No |
+| `PROPLET_CLIENT_ID` | SuperMQ client UUID | - | Yes |
+| `PROPLET_DOMAIN_ID` | SuperMQ domain ID | - | Yes |
+| `PROPLET_CHANNEL_ID` | SuperMQ channel ID | - | Yes |
 
 ### Coordinator Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `MODEL_REGISTRY_URL` | URL of Model Registry | Required |
-| `AGGREGATOR_URL` | URL of Aggregator service | Required |
-| `MQTT_BROKER` | MQTT broker address | tcp://mqtt:1883 |
-| `MQTT_CLIENT_ID` | SuperMQ client ID | Required |
-| `COORDINATOR_PORT` | HTTP port | 8080 |
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `MODEL_REGISTRY_URL` | URL of Model Registry | - | Yes |
+| `AGGREGATOR_URL` | URL of Aggregator service | - | Yes |
+| `MQTT_BROKER` | MQTT broker address | `tcp://mqtt:1883` | No |
+| `MQTT_CLIENT_ID` | SuperMQ client ID | - | Yes |
+| `COORDINATOR_PORT` | HTTP port | `8080` | No |
 
 ## FL Demo Application
 
@@ -783,17 +783,6 @@ The demo includes:
 - Example WASM FL client implementing logistic regression
 - Production-ready Coordinator and Aggregator services
 - Model Registry and Local Data Store implementations
-
-### Service Ports
-
-| Service | Port |
-| ------- | ---- |
-| Manager | 7070 |
-| Coordinator | 8086 (external) |
-| Model Registry | 8084 |
-| Aggregator | 8085 |
-| Local Data Store | 8083 |
-| MQTT (via nginx) | 1883 |
 
 ## Troubleshooting
 
