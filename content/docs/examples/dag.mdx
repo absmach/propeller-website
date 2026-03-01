@@ -307,7 +307,7 @@ After completion, your output should look like this:
 | Field | Value | Meaning |
 |-------|-------|---------|
 | `state` | `3` | All three tasks completed successfully |
-| `results` | `"30\n"`, `"20\n"`, `"300\n"` | Output from each `main(a, b)` call |
+| `results` | `30`, `20`, `300` | Output from each `main(a, b)` call |
 | `proplet_id` | `ec182939-...` | The single proplet that ran all tasks |
 | `start_time` | `15:22:08.180` (task-001), `.333` (task-002), `.371` (task-003) | Task 2 and 3 started ~150ms after Task 1, confirming fan-out |
 | `depends_on` | `["task-001"]` | Only present on task-002 and task-003 |
@@ -524,10 +524,101 @@ After completion, your output should look like this:
 | Field | Value | Meaning |
 |-------|-------|---------|
 | `state` | `3` | All three tasks completed successfully |
-| `results` | `"150\n"`, `"100\n"`, `"500\n"` | Output from each `main(a, b)` call |
+| `results` | `150`, `100`, `500` | Output from each `main(a, b)` call |
 | `proplet_id` | `ec182939-...` | The single proplet that ran all tasks |
 | `start_time` | `17:06:17.452`, `.468`, `.485` | All tasks started within 33ms—parallel execution |
 | `job_id` | `981a9c91-...` | All tasks share the same job ID |
+
+### Sequential Job
+
+Create a job with `sequential` execution mode. Tasks run one at a time in order:
+
+```bash
+curl -X POST "http://localhost:7070/jobs" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "sequential-pipeline",
+  "execution_mode": "sequential",
+  "tasks": [
+    {
+      "id": "seq-task-001",
+      "name": "main",
+      "inputs": [1, 2]
+    },
+    {
+      "id": "seq-task-002",
+      "name": "main",
+      "inputs": [3, 4]
+    },
+    {
+      "id": "seq-task-003",
+      "name": "main",
+      "inputs": [5, 6]
+    }
+  ]
+}'
+```
+
+Upload WASM and start the job:
+
+```bash
+curl -X PUT "http://localhost:7070/tasks/seq-task-001/upload" -F "file=@build/addition.wasm"
+curl -X PUT "http://localhost:7070/tasks/seq-task-002/upload" -F "file=@build/addition.wasm"
+curl -X PUT "http://localhost:7070/tasks/seq-task-003/upload" -F "file=@build/addition.wasm"
+
+curl -X POST "http://localhost:7070/jobs/38c745f1-b5c8-4e72-8c0a-f269ec0637f5/start"
+```
+
+After completion:
+
+```json
+{
+  "job_id": "38c745f1-b5c8-4e72-8c0a-f269ec0637f5",
+  "tasks": [
+    {
+      "id": "seq-task-001",
+      "name": "main",
+      "state": 3,
+      "inputs": [1, 2],
+      "results": "3\n",
+      "start_time": "2026-03-01T17:13:42.099469689Z",
+      "finish_time": "2026-03-01T17:13:42.239309087Z"
+    },
+    {
+      "id": "seq-task-002",
+      "name": "main",
+      "state": 3,
+      "inputs": [3, 4],
+      "results": "7\n",
+      "start_time": "2026-03-01T17:13:42.120860495Z",
+      "finish_time": "2026-03-01T17:13:42.269139758Z"
+    },
+    {
+      "id": "seq-task-003",
+      "name": "main",
+      "state": 3,
+      "inputs": [5, 6],
+      "results": "11\n",
+      "start_time": "2026-03-01T17:13:42.153693284Z",
+      "finish_time": "2026-03-01T17:13:42.287081364Z"
+    }
+  ]
+}
+```
+
+**Results:**
+- Task 1: `1 + 2 = 3`
+- Task 2: `3 + 4 = 7`
+- Task 3: `5 + 6 = 11`
+
+### Execution Mode Comparison
+
+| Mode | Behavior | Start Times (this example) |
+|------|----------|---------------------------|
+| `parallel` | All tasks start simultaneously | `.452`, `.468`, `.485` (33ms spread) |
+| `sequential` | Tasks start one after another | `.099`, `.120`, `.153` (staggered) |
+
+With fast-executing tasks, the timing difference is subtle. For long-running tasks, sequential mode ensures each task completes before the next starts (fail-fast behavior).
 
 ### Workflow vs Job Comparison
 
