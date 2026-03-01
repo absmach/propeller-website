@@ -26,12 +26,16 @@ This example uses the [addition-wat](https://github.com/absmach/propeller/tree/m
 
 ## Build WASM
 
+Propeller executes tasks as WebAssembly modules, so we need to compile the source code to `.wasm` format before uploading.
+
 Build the addition module from WAT (WebAssembly Text format):
 
 ```bash
 cd propeller
 wat2wasm examples/addition-wat/addition.wat -o build/addition.wasm
 ```
+
+The command produces no output on success.
 
 Verify the build:
 
