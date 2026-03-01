@@ -202,15 +202,12 @@ Propeller implements **Federated Averaging (FedAvg)** for model aggregation. Fed
 
 ### FedAvg Formula
 
-For n participating proplets with updates $u_1, u_2, ..., u_n$ and sample counts $s_1, s_2, ..., s_n$:
+For n participating proplets with updates u₁, u₂, ..., uₙ and sample counts s₁, s₂, ..., sₙ:
 
-$$
-w_{aggregated} = \frac{\sum_{i=1}^{n} s_i \cdot w_i}{\sum_{i=1}^{n} s_i}
-$$
-
-$$
-b_{aggregated} = \frac{\sum_{i=1}^{n} s_i \cdot b_i}{\sum_{i=1}^{n} s_i}
-$$
+```
+w_aggregated = Σ(sᵢ × wᵢ) / Σ(sᵢ)
+b_aggregated = Σ(sᵢ × bᵢ) / Σ(sᵢ)
+```
 
 ### Aggregation Process
 
@@ -314,15 +311,12 @@ The example FL client implements logistic regression with stochastic gradient de
 
 The SGD update rule for logistic regression:
 
-$$
-w_j = w_j - \alpha \cdot (p - y) \cdot x_j
-$$
+```
+w[j] = w[j] - α × (p - y) × x[j]
+b = b - α × (p - y)
+```
 
-$$
-b = b - \alpha \cdot (p - y)
-$$
-
-Where $\alpha$ is the learning rate, $p$ is the sigmoid prediction, and $y$ is the true label.
+Where α is the learning rate, p is the sigmoid prediction, and y is the true label.
 
 ## Model Format
 
