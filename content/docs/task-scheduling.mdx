@@ -280,7 +280,8 @@ curl -X POST "http://localhost:7070/workflows" \
 }'
 ```
 
-Expected response:
+Your output should look like this:
+
 ```json
 {
   "id": "workflow-xyz789",
@@ -296,9 +297,27 @@ Expected response:
 }
 ```
 
+**Request fields:**
+- **id**: Explicit task identifier used by `depends_on` references. Required for tasks that others depend on.
+- **depends_on**: Array of task IDs that must complete before this task starts. `fetch-a` and `fetch-b` have no dependencies (root tasks), while `merge` depends on both.
+- **run_if**: Conditional execution—`merge` and `report` run on success; `alert` runs only if `merge` fails.
+- **image_url**: WASM module location. Multiple tasks can share the same image with different `env` values.
+
+**Response fields:**
+- **id** (workflow): System-assigned workflow identifier (`workflow-xyz789`).
+- **depends_on**: Normalized to empty array `[]` for root tasks.
+- **run_if**: Defaults to `success` for tasks without explicit conditions.
+- **created_at**: Timestamp when the workflow was registered.
+
 ### Task and Dependency Fields
 
 ![Task Dependencies](./images/DAG/DAG-dependency.svg)
+
+**Diagram explanation:**
+- **Task A** has no dependencies and runs first
+- **Task B** depends on Task A (`depends_on: ["task-a"]`)
+- **Task C** depends on both Task A and Task B (`depends_on: ["task-a", "task-b"]`)
+- Task C waits for **all** its dependencies to complete before starting
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -315,14 +334,31 @@ The `depends_on` field references task IDs that must complete before this task r
 
 Tasks execute independently on proplets—possibly on different nodes—so each task needs access to its WASM module. There are two ways to provide it:
 
-![Data Passing Between Tasks](./images/DAG/DAG-data-passing-between-tasks.svg)
-
 1. **Upload directly**: Use `PUT /tasks/{id}/upload` with a multipart form to upload a `.wasm` file. The module is stored with the task record.
 2. **Reference via URL**: Set `image_url` when creating the task to reference a shared WASM file from a URL (e.g., OCI registry, HTTP server). The proplet fetches the module when execution begins.
+
+### Data Passing Between Tasks
+
+Tasks can pass results to downstream tasks through the workflow coordinator:
+
+![Data Passing Between Tasks](./images/DAG/DAG-data-passing-between-tasks.svg)
+
+**Diagram explanation:**
+- **Task A** produces results and completes
+- **Task B** receives Task A's results, processes them, and produces its own results
+- **Task C** receives results from **both** Task A and Task B
+- Each task receives only the outputs from tasks listed in its `depends_on` array
 
 ### run_if Values
 
 ![Conditional Branching](./images/DAG/DAG-conditional-branching.svg)
+
+**Diagram explanation:**
+- **Parent Task** completes with either success or failure
+- **Child Task (run_if: success)** executes only when all parents succeeded
+- **Child Task (run_if: failure)** executes only when at least one parent failed
+- When conditions aren't met, tasks are marked **Skipped** (terminal state)
+- Skipped tasks don't trigger their downstream dependencies
 
 | Value | Behavior |
 | ----- | -------- |
