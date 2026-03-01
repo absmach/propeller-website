@@ -201,11 +201,31 @@ Workflows execute tasks based on dependency relationships and conditional logic.
 
 ![DAG Run-If Success/Failure Branching](./images/DAG/DAG-run-if-success-failure-branching.svg)
 
+**Execution flow:**
+1. **Start task** executes first (no dependencies)
+2. **Fetch-a** and **Fetch-b** run in parallel once Start completes
+3. **Process** waits for both fetch tasks to complete successfully
+4. Based on Process outcome:
+   - If **success**: the Success handler runs
+   - If **failure**: the Cleanup handler runs instead
+
+This pattern ensures proper error handling—cleanup tasks only execute when something goes wrong, while success handlers only run on the happy path.
+
 #### Fan-Out and Fan-In
 
 DAG workflows support two common parallel execution patterns:
 
 ![Fan-Out and Fan-In](./images/DAG/DAG-fanout-fanin.svg)
+
+**Fan-out (one-to-many):**
+- A single parent task triggers multiple child tasks
+- All children start simultaneously when the parent completes
+- Maximizes parallelism for independent work (e.g., fetching from multiple data sources)
+
+**Fan-in (many-to-one):**
+- Multiple tasks converge into a single downstream task
+- The downstream task waits for **all** upstream tasks to complete
+- Used for aggregation, merging results, or synchronization points
 
 - **Fan-out**: A single task triggers multiple downstream tasks that run in parallel.
 - **Fan-in**: Multiple parallel tasks converge into a single task that waits for all of them.
