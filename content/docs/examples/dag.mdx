@@ -152,6 +152,10 @@ For details on dependency validation, see [Task and Dependency Fields](/docs/tas
 
 ## Upload WASM
 
+Each task requires its own WASM module because tasks execute independently on proplets—possibly on different nodes. The module is stored with each task record so proplets can retrieve it when execution begins.
+
+**Alternative**: Instead of uploading via curl, you can set `image_url` when creating tasks to reference a shared WASM file from a URL (e.g., an OCI registry or HTTP server). The proplet will fetch the module from that URL. In this example, we upload directly since we're working with a local build.
+
 Upload the WASM module to each task:
 
 ```bash
