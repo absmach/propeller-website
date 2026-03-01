@@ -5,30 +5,24 @@ description: Configure task dependencies, DAG-based workflows, jobs, and schedul
 
 ## Overview
 
-When you need to run multiple tasks that depend on each other—like "download data, then process it, then generate a report"—you need a way to ensure they run in the right order. Propeller handles this automatically using a concept called a DAG.
+Propeller schedules and executes tasks across distributed edge devices. When tasks depend on each other, Propeller ensures they run in the correct order.
 
 ### What is a DAG?
 
-A [DAG (Directed Acyclic Graph)](https://www.datacamp.com/blog/what-is-a-dag) is simply a way to describe "what depends on what." Think of it like a recipe:
+A [DAG (Directed Acyclic Graph)](https://www.datacamp.com/blog/what-is-a-dag) defines which tasks must complete before others can start:
 
-1. You can't bake a cake until you've mixed the batter
-2. You can't mix the batter until you've gathered the ingredients
-3. But while the cake bakes, you can prepare the frosting (these are independent)
+- **Tasks** are the individual steps in your workflow
+- **Dependencies** specify which tasks must finish first
+- **Acyclic** means the workflow only moves forward—no circular dependencies
 
-In Propeller terms:
+Tasks without dependencies on each other run in parallel.
 
-- **Tasks** are the steps (like "gather ingredients" or "mix batter")
-- **Dependencies** are the arrows showing which tasks must finish before others can start
-- **Acyclic** means the workflow only moves forward—no loops or going back
-
-The key benefit: tasks that don't depend on each other can run at the same time (in parallel), making your workflow faster.
-
-| Benefit | What it means |
-|---------|---------------|
-| **Correct order** | Tasks wait for their dependencies to finish before starting |
-| **Faster execution** | Independent tasks run in parallel instead of waiting in line |
-| **Easy debugging** | When something fails, you can see exactly which tasks were affected |
-| **Clear visualization** | The graph shows your entire workflow at a glance |
+| Benefit | Description |
+|---------|-------------|
+| **Correct order** | Tasks wait for their dependencies to complete |
+| **Parallel execution** | Independent tasks run simultaneously |
+| **Error isolation** | Failures affect only downstream tasks |
+| **Clear structure** | The graph shows the entire workflow |
 
 ## Jobs
 
