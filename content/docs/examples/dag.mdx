@@ -292,11 +292,14 @@ After completion, your output should look like this:
 - Task 3: `100 + 200 = 300` (started after Task 1 completed, ran in parallel with Task 2)
 
 **Key fields:**
-- **state: 3** — All tasks completed successfully (state 3 = Completed)
-- **results** — The string output from the WASM `main` function (includes trailing newline)
-- **proplet_id** — The edge device (`ec182939-...`) that executed all three tasks
-- **start_time / finish_time** — Task 2 and Task 3 started ~150ms after Task 1 finished, confirming dependency scheduling. Their overlapping execution times (~333ms and ~371ms start) demonstrate parallel fan-out
-- **depends_on** — Present only on Task 2 and Task 3, confirming their dependency on `task-001`
+
+| Field | Description |
+|-------|-------------|
+| `state: 3` | All tasks completed successfully (state 3 = Completed) |
+| `results` | The string output from the WASM `main` function (includes trailing newline) |
+| `proplet_id` | The edge device (`ec182939-...`) that executed all three tasks |
+| `start_time` / `finish_time` | Task 2 and Task 3 started ~150ms after Task 1 finished, confirming dependency scheduling. Their overlapping execution times (~333ms and ~371ms start) demonstrate parallel fan-out |
+| `depends_on` | Present only on Task 2 and Task 3, confirming their dependency on `task-001` |
 
 ## Conditional Execution
 
