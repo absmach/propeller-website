@@ -189,14 +189,16 @@ The following endpoints are internal to the FL services and not exposed through 
 | Model Registry | `GET /models/{version}` | Fetch a specific model version |
 | Model Registry | `POST /models` | Store a new model version |
 | Aggregator | `POST /aggregate` | Perform FedAvg on collected updates |
-| Local Data Store | `GET /datasets/{proplet_id}` | Fetch dataset for a specific proplet
+| Local Data Store | `GET /datasets/{proplet_id}` | Fetch dataset for a specific proplet |
 
 ### MQTT Topics
 
-- **Round Start**: `{domain}/{channel}/fl/rounds/start`
-- **Round Completion**: `{domain}/{channel}/fl/rounds/next`
-- **Update Submission (Fallback)**: `{domain}/{channel}/fl/rounds/{round_id}/updates/{proplet_id}`
-- **WASM Binary Fetching**: `registry/proplet` (request) and `registry/server` (response)
+| Topic | Description |
+|-------|-------------|
+| `{domain}/{channel}/fl/rounds/start` | Round start notification |
+| `{domain}/{channel}/fl/rounds/next` | Round completion notification |
+| `{domain}/{channel}/fl/rounds/{round_id}/updates/{proplet_id}` | Update submission (fallback) |
+| `registry/proplet` / `registry/server` | WASM binary fetching (request/response) |
 
 ## Aggregation Algorithm
 
