@@ -624,16 +624,6 @@ curl -s -X POST http://localhost:7070/fl/experiments \
 }
 ```
 
-| Parameter | Description |
-|-----------|-------------|
-| `experiment_id` | Unique identifier for this experiment |
-| `round_id` | Unique identifier for this training round |
-| `model_ref` | Reference to the model version to use (v0 = initial weights) |
-| `participants` | List of proplet client UUIDs that will participate |
-| `k_of_n` | Minimum number of updates required for aggregation (2 of 3) |
-| `timeout_s` | How long to wait for updates before timing out |
-| `task_wasm_image` | GHCR URL of the WASM training client |
-
 ## Step 12: Monitor the Training Round
 
 Once the experiment is triggered, several things happen automatically:
@@ -1016,18 +1006,3 @@ To only stop containers (preserve data):
 ```bash
 docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env down
 ```
-
-## Summary
-
-You've successfully completed an end-to-end federated learning demo:
-
-1. Built and started 36 containerized services (SuperMQ + Propeller + FL)
-2. Provisioned SuperMQ resources (domain, clients, channel)
-3. Built WASM training client and pushed to GHCR
-4. Configured proxy for authenticated GHCR access
-5. Triggered FL experiment via manager API
-6. Proplets trained locally on 64 samples each
-7. Coordinator collected updates and triggered aggregation
-8. FedAvg produced a trained global model
-
-**Key privacy guarantee:** The raw training data never left the proplets — only weight updates were shared and aggregated.

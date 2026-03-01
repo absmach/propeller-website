@@ -89,6 +89,16 @@ curl -X POST http://localhost:7070/fl/experiments \
 # {"experiment_id":"exp-r-...","round_id":"r-...","status":"configured"}
 ```
 
+| Parameter | Description |
+|-----------|-------------|
+| `experiment_id` | Unique identifier for this experiment |
+| `round_id` | Unique identifier for this training round |
+| `model_ref` | Reference to the model version to use (v0 = initial weights) |
+| `participants` | List of proplet client UUIDs that will participate |
+| `k_of_n` | Minimum number of updates required for aggregation (2 of 3) |
+| `timeout_s` | How long to wait for updates before timing out |
+| `task_wasm_image` | GHCR URL of the WASM training client |
+
 When configuring FL experiments, you must use **SuperMQ CLIENT_IDs** (UUIDs), not instance IDs like `"proplet-1"`. Proplets register using their CLIENT_ID from environment variables:
 
 ```bash
