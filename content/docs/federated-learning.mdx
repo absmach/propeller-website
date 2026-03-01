@@ -50,15 +50,15 @@ Propeller's FML system is built on a workload-agnostic design where the core orc
 
 ### System Components
 
-| Component | Description |
-| --------- | ----------- |
-| **Manager** | Core orchestration - exposes `POST /fl/experiments`, creates tasks for participants, proxies requests to Coordinator |
-| **FML Coordinator** | FL-specific service - manages rounds, collects updates, triggers aggregation, handles timeouts |
-| **Aggregator** | Performs FedAvg - computes weighted averages of model updates based on training samples |
-| **Model Registry** | Stores and versions global models - `GET /models/{version}`, `POST /models` |
-| **Proplet** | Edge runtime - executes WASM training modules, fetches models/datasets, submits updates |
-| **Local Data Store** | Provides training datasets to proplets - `GET /datasets/{proplet_id}` |
-| **Proxy** | Fetches WASM binaries from container registries (GHCR) and serves them to proplets via MQTT |
+| Component | Description | Port |
+| --------- | ----------- | ---- |
+| **Manager** | Core orchestration - exposes `POST /fl/experiments`, creates tasks for participants, proxies requests to Coordinator | 7070 |
+| **Coordinator** | FL-specific service - manages rounds, collects updates, triggers aggregation, handles timeouts | 8086 |
+| **Aggregator** | Performs FedAvg - computes weighted averages of model updates based on training samples | 8085 |
+| **Model Registry** | Stores and versions global models - `GET /models/{version}`, `POST /models` | 8084 |
+| **Proplet** | Edge runtime - executes WASM training modules, fetches models/datasets, submits updates | - |
+| **Local Data Store** | Provides training datasets to proplets - `GET /datasets/{proplet_id}` | 8083 |
+| **Proxy** | Fetches WASM binaries from container registries (GHCR) and serves them to proplets via MQTT | - |
 
 ![FML Components](/images/fml/federated-ml-components.svg)
 
@@ -300,15 +300,7 @@ The following endpoints are internal to the FL services and not exposed through 
 | Aggregator | `POST /aggregate` | Perform FedAvg on collected updates |
 | Local Data Store | `GET /datasets/{proplet_id}` | Fetch dataset for a specific proplet |
 
-**Health Check Endpoints**
-
-| Service | URL |
-|---------|-----|
-| Manager | `http://localhost:7070/health` |
-| Coordinator | `http://localhost:8086/health` |
-| Model Registry | `http://localhost:8084/health` |
-| Aggregator | `http://localhost:8085/health` |
-| Local Data Store | `http://localhost:8083/health` |
+All HTTP services expose a `/health` endpoint (e.g., `http://localhost:7070/health` for Manager).
 
 ### MQTT Topics
 
