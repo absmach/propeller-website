@@ -5,16 +5,13 @@ description: Configure task dependencies, DAG-based workflows, jobs, and schedul
 
 ## Overview
 
-Propeller provides powerful task orchestration capabilities for complex multi-step workloads:
+Propeller provides task orchestration for edge computing workloads where tasks execute as WebAssembly modules on distributed proplets. The Manager coordinates task distribution, dependency resolution, and execution lifecycle across the network.
 
-- **Jobs**: Group related tasks with configurable execution modes (parallel, sequential)
-- **Workflows**: DAG-based task orchestration with dependencies and conditional execution
-- **Cron Scheduling**: Time-based task execution with cron expressions
-- **Priority Scheduling**: Control task dispatch order based on priority
+Task orchestration in Propeller uses [Directed Acyclic Graphs (DAGs)](https://www.datacamp.com/blog/what-is-a-dag) to model dependencies between tasks. A DAG ensures tasks execute in the correct order—parent tasks complete before their dependents start—while allowing independent tasks to run in parallel. This model enables complex multi-step workflows like ETL pipelines, ML training jobs, and data processing chains.
 
 ## Jobs
 
-Jobs group multiple related tasks together and execute them with a common strategy.
+Jobs group related tasks with configurable execution modes (parallel, sequential). Jobs execute tasks with a common strategy, simplifying management of multi-task workloads.
 
 ### Creating a Job
 
@@ -114,7 +111,7 @@ Jobs cannot be updated or deleted once created. To modify a job, create a new on
 
 ## Workflows
 
-Workflows provide DAG-based (Directed Acyclic Graph) task orchestration with explicit dependencies and conditional execution.
+Workflows provide DAG-based task orchestration with dependencies and conditional execution. Unlike jobs, workflows allow fine-grained control over task dependencies using `depends_on` arrays and conditional execution with `run_if` fields.
 
 ### DAG Concepts
 
@@ -366,7 +363,7 @@ The coordinator performs topological sorting to determine execution order:
 
 ### Priority-Based Scheduling
 
-When multiple tasks are pending, the Manager dispatches higher-priority tasks first:
+Priority scheduling controls task dispatch order based on priority values. When multiple tasks are pending, the Manager dispatches higher-priority tasks first:
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
@@ -417,7 +414,7 @@ curl -X POST "http://localhost:7070/tasks" \
 
 ## Cron Scheduling
 
-Schedule tasks to run at specific times using cron expressions.
+Cron scheduling enables time-based task execution with cron expressions. Tasks can run on fixed schedules—hourly, daily, weekly—or at specific times using standard cron syntax.
 
 ### Creating a Scheduled Task
 
