@@ -754,7 +754,7 @@ FL_DATASET_PARTICIPANTS="uuid1,uuid2,uuid3"
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `COORDINATOR_URL` | URL of FL Coordinator service | Required |
+| `COORDINATOR_URL` | URL of FL Coordinator service. If not set, FL features are disabled and a warning is logged. | `""` (FL disabled) |
 | `MANAGER_HTTP_PORT` | HTTP API port | 7070 |
 | `MANAGER_MQTT_ADDRESS` | MQTT broker address | tcp://mqtt-adapter:1883 |
 | `MANAGER_DOMAIN_ID` | SuperMQ domain ID | Required |
@@ -766,7 +766,7 @@ FL_DATASET_PARTICIPANTS="uuid1,uuid2,uuid3"
 |----------|-------------|---------|
 | `MODEL_REGISTRY_URL` | URL of Model Registry | Required for FL |
 | `DATA_STORE_URL` | URL of Local Data Store | Required for FL |
-| `COORDINATOR_URL` | URL of FL Coordinator | Optional |
+| `COORDINATOR_URL` | URL of FL Coordinator | `http://coordinator-http:8080` |
 | `PROPLET_CLIENT_ID` | SuperMQ client UUID | Required |
 | `PROPLET_DOMAIN_ID` | SuperMQ domain ID | Required |
 | `PROPLET_CHANNEL_ID` | SuperMQ channel ID | Required |
