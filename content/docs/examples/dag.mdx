@@ -154,7 +154,7 @@ For details on dependency validation, see [Task and Dependency Fields](/docs/tas
 
 Since we built `addition.wasm` locally, we upload it directly to each task. For production workflows, you can use `image_url` instead—see [WASM Module Deployment](/docs/task-scheduling#wasm-module-deployment).
 
-Upload the WASM module to each task:
+### Task 1
 
 ```bash
 curl -X PUT "http://localhost:7070/tasks/task-001/upload" \
@@ -184,58 +184,16 @@ Your output should look like this:
 
 The `file` field now contains the WASM binary encoded as base64. This is the actual module that will be sent to the proplet for execution. The `updated_at` timestamp reflects when the upload occurred.
 
+### Tasks 2 and 3
+
+Repeat the same upload for the remaining tasks. The response structure is identical—only the task ID, inputs, and `depends_on` fields differ:
+
 ```bash
 curl -X PUT "http://localhost:7070/tasks/task-002/upload" \
 -F "file=@build/addition.wasm"
-```
 
-Your output should look like this:
-
-```json
-{
-  "id": "task-002",
-  "name": "main",
-  "state": 0,
-  "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
-  "cli_args": null,
-  "inputs": [5, 15],
-  "depends_on": ["task-001"],
-  "daemon": false,
-  "encrypted": false,
-  "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
-  "start_time": "0001-01-01T00:00:00Z",
-  "finish_time": "0001-01-01T00:00:00Z",
-  "created_at": "2026-03-01T15:21:52.857523790Z",
-  "updated_at": "2026-03-01T15:21:56.234567890Z",
-  "next_run": "0001-01-01T00:00:00Z"
-}
-```
-
-```bash
 curl -X PUT "http://localhost:7070/tasks/task-003/upload" \
 -F "file=@build/addition.wasm"
-```
-
-Your output should look like this:
-
-```json
-{
-  "id": "task-003",
-  "name": "main",
-  "state": 0,
-  "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
-  "cli_args": null,
-  "inputs": [100, 200],
-  "depends_on": ["task-001"],
-  "daemon": false,
-  "encrypted": false,
-  "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
-  "start_time": "0001-01-01T00:00:00Z",
-  "finish_time": "0001-01-01T00:00:00Z",
-  "created_at": "2026-03-01T15:21:52.857524208Z",
-  "updated_at": "2026-03-01T15:21:57.345678901Z",
-  "next_run": "0001-01-01T00:00:00Z"
-}
 ```
 
 ## Start Workflow
