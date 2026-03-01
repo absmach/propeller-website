@@ -223,6 +223,10 @@ Expected response:
 | `run_if` | string | Condition for execution: `success`, `failure`, or `always` |
 | `workflow_id` | string (auto) | ID of the workflow this task belongs to |
 
+The `depends_on` field references task IDs that must complete before this task runs. The manager validates:
+- All referenced task IDs exist in the workflow
+- No circular dependencies exist (DAG validation)
+
 ### run_if Values
 
 | Value | Behavior |

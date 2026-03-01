@@ -148,9 +148,7 @@ The response shows all three tasks created with `state: 0` (Pending). Key fields
 - **inputs**: The integer pairs that will be passed to the `main` function
 - **start_time / finish_time**: Zero values (`0001-01-01`) indicate the tasks haven't run yet
 
-The `depends_on` field references task IDs that must complete before this task runs. The manager validates:
-- All referenced task IDs exist in the workflow
-- No circular dependencies exist (DAG validation)
+For details on dependency validation, see [Task and Dependency Fields](/docs/task-scheduling#task-and-dependency-fields).
 
 ## Upload WASM
 
