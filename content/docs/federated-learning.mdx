@@ -191,6 +191,16 @@ The following endpoints are internal to the FL services and not exposed through 
 | Aggregator | `POST /aggregate` | Perform FedAvg on collected updates |
 | Local Data Store | `GET /datasets/{proplet_id}` | Fetch dataset for a specific proplet |
 
+**Health Check Endpoints**
+
+| Service | URL |
+|---------|-----|
+| Manager | `http://localhost:7070/health` |
+| Coordinator | `http://localhost:8086/health` |
+| Model Registry | `http://localhost:8084/health` |
+| Aggregator | `http://localhost:8085/health` |
+| Local Data Store | `http://localhost:8083/health` |
+
 ### MQTT Topics
 
 | Topic | Description |
