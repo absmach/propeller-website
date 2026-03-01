@@ -196,6 +196,236 @@ When the Coordinator receives k-of-n updates:
 - **Update Submission (Fallback)**: `{domain}/{channel}/fl/rounds/{round_id}/updates/{proplet_id}`
 - **WASM Binary Fetching**: `registry/proplet` (request) and `registry/server` (response)
 
+## Aggregation Algorithm
+
+Propeller implements **Federated Averaging (FedAvg)** for model aggregation. FedAvg computes a weighted average of model updates based on the number of training samples each proplet used.
+
+### FedAvg Formula
+
+For n participating proplets with updates $u_1, u_2, ..., u_n$ and sample counts $s_1, s_2, ..., s_n$:
+
+$$
+w_{aggregated} = \frac{\sum_{i=1}^{n} s_i \cdot w_i}{\sum_{i=1}^{n} s_i}
+$$
+
+$$
+b_{aggregated} = \frac{\sum_{i=1}^{n} s_i \cdot b_i}{\sum_{i=1}^{n} s_i}
+$$
+
+### Aggregation Process
+
+1. Coordinator collects updates from k-of-n participants
+2. Coordinator forwards all updates to Aggregator via `POST /aggregate`
+3. Aggregator validates each update contains `w` (weights array) and `b` (bias)
+4. Aggregator computes weighted sum of weights and bias
+5. Aggregator normalizes by total sample count
+6. Aggregated model is returned to Coordinator
+
+### Update Message Format
+
+Each proplet submits an update with this structure:
+
+```json
+{
+  "round_id": "r-1709309984",
+  "proplet_id": "3fe95a65-74f1-4ede-bf20-ef565f04cecb",
+  "base_model_uri": "fl/models/global_model_v0",
+  "num_samples": 64,
+  "metrics": {
+    "loss": 0.342,
+    "accuracy": 0.875
+  },
+  "update": {
+    "w": [0.0164, 0.0003, 0.0144],
+    "b": -0.00026
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `round_id` | string | Training round identifier |
+| `proplet_id` | string | SuperMQ client UUID of the proplet |
+| `base_model_uri` | string | Model version used for training |
+| `num_samples` | int | Number of samples used (for FedAvg weighting) |
+| `metrics` | object | Optional training metrics (loss, accuracy) |
+| `update` | object | Updated model weights and bias |
+
+## WASM Training Client
+
+The FL training client runs as a WebAssembly module executed by the proplet. The WASM binary is fetched from a container registry (GHCR or local) via the Proxy service.
+
+### Environment Variables
+
+The proplet passes training context to the WASM module via environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `ROUND_ID` | Training round identifier |
+| `MODEL_URI` | Reference to base model version |
+| `HYPERPARAMS` | JSON object with training hyperparameters |
+| `MODEL_DATA` | JSON string of fetched model weights |
+| `DATASET_DATA` | JSON string of fetched training dataset |
+| `PROPLET_ID` | SuperMQ client UUID of this proplet |
+| `COORDINATOR_URL` | URL of coordinator service |
+| `MODEL_REGISTRY_URL` | URL of model registry service |
+
+### Expected Output
+
+The WASM module must output a JSON update message to stdout containing the trained weights:
+
+```json
+{
+  "round_id": "r-1709309984",
+  "proplet_id": "3fe95a65-74f1-4ede-bf20-ef565f04cecb",
+  "num_samples": 64,
+  "update": {
+    "w": [0.0164, 0.0003, 0.0144],
+    "b": -0.00026
+  }
+}
+```
+
+### Training Implementation
+
+The example FL client implements logistic regression with stochastic gradient descent (SGD):
+
+1. **Parse hyperparameters**: Extract `epochs`, `lr` (learning rate), `batch_size`
+2. **Load model**: Parse `MODEL_DATA` into weights array and bias
+3. **Load dataset**: Parse `DATASET_DATA` into training samples
+4. **Train**: For each epoch, shuffle data and update weights using SGD
+5. **Output**: Print JSON update with trained weights to stdout
+
+The SGD update rule for logistic regression:
+
+$$
+w_j = w_j - \alpha \cdot (p - y) \cdot x_j
+$$
+
+$$
+b = b - \alpha \cdot (p - y)
+$$
+
+Where $\alpha$ is the learning rate, $p$ is the sigmoid prediction, and $y$ is the true label.
+
+## Model Format
+
+Models are stored in the Model Registry as JSON objects with version tracking.
+
+### Model Structure
+
+```json
+{
+  "w": [0.0, 0.0, 0.0],
+  "b": 0.0,
+  "version": 0
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `w` | float[] | Weight vector (dimension depends on feature count) |
+| `b` | float | Bias term |
+| `version` | int | Model version number (auto-incremented) |
+
+### Initial Model
+
+The Model Registry creates a default initial model (v0) with zero weights:
+
+```json
+{
+  "w": [0.0, 0.0, 0.0],
+  "b": 0.0,
+  "version": 0
+}
+```
+
+### Model Versioning
+
+Each aggregation round produces a new model version:
+
+- **v0**: Initial model (zero weights)
+- **v1**: After first training round
+- **vN**: After N training rounds
+
+## Dataset Format
+
+The Local Data Store provides training data to proplets via HTTP. Each proplet has its own dataset identified by its SuperMQ client UUID.
+
+### Dataset Structure
+
+```json
+{
+  "schema": "fl-demo-dataset-v1",
+  "proplet_id": "3fe95a65-74f1-4ede-bf20-ef565f04cecb",
+  "size": 64,
+  "data": [
+    {"x": [0.5, 0.3, 0.8], "y": 1},
+    {"x": [0.2, 0.7, 0.1], "y": 0}
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `schema` | string | Dataset schema version |
+| `proplet_id` | string | UUID of the proplet this dataset belongs to |
+| `size` | int | Number of samples in the dataset |
+| `data` | array | Array of training samples |
+
+Each sample contains:
+- `x`: Feature vector (array of floats)
+- `y`: Label (0 or 1 for binary classification)
+
+### Dataset Provisioning
+
+Datasets are auto-seeded based on participant UUIDs passed via environment variables:
+
+```bash
+PROPLET_CLIENT_ID=uuid1
+PROPLET_2_CLIENT_ID=uuid2
+PROPLET_3_CLIENT_ID=uuid3
+```
+
+Alternatively, use a comma-separated list:
+
+```bash
+FL_DATASET_PARTICIPANTS="uuid1,uuid2,uuid3"
+```
+
+## Configuration Reference
+
+### Manager Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `COORDINATOR_URL` | URL of FL Coordinator service | Required |
+| `MANAGER_HTTP_PORT` | HTTP API port | 7070 |
+| `MANAGER_MQTT_ADDRESS` | MQTT broker address | tcp://mqtt-adapter:1883 |
+| `MANAGER_DOMAIN_ID` | SuperMQ domain ID | Required |
+| `MANAGER_CHANNEL_ID` | SuperMQ channel ID | Required |
+
+### Proplet Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MODEL_REGISTRY_URL` | URL of Model Registry | Required for FL |
+| `DATA_STORE_URL` | URL of Local Data Store | Required for FL |
+| `COORDINATOR_URL` | URL of FL Coordinator | Optional |
+| `PROPLET_CLIENT_ID` | SuperMQ client UUID | Required |
+| `PROPLET_DOMAIN_ID` | SuperMQ domain ID | Required |
+| `PROPLET_CHANNEL_ID` | SuperMQ channel ID | Required |
+
+### Coordinator Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MODEL_REGISTRY_URL` | URL of Model Registry | Required |
+| `AGGREGATOR_URL` | URL of Aggregator service | Required |
+| `MQTT_BROKER` | MQTT broker address | tcp://mqtt:1883 |
+| `MQTT_CLIENT_ID` | SuperMQ client ID | Required |
+| `COORDINATOR_PORT` | HTTP port | 8080 |
+
 ## FL Demo Application
 
 For detailed setup instructions, step-by-step commands, and expected outputs, see the [Federated Learning Example](/docs/examples/federated-learning).
