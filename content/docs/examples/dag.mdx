@@ -1,37 +1,56 @@
 ---
 title: DAG Workflow
-description: DAG workflow example
+description: Execute multi-step workflows with task dependencies using DAG orchestration
 ---
 
-This is a DAG (Directed Acyclic Graph) workflow example. It demonstrates how to create and execute workflows where tasks have dependencies on other tasks. The manager validates the DAG to prevent cycles and ensures tasks execute in proper order based on their dependencies.
+This example demonstrates DAG (Directed Acyclic Graph) workflow execution in Propeller. DAG workflows allow you to define task dependencies where child tasks only execute after their parent tasks complete successfully.
+
+**What you'll learn:**
+- Creating workflows with task dependencies
+- Specifying task IDs for dependency references
+- Automatic scheduling of dependent tasks
+- Conditional execution with `run_if`
+
+## Prerequisites
+
+Ensure you have:
+- Propeller services running (`make start-supermq`)
+- A [provisioned config](/docs/getting-started#step-3-provision-propeller) with valid credentials
+- The `addition.wasm` module built
 
 ## Source Code
 
-The source code for the addition example used in this workflow is available in the [examples/addition](https://github.com/absmach/propeller/blob/main/examples/addition/addition.go) directory.
+The addition example exports a `main` function that adds two integers:
 
 <CodeFromSource
-  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/addition/addition.go"
-  lang="go"
+  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/addition-wat/addition.wat"
+  lang="wat"
 />
 
-## Build Wasm
+## Build WASM
 
-Build the addition example that will be used across all workflow tasks:
+Build the addition module from WAT (WebAssembly Text format):
 
 ```bash
 cd propeller
-make addition
+wat2wasm examples/addition-wat/addition.wat -o build/addition.wasm
 ```
 
-Your output should look like this:
+Verify the build:
 
 ```bash
-GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasip1 examples/addition/addition.go
+file build/addition.wasm
+```
+
+```bash
+build/addition.wasm: WebAssembly (wasm) binary module version 0x1 (MVP)
 ```
 
 ## Create Workflow
 
-Create a workflow with three tasks in a DAG structure where task2 and task3 depend on task1:
+Create a DAG workflow with three tasks. Task 2 and Task 3 both depend on Task 1, so they'll execute in parallel after Task 1 completes.
+
+**Important:** Specify task IDs explicitly so dependencies can reference them:
 
 ```bash
 curl -X POST "http://localhost:7070/workflows" \
@@ -39,128 +58,98 @@ curl -X POST "http://localhost:7070/workflows" \
 -d '{
   "tasks": [
     {
-      "name": "add",
+      "id": "task-001",
+      "name": "main",
       "inputs": [10, 20]
     },
     {
-      "name": "add",
+      "id": "task-002",
+      "name": "main",
       "inputs": [5, 15],
-      "depends_on": ["task1-id"]
+      "depends_on": ["task-001"]
     },
     {
-      "name": "add",
+      "id": "task-003",
+      "name": "main",
       "inputs": [100, 200],
-      "depends_on": ["task1-id"]
+      "depends_on": ["task-001"]
     }
   ]
 }'
 ```
 
-Your output should look like this:
+Response:
 
 ```json
 {
   "tasks": [
     {
-      "id": "a1b2c3d4-1234-5678-9abc-def012345678",
-      "name": "add",
-      "kind": "standard",
+      "id": "task-001",
+      "name": "main",
       "state": 0,
       "inputs": [10, 20],
-      "workflow_id": "workflow-abc123",
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
       "daemon": false,
       "encrypted": false,
-      "start_time": "0001-01-01T00:00:00Z",
-      "finish_time": "0001-01-01T00:00:00Z",
-      "created_at": "2026-02-27T10:00:00.000000000Z",
-      "updated_at": "0001-01-01T00:00:00Z",
-      "next_run": "0001-01-01T00:00:00Z",
-      "priority": 50
+      "created_at": "2026-03-01T15:22:02.147249373Z",
+      "updated_at": "0001-01-01T00:00:00Z"
     },
     {
-      "id": "b2c3d4e5-2345-6789-abcd-ef0123456789",
-      "name": "add",
-      "kind": "standard",
+      "id": "task-002",
+      "name": "main",
       "state": 0,
       "inputs": [5, 15],
-      "depends_on": ["a1b2c3d4-1234-5678-9abc-def012345678"],
-      "workflow_id": "workflow-abc123",
+      "depends_on": ["task-001"],
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
       "daemon": false,
       "encrypted": false,
-      "start_time": "0001-01-01T00:00:00Z",
-      "finish_time": "0001-01-01T00:00:00Z",
-      "created_at": "2026-02-27T10:00:00.000000000Z",
-      "updated_at": "0001-01-01T00:00:00Z",
-      "next_run": "0001-01-01T00:00:00Z",
-      "priority": 50
+      "created_at": "2026-03-01T15:22:02.147249790Z",
+      "updated_at": "0001-01-01T00:00:00Z"
     },
     {
-      "id": "c3d4e5f6-3456-789a-bcde-f01234567890",
-      "name": "add",
-      "kind": "standard",
+      "id": "task-003",
+      "name": "main",
       "state": 0,
       "inputs": [100, 200],
-      "depends_on": ["a1b2c3d4-1234-5678-9abc-def012345678"],
-      "workflow_id": "workflow-abc123",
+      "depends_on": ["task-001"],
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
       "daemon": false,
       "encrypted": false,
-      "start_time": "0001-01-01T00:00:00Z",
-      "finish_time": "0001-01-01T00:00:00Z",
-      "created_at": "2026-02-27T10:00:00.000000000Z",
-      "updated_at": "0001-01-01T00:00:00Z",
-      "next_run": "0001-01-01T00:00:00Z",
-      "priority": 50
+      "created_at": "2026-03-01T15:22:02.147250208Z",
+      "updated_at": "0001-01-01T00:00:00Z"
     }
   ]
 }
 ```
 
-## Upload Wasm
+The `depends_on` field references task IDs that must complete before this task runs. The manager validates:
+- All referenced task IDs exist in the workflow
+- No circular dependencies exist (DAG validation)
 
-Upload the wasm file to each task in the workflow:
+## Upload WASM
+
+Upload the WASM module to each task:
 
 ```bash
-curl -X PUT "http://localhost:7070/tasks/a1b2c3d4-1234-5678-9abc-def012345678/upload" \
--F "file=@$(pwd)/build/addition.wasm"
+curl -X PUT "http://localhost:7070/tasks/task-001/upload" \
+-F "file=@build/addition.wasm"
 
-curl -X PUT "http://localhost:7070/tasks/b2c3d4e5-2345-6789-abcd-ef0123456789/upload" \
--F "file=@$(pwd)/build/addition.wasm"
+curl -X PUT "http://localhost:7070/tasks/task-002/upload" \
+-F "file=@build/addition.wasm"
 
-curl -X PUT "http://localhost:7070/tasks/c3d4e5f6-3456-789a-bcde-f01234567890/upload" \
--F "file=@$(pwd)/build/addition.wasm"
+curl -X PUT "http://localhost:7070/tasks/task-003/upload" \
+-F "file=@build/addition.wasm"
 ```
 
-Your output should look like this for each upload:
-
-```json
-{
-  "id": "a1b2c3d4-1234-5678-9abc-def012345678",
-  "name": "add",
-  "kind": "standard",
-  "state": 0,
-  "file": "...<redacted>...",
-  "inputs": [10, 20],
-  "workflow_id": "workflow-abc123",
-  "daemon": false,
-  "encrypted": false,
-  "start_time": "0001-01-01T00:00:00Z",
-  "finish_time": "0001-01-01T00:00:00Z",
-  "created_at": "2026-02-27T10:00:00.000000000Z",
-  "updated_at": "2026-02-27T10:01:00.000000000Z",
-  "next_run": "0001-01-01T00:00:00Z",
-  "priority": 50
-}
-```
+Each upload returns the updated task with the embedded WASM (base64 encoded in the `file` field).
 
 ## Start Workflow
 
-Start the first task (root of the DAG). The manager will automatically schedule dependent tasks when their dependencies complete:
+Start the root task. The manager automatically schedules dependent tasks when their dependencies complete:
 
 ```bash
-curl -X POST "http://localhost:7070/tasks/a1b2c3d4-1234-5678-9abc-def012345678/start"
+curl -X POST "http://localhost:7070/tasks/task-001/start"
 ```
-
-Your output should look like this:
 
 ```json
 { "started": true }
@@ -168,13 +157,13 @@ Your output should look like this:
 
 ## Check Workflow Status
 
-Check the status of all tasks in the workflow:
+Query tasks by workflow ID to see execution status:
 
 ```bash
-curl -X GET "http://localhost:7070/tasks?workflow_id=workflow-abc123"
+curl "http://localhost:7070/tasks?workflow_id=33b97dd3-f719-40f0-8a45-87254c27406f"
 ```
 
-Your output should look like this after the workflow completes:
+After completion:
 
 ```json
 {
@@ -183,41 +172,52 @@ Your output should look like this after the workflow completes:
   "total": 3,
   "tasks": [
     {
-      "id": "a1b2c3d4-1234-5678-9abc-def012345678",
-      "name": "add",
+      "id": "task-001",
+      "name": "main",
       "state": 3,
       "inputs": [10, 20],
-      "workflow_id": "workflow-abc123",
-      "results": "30",
-      "proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895"
+      "results": "30\n",
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+      "proplet_id": "ec182939-7940-4b25-869e-47b245ddec09",
+      "start_time": "2026-03-01T15:22:08.180655563Z",
+      "finish_time": "2026-03-01T15:22:08.309737353Z"
     },
     {
-      "id": "b2c3d4e5-2345-6789-abcd-ef0123456789",
-      "name": "add",
+      "id": "task-002",
+      "name": "main",
       "state": 3,
       "inputs": [5, 15],
-      "depends_on": ["a1b2c3d4-1234-5678-9abc-def012345678"],
-      "workflow_id": "workflow-abc123",
-      "results": "20",
-      "proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895"
+      "depends_on": ["task-001"],
+      "results": "20\n",
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+      "proplet_id": "ec182939-7940-4b25-869e-47b245ddec09",
+      "start_time": "2026-03-01T15:22:08.333634221Z",
+      "finish_time": "2026-03-01T15:22:08.513905318Z"
     },
     {
-      "id": "c3d4e5f6-3456-789a-bcde-f01234567890",
-      "name": "add",
+      "id": "task-003",
+      "name": "main",
       "state": 3,
       "inputs": [100, 200],
-      "depends_on": ["a1b2c3d4-1234-5678-9abc-def012345678"],
-      "workflow_id": "workflow-abc123",
-      "results": "300",
-      "proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895"
+      "depends_on": ["task-001"],
+      "results": "300\n",
+      "workflow_id": "33b97dd3-f719-40f0-8a45-87254c27406f",
+      "proplet_id": "ec182939-7940-4b25-869e-47b245ddec09",
+      "start_time": "2026-03-01T15:22:08.371892377Z",
+      "finish_time": "2026-03-01T15:22:08.537613640Z"
     }
   ]
 }
 ```
 
+**Results:**
+- Task 1: 10 + 20 = **30**
+- Task 2: 5 + 15 = **20** (started after Task 1 completed)
+- Task 3: 100 + 200 = **300** (started after Task 1 completed, ran in parallel with Task 2)
+
 ## Conditional Execution
 
-Tasks can be configured to run only when their dependencies succeed or fail using the `run_if` field:
+Tasks can run conditionally based on dependency outcomes using the `run_if` field:
 
 ```bash
 curl -X POST "http://localhost:7070/workflows" \
@@ -225,27 +225,67 @@ curl -X POST "http://localhost:7070/workflows" \
 -d '{
   "tasks": [
     {
-      "name": "add",
+      "id": "pipeline-001",
+      "name": "main",
       "inputs": [10, 20]
     },
     {
-      "name": "add",
+      "id": "pipeline-002",
+      "name": "main",
       "inputs": [5, 15],
-      "depends_on": ["task1-id"],
+      "depends_on": ["pipeline-001"],
       "run_if": "success"
     },
     {
-      "name": "add",
+      "id": "pipeline-003",
+      "name": "main",
       "inputs": [0, 0],
-      "depends_on": ["task1-id"],
+      "depends_on": ["pipeline-001"],
       "run_if": "failure"
     }
   ]
 }'
 ```
 
-In this example:
-- Task 2 only runs if Task 1 succeeds
-- Task 3 only runs if Task 1 fails (error handling path)
+| `run_if` value | Behavior |
+|----------------|----------|
+| `success` | Task runs only if all dependencies completed successfully (state 3) |
+| `failure` | Task runs only if any dependency failed (state 4) |
+| (omitted) | Task runs when all dependencies complete, regardless of outcome |
 
-Task states: `0` (pending), `1` (scheduled), `2` (running), `3` (completed), `4` (failed), `5` (skipped), `6` (interrupted).
+In the example above:
+- **pipeline-002** runs only if pipeline-001 succeeds (happy path)
+- **pipeline-003** runs only if pipeline-001 fails (error handling)
+
+## Task States
+
+| State | Value | Description |
+|-------|-------|-------------|
+| Pending | 0 | Task created but not scheduled |
+| Scheduled | 1 | Task queued for execution |
+| Running | 2 | Task currently executing |
+| Completed | 3 | Task finished successfully |
+| Failed | 4 | Task execution failed |
+| Skipped | 5 | Task skipped due to `run_if` condition |
+| Interrupted | 6 | Task was cancelled |
+
+## DAG Validation
+
+The manager validates workflows before accepting them:
+
+1. **Dependency existence** - All task IDs in `depends_on` must exist in the workflow
+2. **Cycle detection** - No circular dependencies allowed (A→B→C→A is invalid)
+3. **`run_if` values** - Must be either `success` or `failure`
+
+Invalid workflows return an error:
+
+```json
+{
+  "error": "dependency validation failed: missing dependency: task X depends on Y which does not exist"
+}
+```
+
+## Next Steps
+
+- [Task Scheduling](/docs/task-scheduling) - Learn about jobs, cron scheduling, and advanced workflow patterns
+- [Compute Example](/docs/examples/compute) - See a more complex multi-step workflow
