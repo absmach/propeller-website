@@ -615,15 +615,13 @@ paths:
         - Manager
         - Federated Learning
       requestBody:
+        description: CBOR-encoded model update payload
         content:
-          application/cbor:
+          application/octet-stream:
             schema:
               type: string
               format: binary
-          application/cbor-seq:
-            schema:
-              type: string
-              format: binary
+              description: CBOR or CBOR-seq encoded model update
   /fl/rounds/{ROUND_ID}/complete:
     get:
       summary: Get Round Completion Status
