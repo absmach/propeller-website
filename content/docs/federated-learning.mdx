@@ -200,11 +200,15 @@ The following endpoints are internal to the FL services and not exposed through 
 | `{domain}/{channel}/fl/rounds/{round_id}/updates/{proplet_id}` | Update submission (fallback) |
 | `registry/proplet` / `registry/server` | WASM binary fetching (request/response) |
 
-## Aggregation Algorithm
+## Aggregation Algorithms
 
-Propeller implements **Federated Averaging (FedAvg)** for model aggregation. FedAvg computes a weighted average of model updates based on the number of training samples each proplet used.
+Aggregation algorithms combine locally trained models into a single global model. They determine how knowledge from distributed clients is incorporated while handling challenges like non-IID data, communication efficiency, and privacy preservation.
 
-### FedAvg Formula
+### Federated Averaging (FedAvg)
+
+Propeller implements **Federated Averaging (FedAvg)** for model aggregation. FedAvg computes a weighted average of model updates based on the number of training samples each client used.
+
+**Formula**
 
 For n participating proplets with updates u₁, u₂, ..., uₙ and sample counts s₁, s₂, ..., sₙ:
 
@@ -213,7 +217,15 @@ w_aggregated = Σ(sᵢ × wᵢ) / Σ(sᵢ)
 b_aggregated = Σ(sᵢ × bᵢ) / Σ(sᵢ)
 ```
 
-### Aggregation Process
+**Hyperparameters**
+
+| Parameter | Description |
+|-----------|-------------|
+| **C** | Fraction of clients that perform computation per round |
+| **E** | Number of training passes (epochs) each client performs on local data |
+| **B** | Mini-batch size used for client updates |
+
+### Propeller Aggregation Process
 
 1. Coordinator collects updates from k-of-n participants
 2. Coordinator forwards all updates to Aggregator via `POST /aggregate`
@@ -221,6 +233,10 @@ b_aggregated = Σ(sᵢ × bᵢ) / Σ(sᵢ)
 4. Aggregator computes weighted sum of weights and bias
 5. Aggregator normalizes by total sample count
 6. Aggregated model is returned to Coordinator
+
+### Other Algorithms
+
+Other federated learning aggregation algorithms include FedProx, SCAFFOLD, and FedPer. For more details, see [Understanding Aggregation Algorithms in Federated Learning](https://medium.com/@praburam_93885/understanding-aggregation-algorithms-in-federated-learning-834ed2bbe860).
 
 ### Update Message Format
 
