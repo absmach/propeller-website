@@ -778,42 +778,11 @@ func (r *roundRobin) SelectProplet(t task.Task, proplets []proplet.Proplet) (pro
 - Fails immediately if no proplets exist or all are dead
 - Does NOT consider current load (`TaskCount`)—simple round-robin only
 
-### Cron Scheduler (Recurring Tasks)
+### Cron Scheduler and Priority
 
-For recurring tasks, the Manager runs a cron scheduler that checks for due tasks every 60 seconds:
+For recurring task execution with cron schedules and priority-based dispatch ordering, see [Task Scheduling](/docs/task-scheduling#priority-based-scheduling).
 
-```bash
-curl -X POST "http://localhost:7070/tasks" \
--H "Content-Type: application/json" \
--d '{
-  "name": "hourly-report",
-  "image_url": "docker.io/myorg/report:v1",
-  "schedule": "0 * * * *",
-  "timezone": "UTC",
-  "is_recurring": true
-}'
-```
-
-The `schedule` field uses standard cron syntax (minute, hour, day, month, weekday).
-
-**Manager's cron loop:**
-1. Every 60 seconds, scan all tasks with `is_recurring = true`
-2. Parse the `schedule` using the specified `timezone`
-3. If the task is due, call `StartTask`
-4. Track last execution to prevent duplicate runs
-
-### Priority Ordering
-
-Tasks have an optional `priority` field (0–100, higher = more important). The Manager uses priority when:
-- Multiple tasks are due simultaneously in cron
-- Sequential job execution determines next task
-
-Priority affects dispatch ORDER, not proplet selection. A priority=100 task is started before a priority=0 task, but both go through round-robin for proplet assignment.
-
-| Mechanism | What It Controls |
-| --------- | ---------------- |
-| **Round Robin** | WHICH proplet receives the task |
-| **Priority** | WHEN the task is dispatched (relative to other pending tasks) |
+The Manager's cron loop calls `StartTask` for due tasks, which then goes through the same proplet selection process described above.
 
 ## Data Flow
 
