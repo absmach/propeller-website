@@ -161,6 +161,8 @@ curl -X PUT "http://localhost:7070/tasks/task-001/upload" \
 -F "file=@build/addition.wasm"
 ```
 
+Your output should look like this:
+
 ```json
 {
   "id": "task-001",
@@ -180,10 +182,14 @@ curl -X PUT "http://localhost:7070/tasks/task-001/upload" \
 }
 ```
 
+The `file` field now contains the WASM binary encoded as base64. This is the actual module that will be sent to the proplet for execution. The `updated_at` timestamp reflects when the upload occurred.
+
 ```bash
 curl -X PUT "http://localhost:7070/tasks/task-002/upload" \
 -F "file=@build/addition.wasm"
 ```
+
+Your output should look like this:
 
 ```json
 {
@@ -209,6 +215,8 @@ curl -X PUT "http://localhost:7070/tasks/task-002/upload" \
 curl -X PUT "http://localhost:7070/tasks/task-003/upload" \
 -F "file=@build/addition.wasm"
 ```
+
+Your output should look like this:
 
 ```json
 {
@@ -238,6 +246,8 @@ Start the root task. The manager automatically schedules dependent tasks when th
 curl -X POST "http://localhost:7070/tasks/task-001/start"
 ```
 
+Your output should look like this:
+
 ```json
 { "started": true }
 ```
@@ -250,7 +260,7 @@ Query tasks by workflow ID to see execution status:
 curl "http://localhost:7070/tasks?workflow_id=33b97dd3-f719-40f0-8a45-87254c27406f"
 ```
 
-After completion:
+After completion, your output should look like this:
 
 ```json
 {
@@ -354,6 +364,8 @@ curl -X POST "http://localhost:7070/workflows" \
   ]
 }'
 ```
+
+Your output should look like this:
 
 ```json
 {
