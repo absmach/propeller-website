@@ -186,119 +186,14 @@ When the Coordinator receives k-of-n updates:
 
 ## FL Demo Application
 
-For detailed setup instructions and hands-on examples, see the [FL Demo](https://github.com/absmach/propeller/tree/main/examples/fl-demo).
+For detailed setup instructions, step-by-step commands, and expected outputs, see the [Federated Learning Example](/docs/examples/federated-learning).
 
-### Prerequisites
-
-- Docker and Docker Compose
-- Python 3 (for provisioning script)
-- `docker/.env` file with SuperMQ configuration
-- GitHub account with Personal Access Token (PAT) for GHCR
-
-### Quick Start
-
-#### Step 1: Build WASM Client
-
-```bash
-cd examples/fl-demo/client-wasm
-GOTOOLCHAIN=go1.25.5 GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
-cd ../../..
-```
-
-#### Step 2: Push to GHCR
-
-```bash
-# Login to GHCR (requires PAT with write:packages permission)
-echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
-
-# Push using ORAS (from repository root)
-docker run --rm \
-  -v "$(pwd)/examples/fl-demo/client-wasm:/workspace" \
-  -w /workspace \
-  -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" \
-  ghcr.io/oras-project/oras:v1.3.0 \
-  push ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest \
-  fl-client.wasm:application/wasm
-```
-
-#### Step 3: Build and Start Services
-
-```bash
-# Build images (Manager and proplet must be built from source)
-docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
-  --env-file docker/.env build manager proplet proplet-2 proplet-3 coordinator-http
-
-# Start all services
-docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
-  --env-file docker/.env up -d
-```
-
-#### Step 4: Provision SuperMQ Resources (One-Time)
-
-```bash
-pip install -r examples/fl-demo/requirements.txt
-(cd examples/fl-demo && python3 provision-smq.py)
-```
-
-This creates domain, channel, and clients (manager, proplet-1, proplet-2, proplet-3, fl-coordinator, proxy) and updates `docker/.env`.
-
-#### Step 5: Recreate Services
-
-After provisioning, recreate services to pick up new credentials:
-
-```bash
-docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
-  --env-file docker/.env up -d --force-recreate manager coordinator-http proplet proplet-2 proplet-3 proxy
-```
-
-#### Step 6: Initialize Model Registry
-
-```bash
-curl -X POST http://localhost:8084/models \
-  -H "Content-Type: application/json" \
-  -d '{
-    "version": 0,
-    "model": {
-      "w": [0.0, 0.0, 0.0],
-      "b": 0.0
-    }
-  }'
-```
-
-#### Step 7: Run FL Round
-
-```bash
-# Export CLIENT_IDs
-export PROPLET_CLIENT_ID=$(grep '^PROPLET_CLIENT_ID=' docker/.env | grep -v '=""' | tail -1 | cut -d '=' -f2 | tr -d '"')
-export PROPLET_2_CLIENT_ID=$(grep '^PROPLET_2_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
-export PROPLET_3_CLIENT_ID=$(grep '^PROPLET_3_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
-
-# Configure experiment
-curl -X POST http://localhost:7070/fl/experiments \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"experiment_id\": \"exp-r-$(date +%s)\",
-    \"round_id\": \"r-$(date +%s)\",
-    \"model_ref\": \"fl/models/global_model_v0\",
-    \"participants\": [\"$PROPLET_CLIENT_ID\", \"$PROPLET_2_CLIENT_ID\", \"$PROPLET_3_CLIENT_ID\"],
-    \"hyperparams\": {\"epochs\": 1, \"lr\": 0.01, \"batch_size\": 16},
-    \"k_of_n\": 3,
-    \"timeout_s\": 60,
-    \"task_wasm_image\": \"ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest\"
-  }"
-```
-
-#### Step 8: Verify Results
-
-```bash
-# Check initial model
-curl http://localhost:8084/models/0
-# Expected: {"w":[0,0,0],"b":0}
-
-# Check aggregated model (after round completes)
-curl http://localhost:8084/models/1
-# Expected: {"w":[<non-zero>,<non-zero>,<non-zero>],"b":<non-zero>}
-```
+The demo includes:
+- Complete Docker Compose configuration for all services
+- Provisioning scripts for SuperMQ resources
+- Example WASM FL client implementing logistic regression
+- Production-ready Coordinator and Aggregator services
+- Model Registry and Local Data Store implementations
 
 ### Service Ports
 

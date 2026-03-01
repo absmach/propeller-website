@@ -7,6 +7,13 @@ This is a federated learning example. Proplets train models locally on their pri
 
 For a comprehensive guide on federated learning architecture, motivation, and the complete training lifecycle, see the [Federated Machine Learning](/docs/federated-learning) documentation.
 
+## Prerequisites
+
+- Docker and Docker Compose
+- Python 3 (for provisioning script)
+- `docker/.env` file with SuperMQ configuration
+- GitHub account with Personal Access Token (PAT) for GHCR (if using GHCR for WASM storage)
+
 ## Source Code
 
 The FL client source code is available in the [examples/fl-demo/client-wasm](https://github.com/absmach/propeller/blob/main/examples/fl-demo/client-wasm/fl-client.go) directory.
@@ -16,28 +23,120 @@ The FL client source code is available in the [examples/fl-demo/client-wasm](htt
   lang="go"
 />
 
-## Start FL Services
+## Build and Start Services
 
-Start the FL infrastructure services:
+The FL demo extends the base SuperMQ + Propeller stack with FL-specific services. You must use both compose files together.
+
+:::warning Important
+The FL demo compose file (`examples/fl-demo/compose.yaml`) is an **extension** to the base compose file (`docker/compose.yaml`). Running it standalone will fail with network errors like `service "local-data-store" refers to undefined network supermq-base-net`.
+:::
+
+### Build Images
+
+Manager and proplet must be built from source as they include FL endpoints:
 
 ```bash
-cd propeller/examples/fl-demo
-docker compose up -d model-registry aggregator local-data-store local-registry
+cd propeller
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env build manager proplet proplet-2 proplet-3 coordinator-http
 ```
 
-Verify services are running:
+### Start All Services
 
 ```bash
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env up -d
+```
+
+This starts:
+- Full SuperMQ production stack (Auth, Domains, Clients, Channels, MQTT Adapter, Nginx)
+- FL-specific services (Model Registry, Aggregator, Local Data Store, Coordinator)
+- Propeller services (Manager, Proplets, Proxy)
+
+Wait a few seconds for services to start, then verify:
+
+```bash
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env ps
+```
+
+Your output should show all services running.
+
+## Provision SuperMQ Resources
+
+Before the manager and proplets can connect to MQTT, you must provision the necessary SuperMQ resources (domain, channel, and clients).
+
+:::note One-Time Setup
+Provisioning creates persistent data in SuperMQ databases. Only needs to be repeated if you remove Docker volumes (e.g., `docker compose down -v`).
+:::
+
+Install Python dependencies:
+
+```bash
+pip install -r examples/fl-demo/requirements.txt
+```
+
+Run the provisioning script:
+
+```bash
+(cd examples/fl-demo && python3 provision-smq.py)
 ```
 
 Your output should look like this:
 
 ```
-fl-demo-local-registry     Up About an hour    0.0.0.0:5000->5000/tcp
-fl-demo-aggregator         Up 2 hours          0.0.0.0:8085->8082/tcp
-fl-demo-local-data-store   Up 2 hours          0.0.0.0:8083->8083/tcp
-fl-demo-model-registry     Up 2 hours          0.0.0.0:8084->8081/tcp
+Waiting for users service...
+✓ users service is ready
+Waiting for domains service...
+✓ domains service is ready
+
+=== Logging in ===
+✓ Login successful
+
+=== Creating Domain ===
+✓ Domain created: <domain-id>
+
+=== Creating Clients ===
+✓ Created client 'manager': <client-id>
+✓ Created client 'proplet-1': <client-id>
+✓ Created client 'proplet-2': <client-id>
+✓ Created client 'proplet-3': <client-id>
+✓ Created client 'fl-coordinator': <client-id>
+✓ Created client 'proxy': <client-id>
+
+=== Creating Channel ===
+✓ Channel created: <channel-id>
+
+=== Connecting Clients to Channel ===
+✓ Connected all clients to channel
+
+=== Updating docker/.env ===
+✓ Updated docker/.env with new credentials
+```
+
+## Recreate Services After Provisioning
+
+After provisioning, you must **recreate** (not just restart) the services to pick up the new credentials:
+
+```bash
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env up -d --force-recreate manager coordinator-http proplet proplet-2 proplet-3 proxy local-data-store
+```
+
+Verify services are running:
+
+```bash
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env ps manager coordinator-http proplet proplet-2 proplet-3 proxy
+```
+
+Check health endpoints:
+
+```bash
+curl http://localhost:7070/health
+curl http://localhost:8086/health
+```
+
+Your output should look like this:
+
+```
+OK
+OK
 ```
 
 ## Check Initial Model
@@ -58,35 +157,35 @@ Your output should look like this:
 }
 ```
 
-## Seed Training Data
-
-Add training data for your proplet:
+If no model exists, create the initial model:
 
 ```bash
-curl -s -X POST "http://localhost:8083/datasets/YOUR_PROPLET_CLIENT_ID" \
+curl -X POST http://localhost:8084/models \
   -H "Content-Type: application/json" \
   -d '{
-    "schema": "linear_regression",
-    "proplet_id": "YOUR_PROPLET_CLIENT_ID",
-    "data": [
-      {"x": [1.0, 2.0, 1.0], "y": 10.0},
-      {"x": [2.0, 1.0, 3.0], "y": 15.0},
-      {"x": [3.0, 2.0, 2.0], "y": 19.0},
-      {"x": [1.0, 3.0, 1.0], "y": 15.0},
-      {"x": [2.0, 2.0, 2.0], "y": 17.0}
-    ],
-    "size": 5
+    "version": 0,
+    "model": {
+      "w": [0.0, 0.0, 0.0],
+      "b": 0.0
+    }
   }'
+```
+
+## Verify Training Data
+
+The Local Data Store auto-seeds datasets for configured proplet UUIDs on startup. Verify datasets exist:
+
+```bash
+export PROPLET_CLIENT_ID=$(grep '^PROPLET_CLIENT_ID=' docker/.env | grep -v '=""' | tail -1 | cut -d '=' -f2 | tr -d '"')
+curl -s http://localhost:8083/datasets/$PROPLET_CLIENT_ID | jq '.schema, .proplet_id, .size'
 ```
 
 Your output should look like this:
 
 ```json
-{
-  "proplet_id": "YOUR_PROPLET_CLIENT_ID",
-  "size": 5,
-  "status": "stored"
-}
+"fl-demo-dataset-v1"
+"<your-proplet-uuid>"
+64
 ```
 
 ## Build Wasm
@@ -96,136 +195,140 @@ Build the FL client to WASM:
 ```bash
 cd examples/fl-demo/client-wasm
 GOTOOLCHAIN=go1.25.5 GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
+cd ../../..
 ```
 
-## Create Task
+## Push WASM to Registry
 
-Create a federated learning task:
+Push the WASM to GitHub Container Registry (GHCR):
 
 ```bash
-curl -X POST "http://localhost:7070/tasks" \
+# Login to GHCR
+echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+
+# Push using ORAS
+docker run --rm \
+  -v "$(pwd)/examples/fl-demo/client-wasm:/workspace" \
+  -w /workspace \
+  -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" \
+  ghcr.io/oras-project/oras:v1.3.0 \
+  push ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest \
+  fl-client.wasm:application/wasm
+```
+
+Your output should look like this:
+
+```
+Pushed [registry] ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest
+ArtifactType: application/vnd.unknown.artifact.v1
+Digest: sha256:...
+```
+
+Alternatively, push to local registry:
+
+```bash
+docker run --rm \
+  -v $(pwd)/examples/fl-demo/client-wasm:/workspace \
+  -w /workspace \
+  --network host \
+  ghcr.io/oras-project/oras:latest \
+  push localhost:5000/fl-client-wasm:latest \
+  fl-client.wasm:application/wasm
+```
+
+## Configure GHCR Authentication
+
+Add GHCR credentials to `docker/.env`:
+
+```bash
+PROXY_AUTHENTICATE=true
+PROXY_REGISTRY_URL=ghcr.io
+PROXY_REGISTRY_USERNAME=YOUR_GITHUB_USERNAME
+PROXY_REGISTRY_PASSWORD=ghp_xxxxx  # Your GitHub PAT with read:packages scope
+```
+
+Recreate proxy to pick up new credentials:
+
+```bash
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env up -d --force-recreate proxy
+```
+
+## Trigger a Federated Learning Round
+
+Export the proplet client IDs:
+
+```bash
+export PROPLET_CLIENT_ID=$(grep '^PROPLET_CLIENT_ID=' docker/.env | grep -v '=""' | tail -1 | cut -d '=' -f2 | tr -d '"')
+export PROPLET_2_CLIENT_ID=$(grep '^PROPLET_2_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
+export PROPLET_3_CLIENT_ID=$(grep '^PROPLET_3_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
+
+# Verify they're set (should show UUIDs)
+echo "PROPLET_CLIENT_ID=$PROPLET_CLIENT_ID"
+echo "PROPLET_2_CLIENT_ID=$PROPLET_2_CLIENT_ID"
+echo "PROPLET_3_CLIENT_ID=$PROPLET_3_CLIENT_ID"
+```
+
+Configure and start the FL experiment:
+
+```bash
+curl -X POST http://localhost:7070/fl/experiments \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "fl-client-train",
-    "kind": "federated",
-    "env": {
-      "ROUND_ID": "round-1",
-      "MODEL_URI": "http://localhost:8084/models/0",
-      "MODEL_REGISTRY_URL": "http://localhost:8084",
-      "DATA_STORE_URL": "http://localhost:8083",
-      "COORDINATOR_URL": "http://localhost:8086",
-      "HYPERPARAMS": "{\"epochs\":1,\"lr\":0.01,\"batch_size\":5}"
-    }
-  }'
+  -d "{
+    \"experiment_id\": \"exp-r-$(date +%s)\",
+    \"round_id\": \"r-$(date +%s)\",
+    \"model_ref\": \"fl/models/global_model_v0\",
+    \"participants\": [\"$PROPLET_CLIENT_ID\", \"$PROPLET_2_CLIENT_ID\", \"$PROPLET_3_CLIENT_ID\"],
+    \"hyperparams\": {\"epochs\": 1, \"lr\": 0.01, \"batch_size\": 16},
+    \"k_of_n\": 3,
+    \"timeout_s\": 60,
+    \"task_wasm_image\": \"ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest\"
+  }"
 ```
 
 Your output should look like this:
 
 ```json
 {
-  "id": "d494e314-24d6-4d09-8559-56f47f99f1ed",
-  "name": "fl-client-train",
-  "kind": "federated",
-  "state": 0,
-  "env": {
-    "COORDINATOR_URL": "http://localhost:8086",
-    "DATA_STORE_URL": "http://localhost:8083",
-    "HYPERPARAMS": "{\"epochs\":1,\"lr\":0.01,\"batch_size\":5}",
-    "MODEL_REGISTRY_URL": "http://localhost:8084",
-    "MODEL_URI": "http://localhost:8084/models/0",
-    "ROUND_ID": "round-1"
-  },
-  "daemon": false,
-  "encrypted": false,
-  "created_at": "2026-02-27T19:22:46.324890646+03:00",
-  "priority": 50
+  "experiment_id": "exp-r-1709309984",
+  "round_id": "r-1709309984",
+  "status": "configured"
 }
 ```
 
-## Upload Wasm
+## Verify Round Execution
 
-Upload the WASM file:
+Check manager logs for task launches:
 
 ```bash
-curl -X PUT "http://localhost:7070/tasks/d494e314-24d6-4d09-8559-56f47f99f1ed/upload" \
-  -F "file=@$(pwd)/fl-client.wasm"
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env logs manager | grep "launched task"
+```
+
+Your output should show 3 "launched task" messages.
+
+Check coordinator logs for update collection:
+
+```bash
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env logs coordinator-http | tail -20
 ```
 
 Your output should look like this:
 
-```json
-{
-  "id": "d494e314-24d6-4d09-8559-56f47f99f1ed",
-  "name": "fl-client-train",
-  "kind": "federated",
-  "state": 0,
-  "file": "...<redacted>...",
-  "env": {
-    "COORDINATOR_URL": "http://localhost:8086",
-    "DATA_STORE_URL": "http://localhost:8083",
-    "HYPERPARAMS": "{\"epochs\":1,\"lr\":0.01,\"batch_size\":5}",
-    "MODEL_REGISTRY_URL": "http://localhost:8084",
-    "MODEL_URI": "http://localhost:8084/models/0",
-    "ROUND_ID": "round-1"
-  },
-  "daemon": false,
-  "encrypted": false,
-  "created_at": "2026-02-27T19:22:46.324890646+03:00",
-  "updated_at": "2026-02-27T19:23:10.123456789+03:00",
-  "priority": 50
-}
+```
+Received experiment configuration
+Received update from proplet <uuid>
+Received update from proplet <uuid>
+Received update from proplet <uuid>
+Round complete: received k_of_n updates
+Aggregated model stored as version 1
 ```
 
-## Start Task
-
-Start the FL training task:
+Check proplet logs for training:
 
 ```bash
-curl -X POST "http://localhost:7070/tasks/d494e314-24d6-4d09-8559-56f47f99f1ed/start"
+docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env logs proplet proplet-2 proplet-3 | grep -i "completed successfully\|DEBUG:"
 ```
 
-Your output should look like this:
-
-```json
-{ "started": true }
-```
-
-## Get Task Results
-
-Check the task status:
-
-```bash
-curl -X GET "http://localhost:7070/tasks/d494e314-24d6-4d09-8559-56f47f99f1ed"
-```
-
-Your output should look like this:
-
-```json
-{
-  "id": "d494e314-24d6-4d09-8559-56f47f99f1ed",
-  "name": "fl-client-train",
-  "kind": "federated",
-  "state": 3,
-  "file": "...<redacted>...",
-  "env": {
-    "COORDINATOR_URL": "http://localhost:8086",
-    "DATA_STORE_URL": "http://localhost:8083",
-    "HYPERPARAMS": "{\"epochs\":1,\"lr\":0.01,\"batch_size\":5}",
-    "MODEL_REGISTRY_URL": "http://localhost:8084",
-    "MODEL_URI": "http://localhost:8084/models/0",
-    "ROUND_ID": "round-1"
-  },
-  "proplet_id": "b502023d-15cb-4239-a20a-8717177ded08",
-  "results": "",
-  "start_time": "2026-02-27T19:23:15.123456789+03:00",
-  "finish_time": "2026-02-27T19:23:17.987654321+03:00",
-  "created_at": "2026-02-27T19:22:46.324890646+03:00",
-  "updated_at": "2026-02-27T19:23:17.987654321+03:00",
-  "priority": 50
-}
-```
-
-Task states: `0` (pending), `1` (scheduled), `2` (running), `3` (completed), `4` (failed).
+Your output should show training completion messages.
 
 ## Check Updated Model
 
@@ -243,6 +346,8 @@ Your output should look like this:
 }
 ```
 
+Fetch the aggregated model:
+
 ```bash
 curl -s http://localhost:8084/models/1 | jq .
 ```
@@ -257,26 +362,57 @@ Your output should look like this:
 }
 ```
 
-## Running with Image URL
+The weights (`w`) and bias (`b`) should be non-zero, indicating successful training and aggregation.
 
-Alternatively, you can reference the WASM from an OCI registry instead of uploading:
+## Run Multiple Rounds
+
+To run additional rounds, trigger another experiment with the new model version:
 
 ```bash
-curl -X POST "http://localhost:7070/tasks" \
+curl -X POST http://localhost:7070/fl/experiments \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "fl-client-train",
-    "kind": "federated",
-    "image_url": "ghcr.io/YOUR_USERNAME/fl-client-wasm:latest",
-    "env": {
-      "ROUND_ID": "round-1",
-      "MODEL_URI": "http://localhost:8084/models/0",
-      "MODEL_REGISTRY_URL": "http://localhost:8084",
-      "DATA_STORE_URL": "http://localhost:8083",
-      "COORDINATOR_URL": "http://localhost:8086",
-      "HYPERPARAMS": "{\"epochs\":1,\"lr\":0.01,\"batch_size\":5}"
-    }
-  }'
+  -d "{
+    \"experiment_id\": \"exp-r-$(date +%s)\",
+    \"round_id\": \"r-$(date +%s)\",
+    \"model_ref\": \"fl/models/global_model_v1\",
+    \"participants\": [\"$PROPLET_CLIENT_ID\", \"$PROPLET_2_CLIENT_ID\", \"$PROPLET_3_CLIENT_ID\"],
+    \"hyperparams\": {\"epochs\": 1, \"lr\": 0.01, \"batch_size\": 16},
+    \"k_of_n\": 3,
+    \"timeout_s\": 60,
+    \"task_wasm_image\": \"ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest\"
+  }"
 ```
 
-The proxy will fetch the WASM from the registry when the task starts.
+Each round produces a new model version that builds on the previous one.
+
+## Troubleshooting
+
+### Services Fail to Start
+
+If you see `undefined network supermq-base-net`:
+- You're running the FL compose file standalone. Use both compose files:
+  ```bash
+  docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env up -d
+  ```
+
+### Environment Variables Not Set
+
+If you see warnings about `PROPLET_CLIENT_ID` not set:
+- Run the provisioning script first
+- Then recreate services with `--force-recreate`
+
+### Manager Returns 404
+
+If `/fl/experiments` returns 404:
+- Manager wasn't built from source. Rebuild:
+  ```bash
+  docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env build manager
+  docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env up -d manager
+  ```
+
+### Weights Remain Zero
+
+If `w` remains `[0,0,0]` after training:
+- Check proplet logs for dataset loading errors
+- Verify datasets exist in Local Data Store
+- Rebuild WASM client after code changes
