@@ -660,6 +660,53 @@ Each aggregation round produces a new model version:
 
 The Local Data Store provides training data to proplets via HTTP. Each proplet has its own dataset identified by its SuperMQ client UUID.
 
+### Why This Format?
+
+The default format uses `{x: features, y: label}` for each sample because:
+
+| Reason | Explanation |
+|--------|-------------|
+| **Universal structure** | Features + labels is the standard representation for supervised learning across ML frameworks |
+| **Simple parsing** | JSON arrays are easy to parse in WASM without external dependencies |
+| **Algorithm-agnostic** | Works with logistic regression, neural networks, decision trees, etc. |
+| **Compact** | No redundant field names per sample; just `x` and `y` |
+
+### Customizing the Format
+
+You can change the dataset format by modifying both the **Local Data Store** and **WASM client** to agree on the new structure.
+
+**Option 1: POST custom datasets via HTTP**
+
+```bash
+curl -X POST http://localhost:8083/datasets/{proplet_id} \
+  -H "Content-Type: application/json" \
+  -d '{
+    "schema": "my-custom-schema-v1",
+    "data": [
+      {"features": [1.0, 2.0], "label": "cat", "weight": 0.5},
+      {"features": [3.0, 4.0], "label": "dog", "weight": 1.0}
+    ]
+  }'
+```
+
+**Option 2: Place JSON files directly**
+
+Add files to the data directory (default: `/data/datasets/`):
+
+```bash
+# File: /data/datasets/{proplet_uuid}.json
+{
+  "schema": "my-custom-schema-v1",
+  "data": [...]
+}
+```
+
+**Option 3: Modify the generator**
+
+Edit `generateDataset()` in `examples/fl-demo/local-data-store/main.go` to produce your custom format, then update the WASM client's parsing logic to match.
+
+**Important:** When changing the format, update the WASM client (`fl-client.go`) to parse your new structure correctly. The client reads data from `DATASET_DATA` environment variable and expects to extract features and labels from each sample.
+
 ### Dataset Structure
 
 ```json
