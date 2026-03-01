@@ -110,9 +110,7 @@ propeller-cli jobs stop job-abc123
 propeller-cli jobs --offset 0 --limit 100
 ```
 
-:::note Jobs are Immutable
 Jobs cannot be updated or deleted once created. To modify a job, create a new one with the desired configuration.
-:::
 
 ## Workflows
 
@@ -360,9 +358,7 @@ curl -X POST "http://localhost:7070/tasks" \
 | Normal | 31–70 | Default priority (50) |
 | High | 71–100 | Urgent tasks, real-time processing |
 
-:::note Priority vs Round Robin
 Priority determines **which task** is dispatched next. Round Robin determines **which proplet** receives the task. A high-priority task will be dispatched before lower-priority tasks, but proplet selection still cycles evenly.
-:::
 
 ### Round Robin Proplet Selection
 

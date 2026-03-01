@@ -107,9 +107,7 @@ The embedded proplet expects the following environment to be configured in `src/
 #define CHANNEL_ID "<YOUR_CHANNEL_ID>"
 ```
 
-:::note Configuration
 You must update these values in `src/main.c` before building. The embedded proplet will log these values at startup for verification.
-:::
 
 ### Runtime Log Output
 
@@ -471,7 +469,6 @@ If WASM modules are too large:
 2. Increase `WAMR_BUILD_GLOBAL_HEAP_SIZE` in `CMakeLists.txt`
 3. Reduce heap allocations in other subsystems via `prj.conf`
 
-:::note Memory Constraints
 The ESP32-S3 has 520 KB of SRAM total. Budget for:
 - Zephyr kernel: ~100 KB
 - WiFi/MQTT stack: ~150 KB  
@@ -480,7 +477,6 @@ The ESP32-S3 has 520 KB of SRAM total. Budget for:
 - User heap: ~210 KB
 
 Trying to load multiple large WASM modules simultaneously will fail.
-:::
 
 ## Next Steps
 
@@ -801,9 +797,7 @@ west build -b esp32c3_devkitm -p auto .
 west flash
 ```
 
-:::note Cross-Platform Testing
 When porting to a new platform, test with a minimal WASM module first (like `addition.wasm`) before deploying complex workloads. This helps isolate platform-specific issues from application bugs.
-:::
 
 ## Related Documentation
 

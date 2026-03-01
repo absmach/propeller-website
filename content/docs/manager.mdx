@@ -135,9 +135,7 @@ Tasks support a wide range of fields for different execution scenarios:
 | `POST` | `/jobs/{id}/start` | Start a job (executes all its tasks per `execution_mode`) |
 | `POST` | `/jobs/{id}/stop` | Stop a running job |
 
-:::note Jobs are Immutable
 Jobs cannot be updated or deleted once created. To modify a job, create a new one with the desired configuration.
-:::
 
 ### Workflows
 
@@ -162,9 +160,7 @@ Jobs cannot be updated or deleted once created. To modify a job, create a new on
 | `GET` | `/health` | Health check endpoint (returns manager instance ID) |
 | `GET` | `/metrics` | Prometheus metrics endpoint |
 
-:::tip Full API Reference
 For detailed request/response schemas and examples, see the [API Reference](/docs/api).
-:::
 
 ## Jobs
 

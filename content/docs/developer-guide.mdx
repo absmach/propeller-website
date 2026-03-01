@@ -27,7 +27,6 @@ To build Propeller, you will need the following:
 - [TinyGo](https://tinygo.org/getting-started/install/) (required for Wasm example builds)
 - [Mockery](https://vektra.github.io/mockery/latest/installation/) (required for `make test` and `make test-all`)
 
-:::note TinyGo Go Version Constraint
 TinyGo supports Go versions 1.19 through 1.23, but the project's `go.mod` requires Go 1.25.5. This creates a compatibility issue for building WASM examples.
 
 **Workaround**: Install Go 1.23.5 separately and it will be used automatically:
@@ -38,7 +37,6 @@ go install golang.org/dl/go1.23.5@latest
 ```
 
 The Makefile has been updated to use Go 1.23.5 for WASM builds instead of 1.25.5. This allows `make addition`, `make compute`, and other WASM examples to compile successfully while the rest of the project uses Go 1.25.5.
-:::
 
 ### Building
 
@@ -52,7 +50,6 @@ This will build all Go services (manager, cli, proxy), Rust proplet, and WASM ex
 
 **Note**: This requires both Go and Rust toolchains to be installed.
 
-:::tip Building Only Go Services
 To build only the Go services without Rust and WASM dependencies:
 
 ```bash
@@ -60,7 +57,6 @@ make manager cli proxy
 ```
 
 This is useful for testing the core services without a full development environment setup.
-:::
 
 To build Propeller for other platforms, use the following:
 
@@ -129,14 +125,12 @@ warning: using `--invoke` with a function that returns values is experimental an
 3
 ```
 
-:::note Example-specific Requirements
 Some examples require specific configuration or environment variables when running under Propeller:
 
 - **http-client/http-server**: Require `PROPLET_HTTP_ENABLED=true` configuration
 - **filesystem**: Requires `PROPLET_DIRS=/tmp` or your desired directory mount
 
 These variables are configured when running the proplet service, not during the build.
-:::
 
 ## Installing
 
@@ -155,7 +149,6 @@ cp build/manager /home/jeff/go/bin/propeller-manager
 cp build/proxy /home/jeff/go/bin/propeller-proxy
 ```
 
-:::note GOBIN Environment Variable
 The `make install` target copies binaries from the `build` directory to `$GOBIN` with a `propeller-` prefix. The `$GOBIN` variable **must** be set before running `make install`, or the command will fail with a permission error. If `$GOBIN` is not set, it defaults to `$HOME/go/bin`.
 
 After installation, ensure `$GOBIN` is in your `PATH`:
@@ -167,11 +160,9 @@ This installs:
 - `$GOBIN/propeller-cli` - Command-line interface (17 MB)
 - `$GOBIN/propeller-manager` - Task orchestrator service (25 MB)
 - `$GOBIN/propeller-proxy` - Wasm module proxy service (7 MB)
-:::
 
 ## Testing
 
-:::note Mockery Dependency
 The project uses [mockery](https://vektra.github.io/mockery/latest/installation/) to generate mock interfaces for testing. The `make test` and `make test-all` targets automatically run `mockery --config .mockery.yaml` to generate mocks before running tests.
 
 **Important**: The project migrated from mockery v2 to v3. If you have an older version installed, update it:
@@ -181,7 +172,6 @@ go install github.com/vektra/mockery/v2@latest
 ```
 
 For mockery v3 compatibility (recommended), the project uses `pkgname: mocks` and generates individual mock files for each interface.
-:::
 
 To run the Go service tests:
 
@@ -225,9 +215,7 @@ make lint
 
 This lints all Go code and runs `cargo fmt --all -- --check` and `cargo clippy` on the Rust proplet code.
 
-:::note Linter Performance
 The linting process can take 2-3 minutes or longer depending on system resources. This is normal behavior. The linter performs comprehensive code quality checks across the entire codebase.
-:::
 
 ## SuperMQ
 
@@ -277,10 +265,8 @@ or renamed this service in your compose file, you can run this command with the 
  ✔ Container supermq-nginx           Started                                0.9s
 ```
 
-:::note Prerequisites for make start-supermq
 - Docker must be installed and running
 - No other services should be bound to the ports specified in `docker/.env` (typically 1883 for MQTT, 5672 for RabbitMQ, etc.)
-:::
 
 ### Provisioning Propeller
 

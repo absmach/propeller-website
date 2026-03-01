@@ -14,11 +14,9 @@ This guide walks you through installing Propeller and running your first WASM wo
 | [Docker](https://docs.docker.com/) | 20.10+ | Running SuperMQ services |
 | [Make](https://www.gnu.org/software/make/) | 3.81+ | Build automation |
 
-:::note Optional Tools
 These are only needed if you plan to build WASM modules locally:
 - [TinyGo](https://tinygo.org/getting-started/install/) (0.34.0+) - Compile Go to WASM
 - [Wasmtime](https://wasmtime.dev/) - Local WASM testing
-:::
 
 ## Quick Start (5 minutes)
 
@@ -39,9 +37,7 @@ cd proplet && cargo build --release && cp target/release/proplet ../build
     Finished `release` profile [optimized] target(s) in 15.36s
 ```
 
-:::tip Build Issues?
 See the [Developer Guide](./developer-guide#troubleshooting) for common build problems.
-:::
 
 ### Step 2: Start SuperMQ
 

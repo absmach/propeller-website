@@ -36,7 +36,6 @@ The FL demo requires several ports. Check that these are available:
 sudo lsof -i :1883
 ```
 
-:::warning Common Issue: Port 1883 Conflict
 If you have **mosquitto** or another MQTT broker running as a system service, it will conflict with SuperMQ's MQTT adapter. Stop it before proceeding:
 
 ```bash
@@ -49,7 +48,6 @@ You can verify the port is free:
 sudo lsof -i :1883
 # Should return nothing
 ```
-:::
 
 ### Clone the Repository
 
@@ -86,13 +84,11 @@ sudo lsof -i :1883 -i :7070 -i :8080 -i :8083 -i :8084 -i :8085 -i :8086
 
 The FL demo extends the base SuperMQ + Propeller stack with FL-specific services. You must use both compose files together.
 
-:::warning Critical
 The FL demo compose file (`examples/fl-demo/compose.yaml`) is an **extension** to the base compose file (`docker/compose.yaml`). Running it standalone will fail with:
 ```
 service "local-data-store" refers to undefined network supermq-base-net
 ```
 **Always use both compose files together.**
-:::
 
 ### Build All Required Images
 
@@ -168,7 +164,6 @@ supermq-mqtt                Up 10 seconds   0.0.0.0:1883->1883/tcp
 ...
 ```
 
-:::tip Quick Health Check
 You can quickly verify the core services are running:
 ```bash
 curl -s http://localhost:7070/health && echo ""
@@ -180,15 +175,12 @@ curl -s http://localhost:8086/health && echo ""
 OK
 {"status":"ok"}
 ```
-:::
 
 ## Step 4: Provision SuperMQ Resources
 
 Before the manager and proplets can connect to MQTT, you must provision the necessary SuperMQ resources (domain, channel, and clients).
 
-:::note One-Time Setup
 Provisioning creates persistent data in SuperMQ databases. Only needs to be repeated if you remove Docker volumes (e.g., `docker compose down -v`).
-:::
 
 ### Install Python Dependencies
 
@@ -240,9 +232,7 @@ Waiting for domains service...
 ✓ Updated docker/.env with new credentials
 ```
 
-:::important Save the Client IDs
 Note the **proplet-1**, **proplet-2**, and **proplet-3** client IDs. These UUIDs are needed when triggering FL experiments. The script automatically updates `docker/.env` with these values.
-:::
 
 ### Verify Environment Variables Were Set
 
@@ -331,7 +321,6 @@ curl -s http://localhost:8084/models/0 | jq .
 
 This is the untrained model with zero weights that will be used as the starting point for federated learning.
 
-:::note Creating Initial Model Manually
 If no model exists (404 response), create it manually:
 
 ```bash
@@ -346,7 +335,6 @@ curl -X POST http://localhost:8084/models \
     }
   }'
 ```
-:::
 
 ## Step 7: Verify Training Data
 
@@ -417,13 +405,11 @@ The WASM binary should be approximately 3.1MB.
 
 The proxy service fetches WASM binaries from a container registry. We'll use GitHub Container Registry (GHCR) which requires authentication.
 
-:::warning Why GHCR Instead of Local Registry?
 While a local registry is simpler to set up, the proxy service attempts to connect via **HTTPS**. Local registries typically use **HTTP**, causing connection failures:
 ```
 failed to fetch container for task: error sending request
 ```
 Using GHCR avoids this issue as it natively supports HTTPS.
-:::
 
 ### Login to GHCR
 
@@ -463,11 +449,9 @@ ArtifactType: application/vnd.unknown.artifact.v1
 Digest: sha256:c9113e117b8a4b839df66ecd076f80b77a55ac5e0ceb18185e406b070b0322e0
 ```
 
-:::tip Make Package Public (Optional)
 By default, GHCR packages are private. To make it public:
 1. Go to `https://github.com/users/YOUR_USERNAME/packages/container/fl-client-wasm/settings`
 2. Change visibility to "Public"
-:::
 
 ## Step 10: Configure Proxy for GHCR Authentication
 
@@ -580,7 +564,6 @@ curl -s -X POST http://localhost:7070/fl/experiments \
 }
 ```
 
-:::info Experiment Parameters Explained
 | Parameter | Description |
 |-----------|-------------|
 | `experiment_id` | Unique identifier for this experiment |
@@ -590,7 +573,6 @@ curl -s -X POST http://localhost:7070/fl/experiments \
 | `k_of_n` | Minimum number of updates required for aggregation (2 of 3) |
 | `timeout_s` | How long to wait for updates before timing out |
 | `task_wasm_image` | GHCR URL of the WASM training client |
-:::
 
 ## Step 12: Monitor the Training Round
 
@@ -674,7 +656,6 @@ docker logs fl-demo-coordinator 2>&1 | tail -10
 ... INFO Published round completion notification to MQTT topic=fl/rounds/next round_id=r-... new_model_version=1
 ```
 
-:::tip Reading the Logs
 Key milestones to look for:
 1. `launched task for FL round participant` - Manager dispatched tasks
 2. `successfully fetched container` - Proxy downloaded WASM from GHCR
@@ -683,7 +664,6 @@ Key milestones to look for:
 5. `Task ... completed successfully` - Local training finished
 6. `Round complete` - Coordinator received k_of_n updates
 7. `Aggregated model stored` - FedAvg completed, new model saved
-:::
 
 ## Step 13: Verify the Trained Model
 

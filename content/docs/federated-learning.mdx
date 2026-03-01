@@ -89,7 +89,6 @@ curl -X POST http://localhost:7070/fl/experiments \
 # {"experiment_id":"exp-r-...","round_id":"r-...","status":"configured"}
 ```
 
-:::warning Using SuperMQ CLIENT_IDs
 When configuring FL experiments, you must use **SuperMQ CLIENT_IDs** (UUIDs), not instance IDs like `"proplet-1"`. Proplets register using their CLIENT_ID from environment variables:
 
 ```bash
@@ -100,7 +99,6 @@ PROPLET_3_CLIENT_ID=0d89e6d7-6410-40b5-bcda-07b0217796b8    # For proplet-3
 ```
 
 Using instance IDs will result in `"Skipping participant: proplet not found"` errors.
-:::
 
 The Manager will:
 1. Forward the configuration to the Coordinator via HTTP POST `/experiments`

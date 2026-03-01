@@ -5,9 +5,7 @@ description: Build and run Ubuntu CVMs with proplet pre-installed via QEMU.
 
 The Hardware Abstraction Layer (HAL) provides a single script — [hal/ubuntu/qemu.sh](https://github.com/absmach/propeller/blob/main/hal/ubuntu/qemu.sh) — that builds an **Ubuntu Noble (24.04)** cloud image and boots it as a QEMU virtual machine. On first boot, cloud-init compiles and installs all Propeller services inside the VM automatically.
 
-:::note First Boot Time
 The first boot takes **10–15 minutes** while cloud-init installs packages and compiles services from source. Subsequent boots start all services immediately in under 30 seconds.
-:::
 
 ## Understand what it does
 
