@@ -209,7 +209,11 @@ Workflows execute tasks based on dependency relationships and conditional logic.
 
 Only one downstream task executes—never both. This pattern is ideal for notifications, cleanup, or any action that depends on whether the upstream task succeeded or failed.
 
-#### Fan-Out
+#### Fan-Out and Fan-In
+
+DAG workflows support two common parallel execution patterns for distributing and consolidating work.
+
+##### Fan-Out
 
 A single parent task triggers multiple child tasks. All children start simultaneously when the parent completes. This pattern maximizes parallelism for independent work.
 
@@ -220,7 +224,7 @@ A single parent task triggers multiple child tasks. All children start simultane
 - Ingest triggers three parallel tasks: **Resize**, **Watermark**, **Compress**
 - All three run simultaneously since they have no dependencies on each other
 
-#### Fan-In
+##### Fan-In
 
 Multiple tasks converge into a single downstream task. The downstream task waits for **all** upstream tasks to complete. This pattern is used for aggregation, merging results, or synchronization points.
 
