@@ -114,50 +114,159 @@ PROPLET_3_CLIENT_ID=0d89e6d7-6410-40b5-bcda-07b0217796b8    # For proplet-3
 
 Using instance IDs will result in `"Skipping participant: proplet not found"` errors.
 
-The Manager will:
-1. Forward the configuration to the Coordinator via HTTP POST `/experiments`
-2. Initialize round state in Coordinator
-3. Publish round start message to MQTT topic `{domain}/{channel}/fl/rounds/start`
-4. Create training tasks for each participating proplet
+**Manager Processing:**
+
+1. Validates the experiment configuration (requires `round_id`, `participants`, `task_wasm_image`, `model_ref`)
+2. Forwards the configuration to the Coordinator via HTTP POST `/experiments`
+3. Publishes round start message to MQTT topic `{domain}/{channel}/fl/rounds/start`
+
+**Coordinator Processing:**
+
+1. Loads initial model from Model Registry (if available)
+2. Creates `RoundState` struct with: `RoundID`, `ModelURI`, `KOfN`, `TimeoutS`, `StartTime`, empty `Updates` slice
+3. Stores the round state in memory (keyed by `round_id`)
+4. Starts timeout monitoring (checks every 5 seconds for round expiration)
 
 ### 2. Task Distribution
 
 Each proplet receives the task start command from the Manager via MQTT:
 
-1. **WASM Binary Fetching**: Proplet requests the WASM binary from the Proxy service via MQTT
+1. **WASM Binary Fetching**: Proplet requests the WASM binary from the Proxy service via MQTT (`registry/proplet` request, `registry/server` response)
 2. **Binary Assembly**: Proplet receives chunks and assembles the complete WASM binary
 3. **Task Request**: Proplet requests FL task details from Coordinator via HTTP GET `/task?round_id={id}&proplet_id={id}`
-4. **Model Fetching**: Proplet fetches the current global model from Model Registry
-5. **Dataset Fetching**: Proplet fetches its local training dataset from Local Data Store
+4. **Model Fetching**: Proplet fetches the current global model from Model Registry via HTTP GET `/models/{version}`
+5. **Dataset Fetching**: Proplet fetches its local training dataset from Local Data Store via HTTP GET `/datasets/{proplet_id}`
+
+**Coordinator Task Response:**
+
+The Coordinator returns task details including the model reference and hyperparameters:
+
+```json
+{
+  "task": {
+    "round_id": "r-1709309984",
+    "model_ref": "fl/models/global_model_v0",
+    "config": {
+      "proplet_id": "3fe95a65-74f1-4ede-bf20-ef565f04cecb"
+    },
+    "hyperparams": {
+      "epochs": 1,
+      "lr": 0.01,
+      "batch_size": 16
+    }
+  }
+}
+```
 
 ### 3. Local Training
 
 The proplet executes the WASM module with the fetched model and dataset:
 
-1. **WASM Execution**: The proplet launches the WASM training module, providing model, dataset, and hyperparameters via environment variables
-2. **Local Training**: The WASM module performs training iterations on local data
-3. **Update Generation**: After training, the WASM module outputs a JSON update message containing weight changes
+1. **Environment Setup**: Proplet passes configuration via environment variables:
+   - `ROUND_ID`: Current training round identifier
+   - `MODEL_URI`: Reference to the model version
+   - `MODEL_DATA`: JSON-encoded model weights and bias
+   - `DATASET_DATA`: JSON-encoded local dataset
+   - `HYPERPARAMS`: JSON-encoded training hyperparameters
+   - `COORDINATOR_URL`: HTTP endpoint for task/update operations
+   - `PROPLET_ID`: This proplet's unique identifier
+
+2. **Training Algorithm**: The WASM module performs logistic regression training with Stochastic Gradient Descent (SGD):
+   - Shuffles the dataset at the start of each epoch
+   - Processes samples in mini-batches of size `batch_size`
+   - For each sample, computes: $z = w \cdot x + b$
+   - Applies sigmoid activation: $p = 1/(1 + e^{-z})$
+   - Computes error: $\text{err} = p - y$
+   - Updates weights: $w_i = w_i - \text{lr} \times \text{err} \times x_i$
+   - Updates bias: $b = b - \text{lr} \times \text{err}$
+
+3. **Update Output**: After training, the WASM module outputs a JSON update containing the trained weights
 
 ### 4. Update Submission
 
-Proplets submit their updates to the Coordinator:
+Proplets submit their updates to the Coordinator via HTTP POST `/update`:
 
-- **HTTP Submission (Preferred)**: Submit via HTTP POST `/update` with JSON payload
-- **MQTT Fallback**: If HTTP fails, publish to `{domain}/{channel}/fl/rounds/{round_id}/updates/{proplet_id}`
+```json
+{
+  "round_id": "r-1709309984",
+  "proplet_id": "3fe95a65-74f1-4ede-bf20-ef565f04cecb",
+  "base_model_uri": "fl/models/global_model_v0",
+  "num_samples": 64,
+  "metrics": {
+    "loss": 0.342,
+    "accuracy": 0.875
+  },
+  "update": {
+    "w": [0.0164, 0.0003, 0.0144],
+    "b": -0.00026
+  }
+}
+```
+
+**Coordinator Update Processing:**
+
+1. Validates required fields: `round_id`, `proplet_id`, `update` (non-empty)
+2. Retrieves or creates `RoundState` for the round
+3. Checks if round is already completed (ignores late updates)
+4. Appends update to the round's `Updates` slice with timestamp
+5. Checks if `len(Updates) >= KOfN` to trigger aggregation
+6. If threshold met, marks round as completed and triggers aggregation asynchronously
 
 ### 5. Aggregation
 
-When the Coordinator receives k-of-n updates:
+When the Coordinator receives k-of-n updates (or timeout expires with at least one update):
 
-1. **Call Aggregator**: Send all collected updates to Aggregator service via HTTP POST `/aggregate`
-2. **Federated Averaging**: Compute weighted averages based on training samples
-3. **Return Aggregated Model**: Aggregator returns the new model to Coordinator
+**Trigger Conditions:**
+- `len(Updates) >= KOfN`: Sufficient updates received
+- `timeout_s` elapsed: Time limit reached (aggregates available updates)
+
+**Aggregation Process:**
+
+1. Coordinator copies the updates slice and calls Aggregator via HTTP POST `/aggregate`
+2. Aggregator validates each update contains `w` (weights array) and `b` (bias)
+3. Aggregator performs **weighted Federated Averaging**:
+   - For each update `i`, multiply weights and bias by `num_samples`
+   - Sum all weighted values
+   - Divide by total sample count across all updates
+4. Returns aggregated model: `{"w": [...], "b": ...}`
+
+**Retry Logic:**
+
+If Aggregator is unavailable, Coordinator retries with exponential backoff:
+- Maximum 3 attempts
+- Initial delay: 1 second
+- Backoff multiplier: 1.5x per attempt
 
 ### 6. Model Storage and Completion
 
-1. **Version Increment**: Coordinator increments the model version counter
-2. **Store in Registry**: Store the new model via HTTP POST `/models`
-3. **Completion Notification**: Publish to MQTT topic `{domain}/{channel}/fl/rounds/next`
+After successful aggregation:
+
+1. **Version Increment**: Coordinator increments the global `modelVersion` counter
+2. **Store in Registry**: Sends aggregated model to Model Registry via HTTP POST `/models` with:
+   ```json
+   {
+     "version": 1,
+     "model": {"w": [...], "b": ...}
+   }
+   ```
+3. **Completion Notification**: Publishes to MQTT topic `fl/rounds/next`:
+   ```json
+   {
+     "round_id": "r-1709309984",
+     "new_model_version": 1,
+     "model_uri": "fl/models/global_model_v1",
+     "status": "complete",
+     "next_round_available": true,
+     "timestamp": "2024-03-01T12:34:56Z"
+   }
+   ```
+
+**Timeout Handling:**
+
+A background goroutine checks round timeouts every 5 seconds. If a round exceeds its `timeout_s`:
+- Round is marked as completed
+- If any updates have been received, aggregation proceeds with available updates
+- If no updates received, round fails silently
 
 ![FML Model Lifecycle](/images/fml/federated-ml-lifecycle.svg)
 
