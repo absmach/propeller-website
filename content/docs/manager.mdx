@@ -3,170 +3,330 @@ title: Manager
 description: Central service for task management and proplet coordination in Propeller
 ---
 
-## Overview
+The Manager is Propeller's central orchestration service. It coordinates the complete lifecycle of WebAssembly workloads across distributed proplets—from task creation and scheduling through execution tracking and result collection.
 
-The Manager is the central orchestrator written in Go. It is responsible for the complete lifecycle of WebAssembly workloads: creating tasks, scheduling them to proplets, tracking their execution states, and storing results. It also manages jobs, workflows, cron-scheduled tasks, and federated learning experiments.
+For a quick start with basic task operations, see the [Getting Started](/docs/getting-started) guide. For advanced workflow patterns, see [Task Scheduling](/docs/task-scheduling).
 
-The Manager exposes a REST HTTP API and communicates with proplets over MQTT using the SuperMQ message broker.
+## Why the Manager
 
-## Configuration
+### Central Coordination
 
-### Core
+Distributed edge computing requires a coordinator that understands the state of all nodes and workloads. The Manager provides:
+
+- **Single point of control**: One API to manage tasks across all proplets
+- **State persistence**: All task and proplet state survives restarts
+- **Scheduling intelligence**: Automatic proplet selection based on availability and load
+- **Execution tracking**: Real-time visibility into task progress and results
+
+### Decoupled Communication
+
+The Manager acts as an intermediary between HTTP clients and MQTT-connected proplets:
+
+```
+Client → HTTP → Manager → MQTT → Proplet
+```
+
+This separation allows clients to use familiar REST APIs while proplets communicate over lightweight MQTT—ideal for constrained edge devices.
+
+## Architecture
+
+![Propeller Architecture](./images/architecture.svg)
+
+The Manager sits at the center of the Propeller architecture:
+
+| Component | Communication | Role |
+| --------- | ------------- | ---- |
+| **Clients** | HTTP to Manager | Submit tasks, query status, retrieve results |
+| **Manager** | HTTP (in) + MQTT (out) | Orchestrates tasks, manages state, schedules execution |
+| **Proplets** | MQTT to Manager | Execute tasks, report results, send heartbeats |
+| **Proxy** | MQTT from Proplets | Fetches Wasm binaries from container registries |
+| **Storage** | Internal | Persists tasks, proplets, jobs, and metrics |
+
+### Service Components
+
+The Manager is built from several internal components, each with a specific responsibility:
+
+| Component | Source | Purpose |
+| --------- | ------ | ------- |
+| `Service` | [manager/service.go](https://github.com/absmach/propeller/blob/main/manager/service.go) | Core business logic for all operations |
+| `WorkflowCoordinator` | [manager/service.go](https://github.com/absmach/propeller/blob/main/manager/service.go) | Manages DAG-based workflow execution |
+| `CronScheduler` | [manager/cron.go](https://github.com/absmach/propeller/blob/main/manager/cron.go) | Handles scheduled and recurring tasks |
+| `API` | [manager/api/transport.go](https://github.com/absmach/propeller/blob/main/manager/api/transport.go) | HTTP endpoint handlers |
+| `Middleware` | [manager/middleware/](https://github.com/absmach/propeller/tree/main/manager/middleware) | Logging, metrics, and tracing layers |
+
+## Running the Manager
+
+### Using Docker Compose
+
+The recommended way to run the Manager is with Docker Compose:
+
+```bash
+cd propeller
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
+```
+
+Verify the Manager is running:
+
+```bash
+curl http://localhost:7070/health
+```
+
+Your output should look like this:
+
+```json
+{"instance_id":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}
+```
+
+### Configuration
+
+The Manager is configured through environment variables. These are the most commonly used:
+
+#### Core Settings
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
 | `MANAGER_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 | `MANAGER_INSTANCE_ID` | Unique identifier for this manager instance | Auto-generated UUID |
-| `MANAGER_MQTT_ADDRESS` | MQTT broker URL | `tcp://localhost:1883` |
-| `MANAGER_MQTT_QOS` | MQTT Quality of Service level | `2` |
-| `MANAGER_MQTT_TIMEOUT` | MQTT operation timeout | `30s` |
-| `MANAGER_DOMAIN_ID` | SuperMQ domain identifier | _(falls back to `config.toml`)_ |
-| `MANAGER_CHANNEL_ID` | SuperMQ channel identifier | _(falls back to `config.toml`)_ |
-| `MANAGER_CLIENT_ID` | SuperMQ client identifier for MQTT authentication | _(falls back to `config.toml`)_ |
-| `MANAGER_CLIENT_KEY` | SuperMQ client key for MQTT authentication | _(falls back to `config.toml`)_ |
 
-### HTTP Server
+#### MQTT Connection
+
+The Manager communicates with proplets over MQTT using the SuperMQ message broker:
+
+| Variable | Description | Default |
+| -------- | ----------- | ------- |
+| `MANAGER_MQTT_ADDRESS` | MQTT broker URL | `tcp://localhost:1883` |
+| `MANAGER_MQTT_QOS` | Quality of Service level (0, 1, or 2) | `2` |
+| `MANAGER_MQTT_TIMEOUT` | Connection and operation timeout | `30s` |
+| `MANAGER_DOMAIN_ID` | SuperMQ domain identifier | From `config.toml` |
+| `MANAGER_CHANNEL_ID` | SuperMQ channel identifier | From `config.toml` |
+| `MANAGER_CLIENT_ID` | MQTT client ID for authentication | From `config.toml` |
+| `MANAGER_CLIENT_KEY` | MQTT client key for authentication | From `config.toml` |
+
+#### HTTP Server
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
 | `MANAGER_HTTP_HOST` | HTTP listen host | `""` (all interfaces) |
 | `MANAGER_HTTP_PORT` | HTTP listen port | `7070` |
-| `MANAGER_HTTP_SERVER_CERT` | TLS certificate file | `""` |
-| `MANAGER_HTTP_SERVER_KEY` | TLS private key file | `""` |
+| `MANAGER_HTTP_SERVER_CERT` | TLS certificate file path | `""` |
+| `MANAGER_HTTP_SERVER_KEY` | TLS private key file path | `""` |
 
-### Observability
+#### Storage Backend
+
+Select your storage backend with `MANAGER_STORAGE_TYPE`:
+
+| Backend | Best For | Additional Config |
+| ------- | -------- | ----------------- |
+| `memory` | Development and testing | None (state lost on restart) |
+| `sqlite` | Single-node or edge deployments | `MANAGER_SQLITE_PATH` |
+| `postgres` | Production with durability requirements | PostgreSQL connection vars |
+| `badger` | High-performance edge deployments | `MANAGER_BADGER_PATH` |
+
+**SQLite configuration:**
+
+```bash
+export MANAGER_STORAGE_TYPE=sqlite
+export MANAGER_SQLITE_PATH=./propeller.db
+```
+
+**PostgreSQL configuration:**
+
+```bash
+export MANAGER_STORAGE_TYPE=postgres
+export MANAGER_POSTGRES_HOST=localhost
+export MANAGER_POSTGRES_PORT=5432
+export MANAGER_POSTGRES_USER=propeller
+export MANAGER_POSTGRES_PASS=propeller
+export MANAGER_POSTGRES_DB=propeller
+export MANAGER_POSTGRES_SSLMODE=disable
+```
+
+#### Observability
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
-| `MANAGER_OTEL_URL` | OpenTelemetry collector URL | `""` |
+| `MANAGER_OTEL_URL` | OpenTelemetry collector URL | `""` (disabled) |
 | `MANAGER_TRACE_RATIO` | Fraction of requests to trace (0.0–1.0) | `0` |
 
-### Federated Learning
+#### Federated Learning
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
-| `COORDINATOR_URL` | Base URL of the external FL Coordinator service. If not set, FL features are unavailable and a warning is logged at startup. | `""` |
+| `COORDINATOR_URL` | External FL Coordinator service URL | `""` (FL disabled) |
 
-### Storage
+When `COORDINATOR_URL` is not set, the Manager logs a warning at startup and FL endpoints return errors.
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `MANAGER_STORAGE_TYPE` | Storage backend: `memory`, `sqlite`, `postgres`, or `badger` | `memory` |
+## Task Operations
 
-#### SQLite
+Tasks are the fundamental unit of work in Propeller. Each task represents a WebAssembly module to execute on a proplet.
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `MANAGER_SQLITE_PATH` | Path to the SQLite database file | `./propeller.db` |
+### Creating a Task
 
-#### PostgreSQL
+Create a task by specifying its name and either an OCI image URL or a base64-encoded Wasm binary:
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `MANAGER_POSTGRES_HOST` | PostgreSQL host | `localhost` |
-| `MANAGER_POSTGRES_PORT` | PostgreSQL port | `5432` |
-| `MANAGER_POSTGRES_USER` | PostgreSQL user | `propeller` |
-| `MANAGER_POSTGRES_PASS` | PostgreSQL password | `propeller` |
-| `MANAGER_POSTGRES_DB` | PostgreSQL database name | `propeller` |
-| `MANAGER_POSTGRES_SSLMODE` | PostgreSQL SSL mode | `disable` |
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "hello-world",
+  "image_url": "ghcr.io/myorg/hello:latest"
+}'
+```
 
-#### BadgerDB
+Your output should look like this:
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `MANAGER_BADGER_PATH` | Directory for BadgerDB data files | `./data/badger` |
+```json
+{
+  "id": "9fa47dfa-d96a-4fb5-a3e5-07aa9abdb841",
+  "name": "hello-world",
+  "kind": "standard",
+  "state": 0,
+  "image_url": "ghcr.io/myorg/hello:latest",
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-01T12:00:00.000000000Z",
+  "updated_at": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
 
-## HTTP API
+The task is created in state `0` (Pending), waiting to be started.
 
-The Manager exposes its REST API on port `7070` by default.
+### Task Fields
 
-### Proplets
-
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| `GET` | `/proplets` | List all registered proplets (supports `?offset=` and `?limit=`) |
-| `GET` | `/proplets/{id}` | Get a specific proplet by ID |
-| `DELETE` | `/proplets/{id}` | Remove a proplet record |
-| `GET` | `/proplets/{id}/metrics` | Get stored metrics for a proplet |
-
-### Tasks
-
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| `POST` | `/tasks` | Create a new task |
-| `GET` | `/tasks` | List all tasks (supports `?offset=` and `?limit=`) |
-| `GET` | `/tasks/{id}` | Get a specific task by ID |
-| `PUT` | `/tasks/{id}` | Update a task (e.g. set `file` as base64-encoded Wasm) |
-| `PUT` | `/tasks/{id}/upload` | Upload a `.wasm` file directly (`multipart/form-data`, max 100 MB) |
-| `DELETE` | `/tasks/{id}` | Delete a task |
-| `POST` | `/tasks/{id}/start` | Start a task (schedules it to a proplet) |
-| `POST` | `/tasks/{id}/stop` | Stop a running task |
-| `GET` | `/tasks/{id}/metrics` | Get stored process metrics for a task |
-| `GET` | `/tasks/{id}/results` | Get stored execution results for a task |
-
-#### Task Fields
-
-Tasks support a wide range of fields for different execution scenarios:
+Tasks support various fields for different execution scenarios:
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `name` | string | Human-readable task name |
+| `name` | string | Human-readable task name (required) |
 | `image_url` | string | OCI registry URL for the Wasm binary |
 | `file` | []byte | Base64-encoded Wasm binary (alternative to `image_url`) |
 | `cli_args` | []string | Command-line arguments passed to the Wasm module |
-| `inputs` | []uint64 | Input values for simple tasks (e.g., compute demos) |
+| `inputs` | []uint64 | Input values for compute tasks |
 | `env` | map | Environment variables for the Wasm module |
-| `daemon` | bool | If true, task runs continuously until stopped |
-| `encrypted` | bool | If true, the Wasm binary is encrypted (requires KBS) |
+| `daemon` | bool | Run continuously until explicitly stopped |
+| `encrypted` | bool | Wasm binary is encrypted (requires KBS) |
 | `kbs_resource_path` | string | KBS resource path for encrypted binaries (TEE only) |
-| `monitoring_profile` | object | CPU/memory usage monitoring configuration |
 | `priority` | int | Dispatch priority (0–100, default 50) |
-| `schedule` | string | Cron expression for scheduled tasks |
+| `schedule` | string | Cron expression for scheduled execution |
 | `timezone` | string | Timezone for scheduled tasks (default UTC) |
-| `is_recurring` | bool | If true, task re-runs according to `schedule` |
+| `is_recurring` | bool | Re-run according to schedule |
 
-### Jobs
+### Starting a Task
 
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| `POST` | `/jobs` | Create a new job |
-| `GET` | `/jobs` | List all jobs (supports `?offset=` and `?limit=`) |
-| `GET` | `/jobs/{id}` | Get a specific job by ID |
-| `POST` | `/jobs/{id}/start` | Start a job (executes all its tasks per `execution_mode`) |
-| `POST` | `/jobs/{id}/stop` | Stop a running job |
+Once created, start the task to schedule it for execution:
 
-Jobs cannot be updated or deleted once created. To modify a job, create a new one with the desired configuration.
+```bash
+curl -X POST "http://localhost:7070/tasks/9fa47dfa-d96a-4fb5-a3e5-07aa9abdb841/start"
+```
 
-### Workflows
+Your output should look like this:
 
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| `POST` | `/workflows` | Create a workflow (a set of tasks with `depends_on` and `run_if` fields) |
+```json
+{"started": true}
+```
 
-### Federated Learning
+The Manager:
+1. Selects an available proplet using round-robin scheduling
+2. Publishes a start command to the proplet's MQTT topic
+3. Updates the task state to `1` (Scheduled)
 
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| `POST` | `/fl/experiments` | Configure a new FL experiment |
-| `GET` | `/fl/task` | Get the FL task for the current round (`?round_id=` required, `?proplet_id=` optional) |
-| `POST` | `/fl/update` | Submit a model update (JSON format) |
-| `POST` | `/fl/update_cbor` | Submit a model update (`Content-Type: application/cbor`) |
-| `GET` | `/fl/rounds/{round_id}/complete` | Get the completion status of a round |
+### Checking Task Status
 
-### System
+Monitor task progress by fetching its current state:
 
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| `GET` | `/health` | Health check endpoint (returns manager instance ID) |
-| `GET` | `/metrics` | Prometheus metrics endpoint |
+```bash
+curl "http://localhost:7070/tasks/9fa47dfa-d96a-4fb5-a3e5-07aa9abdb841"
+```
 
-For detailed request/response schemas and examples, see the [API Reference](/docs/api).
+Your output should look like this:
+
+```json
+{
+  "id": "9fa47dfa-d96a-4fb5-a3e5-07aa9abdb841",
+  "name": "hello-world",
+  "state": 3,
+  "proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895",
+  "results": "Hello, World!",
+  "start_time": "2026-03-01T12:00:05.000000000Z",
+  "finish_time": "2026-03-01T12:00:05.500000000Z"
+}
+```
+
+State `3` indicates the task completed successfully.
+
+### Task States
+
+| Value | Name | Description |
+| ----- | ---- | ----------- |
+| `0` | Pending | Task created, not yet started |
+| `1` | Scheduled | Task assigned to a proplet |
+| `2` | Running | Task is executing on a proplet |
+| `3` | Completed | Task finished successfully |
+| `4` | Failed | Task encountered an error |
+| `5` | Skipped | Task skipped (workflow condition not met) |
+| `6` | Interrupted | Task was stopped externally |
+
+### Uploading Wasm Directly
+
+Instead of using an OCI registry, upload a Wasm file directly:
+
+```bash
+# Create task without image_url
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{"name": "my-module"}'
+
+# Upload the Wasm binary (max 100 MB)
+curl -X PUT "http://localhost:7070/tasks/{task_id}/upload" \
+-F "file=@./build/my-module.wasm"
+```
+
+## Proplet Management
+
+Proplets are the edge runtimes that execute tasks. The Manager tracks their availability through MQTT heartbeats.
+
+### Listing Proplets
+
+```bash
+curl "http://localhost:7070/proplets?limit=10"
+```
+
+Your output should look like this:
+
+```json
+{
+  "proplets": [
+    {
+      "id": "a95517f9-5655-4cf5-a7c8-aa00290b3895",
+      "alive_history": ["2026-03-01T12:00:00Z", "2026-03-01T12:00:10Z"]
+    }
+  ],
+  "total": 1,
+  "offset": 0,
+  "limit": 10
+}
+```
+
+### Proplet Liveliness
+
+A proplet is considered alive if it sent a heartbeat within the last 10 seconds. The Manager stores the last 10 heartbeat timestamps for debugging connectivity issues.
+
+Proplets send heartbeats to the MQTT topic:
+
+```
+m/{domain_id}/c/{channel_id}/control/proplet/alive
+```
+
+Dead proplets are excluded from scheduling—tasks are only dispatched to alive proplets.
 
 ## Jobs
 
-Jobs group multiple tasks together and execute them with a common strategy.
+Jobs group multiple tasks together and execute them with a common strategy. Unlike workflows, job tasks don't have dependencies—they run based on the execution mode.
 
-**Create a job:**
+### Creating a Job
 
 ```bash
 curl -X POST "http://localhost:7070/jobs" \
@@ -176,24 +336,50 @@ curl -X POST "http://localhost:7070/jobs" \
   "execution_mode": "sequential",
   "tasks": [
     {"name": "step-1", "image_url": "docker.io/myorg/step1:v1"},
-    {"name": "step-2", "image_url": "docker.io/myorg/step2:v1"}
+    {"name": "step-2", "image_url": "docker.io/myorg/step2:v1"},
+    {"name": "step-3", "image_url": "docker.io/myorg/step3:v1"}
   ]
 }'
 ```
 
-**Execution modes:**
+Your output should look like this:
+
+```json
+{
+  "job_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+  "tasks": [
+    {"id": "task-1-id", "name": "step-1", "state": 0},
+    {"id": "task-2-id", "name": "step-2", "state": 0},
+    {"id": "task-3-id", "name": "step-3", "state": 0}
+  ]
+}
+```
+
+### Execution Modes
 
 | Mode | Behavior |
 | ---- | -------- |
-| `parallel` | All tasks start simultaneously |
+| `parallel` | All tasks start simultaneously on different proplets |
 | `sequential` | Tasks run one at a time in order; first failure stops the job |
-| `configurable` | Mode is read from the `JOB_EXECUTION_MODE` environment variable at runtime |
+| `configurable` | Mode is read from `JOB_EXECUTION_MODE` environment variable at runtime |
+
+### Starting and Stopping Jobs
+
+```bash
+# Start all tasks in the job
+curl -X POST "http://localhost:7070/jobs/{job_id}/start"
+
+# Stop all running tasks in the job
+curl -X POST "http://localhost:7070/jobs/{job_id}/stop"
+```
+
+Jobs cannot be updated or deleted once created. To modify a job, create a new one with the desired configuration.
 
 ## Workflows
 
-Workflows use DAG-based ordering to express dependencies between tasks. Tasks include `depends_on` (list of prerequisite task IDs) and `run_if` (conditional execution) fields.
+Workflows use DAG-based ordering to express dependencies between tasks. See [Task Scheduling](/docs/task-scheduling) for detailed workflow documentation.
 
-**Create a workflow:**
+### Creating a Workflow
 
 ```bash
 curl -X POST "http://localhost:7070/workflows" \
@@ -206,28 +392,24 @@ curl -X POST "http://localhost:7070/workflows" \
       "image_url": "docker.io/myorg/process:v1",
       "depends_on": ["<fetch-data-task-id>"],
       "run_if": "success"
-    },
-    {
-      "name": "cleanup",
-      "image_url": "docker.io/myorg/cleanup:v1",
-      "depends_on": ["<fetch-data-task-id>"],
-      "run_if": "failure"
     }
   ]
 }'
 ```
 
-**`run_if` values:**
+The `run_if` field controls conditional execution:
 
 | Value | Behavior |
 | ----- | -------- |
-| `success` _(default)_ | Task runs only if all dependencies completed successfully |
-| `failure` | Task runs only if any dependency failed |
-| `always` | Task always runs regardless of dependency outcome |
+| `success` | Run only if all dependencies completed successfully (default) |
+| `failure` | Run only if any dependency failed |
+| `always` | Always run regardless of dependency outcome |
 
 ## Scheduling
 
-The Manager includes a cron scheduler that checks for due tasks every 60 seconds. Tasks can be scheduled with a standard cron expression:
+The Manager includes a built-in cron scheduler for recurring tasks.
+
+### Creating a Scheduled Task
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
@@ -241,70 +423,79 @@ curl -X POST "http://localhost:7070/tasks" \
 }'
 ```
 
+The scheduler checks for due tasks every 60 seconds.
+
+### Scheduling Algorithms
+
 The Manager uses two scheduling mechanisms:
 
-| Mechanism | Role | Behavior |
-| --------- | ---- | -------- |
-| **Round Robin** | Proplet selection | Selects which proplet receives the task, cycling evenly across alive proplets |
-| **Priority ordering** | Task dispatch order | When multiple tasks are pending, higher-priority tasks (0–100, default 50) are dispatched first; ties broken by creation time |
+| Mechanism | Purpose | Behavior |
+| --------- | ------- | -------- |
+| **Round Robin** | Proplet selection | Cycles evenly across alive proplets |
+| **Priority Ordering** | Task dispatch order | Higher priority (0–100) dispatched first; ties broken by creation time |
 
-Round Robin is the active proplet-selector. Priority ordering determines which pending task is dispatched next — it is not a separate proplet-selection algorithm.
+Priority determines which task gets dispatched next. Round Robin determines which proplet receives it.
 
-Proplets are only eligible for scheduling if they are "alive" — i.e. a heartbeat was received within the liveliness threshold window.
+## Observability
 
-## Task States
+### Prometheus Metrics
 
-Tasks move through the following states during their lifecycle:
+The Manager exposes Prometheus metrics at `/metrics`:
 
-| Value | Name | Description |
-| ----- | ---- | ----------- |
-| `0` | `Pending` | Task created, not yet started |
-| `1` | `Scheduled` | Task assigned to a proplet |
-| `2` | `Running` | Task is executing on a proplet |
-| `3` | `Completed` | Task finished successfully |
-| `4` | `Failed` | Task encountered an error |
-| `5` | `Skipped` | Task skipped (e.g. `run_if` condition not met) |
-| `6` | `Interrupted` | Task was stopped externally |
+```bash
+curl http://localhost:7070/metrics
+```
 
-## Proplet Management
+Metrics include request counts, latencies, and task state distributions.
 
-The Manager tracks the health of proplets through MQTT heartbeats received on `m/{domain_id}/c/{channel_id}/control/proplet/alive`. A proplet is considered alive if its heartbeat was received within the last 10 seconds. The Manager stores the last 10 heartbeat timestamps per proplet.
+### OpenTelemetry Tracing
 
-## Architectural Components
+Enable distributed tracing by setting:
 
-### Middleware
+```bash
+export MANAGER_OTEL_URL=http://jaeger:4318
+export MANAGER_TRACE_RATIO=0.1  # Sample 10% of requests
+```
 
-The Manager wraps its service layer with three middleware layers:
+### Middleware Stack
 
-- **Logging**: Logs every service method call with duration and errors.
-- **Metrics**: Collects call count and latency via Prometheus.
-- **Tracing**: Adds OpenTelemetry distributed tracing when `MANAGER_OTEL_URL` is configured.
+Every request passes through three middleware layers:
 
-### Storage
-
-All task, proplet, job, and workflow state is persisted through a pluggable storage interface. Select the backend with `MANAGER_STORAGE_TYPE`:
-
-| Backend | Type | Best for |
-| ------- | ---- | -------- |
-| `memory` _(default)_ | In-memory | Development and testing; state is lost on restart |
-| `sqlite` | Embedded SQL | Single-node or edge deployments |
-| `postgres` | Relational DB | Production deployments requiring durability |
-| `badger` | Embedded key-value | High-performance edge deployments |
+1. **Logging**: Logs method calls with duration and errors
+2. **Metrics**: Records call counts and latencies for Prometheus
+3. **Tracing**: Adds OpenTelemetry spans when configured
 
 ## Data Flow
 
-### Task Execution
+### Task Execution Flow
 
-1. Client sends `POST /tasks` to create a task.
-2. Client sends `POST /tasks/{id}/start` to start it.
-3. Manager selects an alive proplet using the configured scheduler.
-4. Manager publishes a start command to the proplet's MQTT topic.
-5. Proplet fetches the Wasm binary (from Proxy or embedded in task), executes it, and publishes results.
-6. Manager receives results, updates task state to `Completed` or `Failed`, and stores results.
+```
+1. Client → POST /tasks        → Manager creates task in Pending state
+2. Client → POST /tasks/{id}/start → Manager selects proplet, publishes MQTT command
+3. Manager → MQTT "start"      → Proplet receives task
+4. Proplet → Executes Wasm     → Produces results
+5. Proplet → MQTT "results"    → Manager receives results
+6. Manager → Updates state     → Task moves to Completed/Failed
+```
 
-### Proplet Registration
+### Proplet Registration Flow
 
-1. Proplet starts and publishes a discovery message to `control/proplet/create`.
-2. Manager records the proplet ID and channel.
-3. Proplet sends periodic heartbeats to `control/proplet/alive`.
-4. Manager marks proplets as alive/dead based on heartbeat recency (10-second threshold).
+```
+1. Proplet starts             → Publishes discovery to control/proplet/create
+2. Manager receives           → Records proplet ID and channel
+3. Proplet sends heartbeats   → Every few seconds to control/proplet/alive
+4. Manager tracks liveliness  → Proplet eligible for scheduling if heartbeat < 10s old
+```
+
+## API Reference
+
+For detailed request/response schemas and examples, see the [API Reference](/docs/api).
+
+| Resource | Endpoints |
+| -------- | --------- |
+| Tasks | `POST`, `GET`, `PUT`, `DELETE /tasks`, `/tasks/{id}/start`, `/tasks/{id}/stop` |
+| Proplets | `GET`, `DELETE /proplets`, `/proplets/{id}/metrics` |
+| Jobs | `POST`, `GET /jobs`, `/jobs/{id}/start`, `/jobs/{id}/stop` |
+| Workflows | `POST /workflows` |
+| Federated Learning | `/fl/experiments`, `/fl/task`, `/fl/update`, `/fl/rounds` |
+| System | `GET /health`, `GET /metrics` |
