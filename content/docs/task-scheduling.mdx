@@ -202,14 +202,12 @@ Workflows execute tasks based on dependency relationships and conditional logic.
 ![DAG Run-If Success/Failure Branching](./images/DAG/DAG-run-if-success-failure-branching.svg)
 
 **Execution flow:**
-1. **Start task** executes first (no dependencies)
-2. **Fetch-a** and **Fetch-b** run in parallel once Start completes
-3. **Process** waits for both fetch tasks to complete successfully
-4. Based on Process outcome:
-   - If **success**: the Success handler runs
-   - If **failure**: the Cleanup handler runs instead
+1. **Payment Task** executes first
+2. Based on outcome, one of two paths runs:
+   - **On success**: Send Confirmation task runs (`run_if: success`)
+   - **On failure**: Send Failure Alert task runs (`run_if: failure`)
 
-This pattern ensures proper error handling—cleanup tasks only execute when something goes wrong, while success handlers only run on the happy path.
+Only one downstream task executes—never both. This pattern is ideal for notifications, cleanup, or any action that depends on whether the upstream task succeeded or failed.
 
 #### Fan-Out and Fan-In
 
