@@ -46,6 +46,8 @@ Jobs group related tasks with configurable execution modes (parallel, sequential
 
 ### Creating a Job
 
+Send a POST request to the `/jobs` endpoint with a name, execution mode, and list of tasks:
+
 ```bash
 curl -X POST "http://localhost:7070/jobs" \
 -H "Content-Type: application/json" \
@@ -69,7 +71,8 @@ curl -X POST "http://localhost:7070/jobs" \
 }'
 ```
 
-Expected response:
+Your output should look like this:
+
 ```json
 {
   "id": "job-abc123",
@@ -84,6 +87,11 @@ Expected response:
 }
 ```
 
+- **id**: Unique identifier assigned to the job. Use this to start, stop, or query the job.
+- **execution_mode**: Confirms the execution strategy (`sequential` or `parallel`).
+- **tasks**: Each task receives its own `id` and starts in `state: 0` (pending).
+- **created_at**: Timestamp when the job was registered.
+
 ### Execution Modes
 
 | Mode | Behavior |
@@ -94,11 +102,14 @@ Expected response:
 
 ### Starting a Job
 
+Trigger execution of a job by sending a POST request to the start endpoint:
+
 ```bash
 curl -X POST "http://localhost:7070/jobs/job-abc123/start"
 ```
 
-Expected response:
+Your output should look like this:
+
 ```json
 {
   "started": true,
@@ -107,7 +118,12 @@ Expected response:
 }
 ```
 
+- **started**: `true` indicates the job was successfully queued for execution.
+- **tasks_started**: Number of tasks dispatched to proplets.
+
 ### Stopping a Job
+
+Halt a running job and cancel any pending tasks:
 
 ```bash
 curl -X POST "http://localhost:7070/jobs/job-abc123/stop"
@@ -115,11 +131,15 @@ curl -X POST "http://localhost:7070/jobs/job-abc123/stop"
 
 ### Listing Jobs
 
+Retrieve all jobs with pagination support:
+
 ```bash
 curl "http://localhost:7070/jobs?offset=0&limit=100"
 ```
 
 ### Using the CLI
+
+The Propeller CLI provides shorthand commands for job management:
 
 ```bash
 # Create a job
