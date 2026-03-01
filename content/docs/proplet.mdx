@@ -1,25 +1,257 @@
 ---
 title: Proplet
-description: Worker nodes that execute WebAssembly tasks in the Propeller system
+description: WebAssembly execution runtime for edge devices in the Propeller system
 ---
 
-The `proplet` is a Rust-based worker node that executes WebAssembly workloads on behalf of the Manager. It connects to the Manager over MQTT, receives task start and stop commands, fetches WebAssembly binaries from the Proxy in chunks, executes them using an embedded or external Wasmtime runtime, and publishes results back over MQTT.
+The Proplet is Propeller's edge execution runtime. It receives task commands from the Manager over MQTT, fetches WebAssembly binaries, executes them using an embedded or external Wasmtime runtime, and publishes results back over MQTT.
 
-## Runtimes
+For how the Manager coordinates proplets and schedules tasks, see the [Manager](/docs/manager) documentation. For DAG-based workflows and job execution, see [Task Scheduling](/docs/task-scheduling).
 
-The proplet supports three execution modes, selected automatically based on configuration:
+## Why the Proplet
 
-| Mode | Description |
-| ---- | ----------- |
-| **Embedded Wasmtime** | Default. Executes Wasm in-process using an embedded Wasmtime instance. No external binary required. |
-| **Host Runtime** | Set `PROPLET_EXTERNAL_WASM_RUNTIME` to the path of an external Wasm runtime executable (e.g. `/usr/bin/wasmtime`). The proplet invokes the binary as a subprocess, passing the Wasm file and any `cli_args` from the task. |
-| **TEE Runtime** | Activated automatically when a Trusted Execution Environment is detected at startup. Decrypts encrypted OCI-packaged Wasm images using the Attestation Agent and KBS before executing them in the protected environment. |
+### Edge-First Execution
+
+WebAssembly workloads need to run where the data lives—on edge devices, gateways, and embedded systems. The Proplet provides:
+
+- **Lightweight runtime**: A Rust-based binary that runs on resource-constrained devices
+- **Secure sandboxing**: WebAssembly's memory-safe sandbox isolates workloads from the host system
+- **Protocol efficiency**: MQTT communication minimizes bandwidth and handles intermittent connectivity
+- **Automatic discovery**: Proplets announce themselves to the Manager on startup
+
+### Decoupled from Orchestration
+
+The Proplet focuses solely on execution—it doesn't make scheduling decisions or manage workflows. This separation allows:
+
+- **Simple proplet logic**: Receive task, execute, report results
+- **Centralized intelligence**: The Manager handles scheduling, load balancing, and workflow coordination
+- **Resilient operation**: Proplets continue executing tasks even during temporary Manager disconnects
+
+For the Manager's role in task orchestration, see [Manager: Task Operations](/docs/manager#task-operations).
+
+## Running the Proplet
+
+### Using Docker Compose
+
+The recommended way to run proplets is with Docker Compose:
+
+```bash
+cd propeller
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
+```
+
+Verify proplets are running:
+
+```bash
+curl "http://localhost:7070/proplets?limit=10"
+```
+
+Your output should look like this:
+
+```json
+{
+  "proplets": [
+    {
+      "id": "a95517f9-5655-4cf5-a7c8-aa00290b3895",
+      "name": "crimson-falcon",
+      "alive": true,
+      "task_count": 0
+    }
+  ],
+  "total": 1,
+  "offset": 0,
+  "limit": 10
+}
+```
+
+### Running Standalone
+
+Set the required environment variables and start the proplet binary:
+
+```bash
+export PROPLET_DOMAIN_ID="your_domain_id"
+export PROPLET_CHANNEL_ID="your_channel_id"
+export PROPLET_CLIENT_ID="your_client_id"
+export PROPLET_CLIENT_KEY="your_client_key"
+propeller-proplet
+```
+
+Startup logs confirm the runtime and subscriptions:
+
+```
+INFO Starting Proplet (Rust) - Instance ID: 67b2bcb2-9c56-4c57-b163-085d6ec2c313
+INFO MQTT client created (TLS: false)
+INFO Using Wasmtime runtime
+INFO Starting PropletService
+INFO Published discovery message
+INFO Subscribed to topic: m/.../control/manager/start
+INFO Subscribed to topic: m/.../control/manager/stop
+INFO Subscribed to topic: m/.../registry/server
+```
+
+## Architecture
+
+### Runtime Selection
+
+The proplet selects its WebAssembly runtime at startup based on configuration and hardware detection:
+
+```rust
+// From proplet/src/main.rs
+let runtime: Arc<dyn Runtime> = if let Some(external_runtime) = &config.external_wasm_runtime {
+    info!("Using external Wasm runtime: {}", external_runtime);
+    Arc::new(HostRuntime::new(external_runtime.clone()))
+} else {
+    info!("Using Wasmtime runtime");
+    Arc::new(WasmtimeRuntime::new_with_options(
+        config.hal_enabled,
+        config.http_enabled,
+        config.preopened_dirs.clone(),
+        config.http_proxy_port,
+    )?)
+};
+```
+
+| Runtime | Trigger | Use Case |
+| ------- | ------- | -------- |
+| **Embedded Wasmtime** | Default (no external runtime configured) | Standard workloads, lowest latency |
+| **Host Runtime** | `PROPLET_EXTERNAL_WASM_RUNTIME` set | Custom runtimes, debugging, alternative engines |
+| **TEE Runtime** | TEE detected + `PROPLET_KBS_URI` set + `encrypted: true` task | Confidential computing with encrypted workloads |
+
+### Component Model Detection
+
+When executing a WebAssembly binary, the Wasmtime runtime automatically detects the module type:
+
+```rust
+// From proplet/src/runtime/wasmtime_runtime.rs
+fn is_wasm_component(bytes: &[u8]) -> bool {
+    bytes.len() >= 8 && bytes[0..4] == [0x00, 0x61, 0x73, 0x6d] && bytes[4] == 0x0d
+}
+
+fn is_proxy_component(bytes: &[u8]) -> bool {
+    bytes.windows(b"wasi:http/incoming-handler".len())
+        .any(|w| w == b"wasi:http/incoming-handler")
+}
+```
+
+| Module Type | Detection | Execution Path |
+| ----------- | --------- | -------------- |
+| Core module | Magic bytes `0x00 0x61 0x73 0x6d` + version != `0x0d` | `start_app_core` — direct function invocation |
+| Component | Magic bytes indicate component model | `start_app_component` — WASI Preview 2 |
+| HTTP Proxy | Component with `wasi:http/incoming-handler` export | `start_app_proxy` — HTTP server mode |
+
+### TEE Detection
+
+At startup, the proplet probes for Trusted Execution Environment support:
+
+```rust
+// From proplet/src/tee_detection.rs
+pub fn detect_tee() -> TeeDetection {
+    if let Some(detection) = detect_tdx() { return detection; }
+    if let Some(detection) = detect_sev() { return detection; }
+    if let Some(detection) = detect_sgx() { return detection; }
+    TeeDetection::new(TeeType::None, "no_tee_detected")
+}
+```
+
+| TEE | Detection Method |
+| --- | ---------------- |
+| Intel TDX | `/dev/tdx_guest`, `/sys/firmware/tdx_guest`, cpuinfo TDX flags |
+| AMD SEV/SNP | `/dev/sev`, EFI variables (`SevStatus`), cpuinfo SEV flags |
+| Intel SGX | `/dev/sgx_enclave`, `/dev/sgx/enclave`, `/dev/isgx` (legacy) |
+
+If a TEE is detected and `PROPLET_KBS_URI` is not set, the proplet exits with an error—encrypted workload support requires the Key Broker Service.
+
+For the complete TEE setup and encrypted workload flow, see the [TEE guide](/docs/tee).
+
+## Task Execution
+
+### Proplet's Role
+
+When the Manager sends a task start command, the proplet handles the execution lifecycle:
+
+**1. Command validation** — The proplet validates the `StartRequest` payload, ensuring required fields are present:
+
+```rust
+// From proplet/src/types.rs
+impl StartRequest {
+    pub fn validate(&self) -> Result<()> {
+        if self.id.is_empty() { return Err(anyhow::anyhow!("id is required")); }
+        if self.name.is_empty() { return Err(anyhow::anyhow!("function name is required")); }
+        // ...validation for encrypted vs. non-encrypted workloads
+    }
+}
+```
+
+**2. Duplicate detection** — If the task is already running, the proplet ignores the duplicate command:
+
+```rust
+// From proplet/src/service.rs
+let mut tasks = self.running_tasks.lock().await;
+if let Entry::Vacant(e) = tasks.entry(req.id.clone()) {
+    e.insert(TaskState::Running);
+} else {
+    warn!("Task {} is already running, ignoring duplicate start command", req.id);
+    return Ok(());
+}
+```
+
+**3. Binary acquisition** — The proplet obtains the WebAssembly binary via one of two paths:
+
+- **Inline base64**: If `file` is set, decode directly from the payload
+- **Registry fetch**: If `image_url` is set, request chunks from the Proxy via MQTT
+
+**4. Runtime execution** — The appropriate runtime executes the module with the provided inputs and environment variables.
+
+**5. Result publishing** — Upon completion (or failure), the proplet publishes results back to the Manager.
+
+For how the Manager handles task scheduling and result processing, see [Manager: Task Operations](/docs/manager#task-operations).
+
+### Binary Fetching
+
+When a task specifies `image_url` instead of an inline `file`, the proplet requests the binary from the Proxy service:
+
+1. Proplet publishes a fetch request to `registry/proplet` with the image URL
+2. Proxy pulls the image from the container registry (GHCR, Docker Hub, etc.)
+3. Proxy streams binary chunks to `registry/server`
+4. Proplet assembles chunks into the complete binary
+
+Chunk assembly includes a 5-minute TTL—incomplete assemblies are automatically expired:
+
+```rust
+// From proplet/src/service.rs
+fn start_chunk_expiry_task(&self) {
+    let ttl = tokio::time::Duration::from_secs(300); // 5 minutes TTL
+    // ...background task removes expired incomplete assemblies
+}
+```
+
+### Task Stopping
+
+When the Manager sends a stop command:
+
+1. The proplet looks up the task in `running_tasks`
+2. For proxy tasks, it signals cancellation via a watch channel
+3. For all tasks, it aborts the Tokio task handle
+4. The task is removed from the running tasks map
+
+```rust
+// From proplet/src/runtime/wasmtime_runtime.rs
+async fn stop_app(&self, id: String) -> Result<()> {
+    // Signal cancellation for proxy tasks
+    if let Some(canceller) = cancellers.remove(&id) {
+        let _ = canceller.send(true);
+    }
+    // Abort the task handle
+    if let Some(handle) = tasks.remove(&id) {
+        handle.abort();
+    }
+}
+```
 
 ## Configuration
 
-The proplet is configured using environment variables. Values can also be loaded from a `config.toml` file (used by the Docker Compose stack).
+The proplet is configured through environment variables. Values can also be loaded from a `config.toml` file generated by `propeller-cli provision`.
 
-### Core
+### Core Settings
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
@@ -28,10 +260,8 @@ The proplet is configured using environment variables. Values can also be loaded
 | `PROPLET_LIVELINESS_INTERVAL` | Heartbeat publish interval in seconds | `10` |
 | `PROPLET_METRICS_INTERVAL` | Proplet-level metrics publish interval in seconds | `10` |
 | `PROPLET_ENABLE_MONITORING` | Enable per-task process monitoring | `true` |
-| `PROPLET_PULL_CONCURRENT_LIMIT` | Maximum concurrent OCI layer pull operations | `4` |
-| `PROPLET_LAYER_STORE_PATH` | Directory for OCI layer assembly | `/tmp/proplet/layers` |
 
-### MQTT / SuperMQ
+### MQTT Connection
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
@@ -41,189 +271,107 @@ The proplet is configured using environment variables. Values can also be loaded
 | `PROPLET_MQTT_KEEP_ALIVE` | MQTT keepalive interval in seconds | `30` |
 | `PROPLET_MQTT_MAX_PACKET_SIZE` | Maximum MQTT packet size in bytes | `10485760` |
 | `PROPLET_MQTT_INFLIGHT` | Maximum in-flight MQTT messages | `10` |
+
+### SuperMQ Authentication
+
+| Variable | Description | Default |
+| -------- | ----------- | ------- |
 | `PROPLET_DOMAIN_ID` | SuperMQ domain identifier | _(required)_ |
 | `PROPLET_CHANNEL_ID` | SuperMQ channel identifier | _(required)_ |
 | `PROPLET_CLIENT_ID` | SuperMQ client identifier for MQTT authentication | _(required)_ |
 | `PROPLET_CLIENT_KEY` | SuperMQ client key for MQTT authentication | _(required)_ |
 
-### Runtime
+These values are generated by `propeller-cli provision`. For details on provisioning, see [Getting Started](/docs/getting-started#step-3-provision-propeller).
+
+### Runtime Configuration
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
-| `PROPLET_EXTERNAL_WASM_RUNTIME` | Path to an external Wasm runtime executable. If empty, uses the embedded Wasmtime runtime. | `""` |
+| `PROPLET_EXTERNAL_WASM_RUNTIME` | Path to an external Wasm runtime executable. If empty, uses embedded Wasmtime. | `""` |
 | `PROPLET_DIRS` | Colon-separated list of host directories to preopen for WASI access (e.g. `/data:/tmp`). | `""` |
-
-### HTTP Proxy (optional)
-
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `PROPLET_HTTP_ENABLED` | Enable the built-in HTTP proxy server | `false` |
+| `PROPLET_HTTP_ENABLED` | Enable the built-in HTTP proxy server for WASI HTTP components | `false` |
 | `PROPLET_HTTP_PROXY_PORT` | Port for the built-in HTTP proxy server | `8222` |
+| `PROPLET_HAL_ENABLED` | Enable the Hardware Abstraction Layer | `true` |
 
-### HAL (Hardware Abstraction Layer)
+### TEE Configuration
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `PROPLET_HAL_ENABLED` | Enable the Hardware Abstraction Layer (used for TEE attestation helpers) | `true` |
-
-### Kubernetes
+Required only when running inside a Trusted Execution Environment with encrypted workloads:
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
-| `PROPLET_MANAGER_K8S_NAMESPACE` | Kubernetes namespace override for K8s-based deployments | `""` |
+| `PROPLET_KBS_URI` | URI of the Key Broker Service | `""` |
+| `PROPLET_AA_CONFIG_PATH` | Path to the Attestation Agent configuration file | `""` |
 
-### MQTT Advanced
-
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `PROPLET_MQTT_REQUEST_CHANNEL_CAPACITY` | Internal channel buffer size for outgoing MQTT requests | `128` |
+If a TEE is detected and `PROPLET_KBS_URI` is not set, the proplet exits with an error.
 
 ### Config File Fallback
-
-If `PROPLET_DOMAIN_ID`, `PROPLET_CLIENT_ID`, `PROPLET_CLIENT_KEY`, or `PROPLET_CHANNEL_ID` are not set via environment variables, the proplet attempts to read them from a TOML config file.
 
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
 | `PROPLET_CONFIG_FILE` | Path to the TOML config file | `config.toml` |
 | `PROPLET_CONFIG_SECTION` | Section name within the TOML config file | `proplet` |
 
-### TEE (Trusted Execution Environment)
+## Heartbeats and Metrics
 
-These variables are only required when running inside a TEE and processing encrypted workloads.
+### Liveliness
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `PROPLET_KBS_URI` | URI of the Key Broker Service (e.g. `http://10.0.2.2:8082`) | `""` |
-| `PROPLET_AA_CONFIG_PATH` | Path to the Attestation Agent configuration file | `""` |
+The proplet sends periodic heartbeats to indicate availability:
 
-> **Important:** If a TEE is detected at startup and `PROPLET_KBS_URI` is not set, the proplet will exit with an error. `PROPLET_KBS_URI` is mandatory whenever a TEE is present.
-
-## Usage
-
-### Using the Embedded Wasmtime Runtime
-
-By default the proplet uses its built-in Wasmtime instance. Set the required environment variables and start:
-
-```bash
-export PROPLET_DOMAIN_ID="your_domain_id"
-export PROPLET_CHANNEL_ID="your_channel_id"
-export PROPLET_CLIENT_ID="your_client_id"
-export PROPLET_CLIENT_KEY="your_client_key"
-propeller-proplet
-```
-
-Startup logs confirm the runtime in use:
-
-```bash
-INFO Starting Proplet (Rust) - Instance ID: 67b2bcb2-9c56-4c57-b163-085d6ec2c313
-INFO MQTT client created (TLS: false)
-INFO Using Wasmtime runtime
-INFO Starting MQTT event loop
-INFO Starting PropletService
-INFO Published discovery message
-INFO Subscribed to topic: m/.../control/manager/start
-INFO Subscribed to topic: m/.../control/manager/stop
-INFO Subscribed to topic: m/.../registry/server
-```
-
-### Using a Host WebAssembly Runtime
-
-To use an external runtime binary such as `wasmtime` or `wasmer`, set `PROPLET_EXTERNAL_WASM_RUNTIME`:
-
-```bash
-export PROPLET_DOMAIN_ID="your_domain_id"
-export PROPLET_CHANNEL_ID="your_channel_id"
-export PROPLET_CLIENT_ID="your_client_id"
-export PROPLET_CLIENT_KEY="your_client_key"
-export PROPLET_EXTERNAL_WASM_RUNTIME="/usr/bin/wasmtime"
-propeller-proplet
-```
-
-The proplet will invoke the specified binary as a subprocess. You will need to supply any required runtime flags via the task's `cli_args` field. For example, to run the `addition` example with `wasmtime --invoke add`:
-
-```json
-{
-  "name": "add",
-  "cli_args": ["--invoke", "add"],
-  "inputs": [10, 20]
+```rust
+// From proplet/src/service.rs
+async fn publish_liveliness(&self) -> Result<()> {
+    let liveliness = LivelinessMessage {
+        proplet_id: self.config.client_id.clone(),
+        status: "alive".to_string(),
+        namespace: self.config.k8s_namespace.clone().unwrap_or_else(|| "default".to_string()),
+    };
+    let topic = build_topic(&self.config.domain_id, &self.config.channel_id, "control/proplet/alive");
+    self.pubsub.publish(&topic, &liveliness, self.config.qos()).await
 }
 ```
 
-### Using TEE Mode
+The Manager uses these heartbeats to track proplet liveness. A proplet is considered alive if its last heartbeat arrived within 10 seconds. Dead proplets are excluded from task scheduling.
 
-The proplet automatically detects the Trusted Execution Environment at startup by inspecting device files and CPU information. If a TEE is detected and `PROPLET_KBS_URI` is set, the TEE runtime is activated for tasks marked `encrypted: true`.
+For how the Manager uses heartbeats for scheduling decisions, see [Manager: Proplet Management](/docs/manager#proplet-management).
 
-Supported TEE types detected at startup:
+### Proplet Metrics
 
-| TEE | Detection method |
-| --- | ---------------- |
-| Intel TDX | `/dev/tdx_guest`, `/sys/firmware/tdx_guest`, cpuinfo/dmesg TDX flags |
-| AMD SEV/SNP | `/dev/sev`, EFI variables (`SevStatus`), cpuinfo/dmesg SEV flags |
-| Intel SGX | `/dev/sgx_enclave`, `/dev/sgx/enclave`, `/dev/isgx` (legacy), cpuinfo/dmesg SGX flags |
+When monitoring is enabled, the proplet collects and publishes system-level metrics:
 
-Set the TEE environment variables before starting the proplet:
-
-```bash
-export PROPLET_DOMAIN_ID="your_domain_id"
-export PROPLET_CHANNEL_ID="your_channel_id"
-export PROPLET_CLIENT_ID="your_client_id"
-export PROPLET_CLIENT_KEY="your_client_key"
-export PROPLET_KBS_URI="http://10.0.2.2:8082"
-export PROPLET_AA_CONFIG_PATH="/etc/default/proplet.toml"
-propeller-proplet
+```rust
+// From proplet/src/service.rs
+async fn publish_proplet_metrics(&self) -> Result<()> {
+    let (cpu_metrics, memory_metrics) = {
+        let mut collector = self.metrics_collector.lock().await;
+        collector.collect()
+    };
+    // Publish to control/proplet/metrics
+}
 ```
 
-Startup logs show the detected TEE type:
+### Per-Task Metrics
 
-```bash
-Intel TDX Detection:
-  - Intel CPU: true
-  - /dev/tdx_guest: true
-  - TDX CPU flag: true
-INFO TEE runtime initialized successfully
-```
-
-See the [Encrypted workloads](tee) guide for the full setup flow.
-
-## Task Start Flow
-
-1. The Manager publishes a start command to `m/{domain_id}/c/{channel_id}/control/manager/start` with the task payload.
-2. If the task has an `image_url`, the proplet publishes a fetch request to `m/{domain_id}/c/{channel_id}/registry/proplet`.
-3. The Proxy streams Wasm binary chunks to `m/{domain_id}/c/{channel_id}/registry/server`. The proplet assembles the chunks (incomplete assemblies expire after a 5-minute TTL).
-4. If the task is `encrypted: true`, the TEE runtime decrypts the binary using the key fetched from KBS via the Attestation Agent.
-5. The proplet executes the Wasm binary using the configured runtime.
-6. Results are published to `m/{domain_id}/c/{channel_id}/control/proplet/results`.
-
-## Task Stop Flow
-
-The Manager publishes a stop command to `m/{domain_id}/c/{channel_id}/control/manager/stop` with the task ID. The proplet terminates the running task and releases its resources.
-
-## Liveliness and Metrics
-
-The proplet sends two types of periodic MQTT messages:
-
-| Topic | Content | Default interval |
-| ----- | ------- | ---------------- |
-| `m/{domain_id}/c/{channel_id}/control/proplet/alive` | Heartbeat (proplet ID + channel ID) | 10 s (`PROPLET_LIVELINESS_INTERVAL`) |
-| `m/{domain_id}/c/{channel_id}/control/proplet/metrics` | Proplet-level CPU, memory, and cgroup stats | 10 s (`PROPLET_METRICS_INTERVAL`) |
-
-When monitoring is enabled, per-task metrics are published while the task is running:
-
-| Topic | Content |
-| ----- | ------- |
-| `m/{domain_id}/c/{channel_id}/control/proplet/task_metrics` | CPU %, memory, disk I/O, thread count, file descriptors |
+For running tasks, the proplet can publish process-level metrics including CPU usage, memory consumption, disk I/O, thread count, and file descriptors. These are published to `control/proplet/task_metrics` and include aggregated statistics.
 
 ## Discovery
 
-On startup the proplet publishes a discovery message to:
+On startup, the proplet announces itself to the Manager:
 
+```rust
+// From proplet/src/service.rs
+async fn publish_discovery(&self) -> Result<()> {
+    let discovery = DiscoveryMessage {
+        proplet_id: self.config.client_id.clone(),
+        namespace: self.config.k8s_namespace.clone().unwrap_or_else(|| "default".to_string()),
+    };
+    let topic = build_topic(&self.config.domain_id, &self.config.channel_id, "control/proplet/create");
+    self.pubsub.publish(&topic, &discovery, self.config.qos()).await
+}
 ```
-m/{domain_id}/c/{channel_id}/control/proplet/create
-```
 
-The Manager records the proplet's ID and channel from this message. If the proplet disconnects unexpectedly, the MQTT broker delivers the Last Will message on the `control/proplet/alive` topic, notifying the Manager.
+The Manager receives this message and creates a proplet record with a generated human-readable name (e.g., "crimson-falcon"). If the proplet disconnects unexpectedly, the MQTT broker delivers the Last Will message, notifying the Manager of the disconnect.
 
-## MQTT Topic Reference
+## MQTT Topics
 
 | Topic | Direction | Description |
 | ----- | --------- | ----------- |
@@ -236,3 +384,31 @@ The Manager records the proplet's ID and channel from this message. If the propl
 | `m/{domain_id}/c/{channel_id}/control/manager/stop` | Manager → Proplet | Task stop command |
 | `m/{domain_id}/c/{channel_id}/registry/proplet` | Proplet → Proxy | Request Wasm binary chunks |
 | `m/{domain_id}/c/{channel_id}/registry/server` | Proxy → Proplet | Wasm binary chunk delivery |
+
+## Using the Host Runtime
+
+To use an external runtime binary instead of embedded Wasmtime:
+
+```bash
+export PROPLET_EXTERNAL_WASM_RUNTIME="/usr/bin/wasmtime"
+propeller-proplet
+```
+
+The proplet invokes the specified binary as a subprocess, passing the Wasm file as the first argument followed by any `cli_args` from the task.
+
+For a task using the host runtime:
+
+```json
+{
+  "name": "add",
+  "image_url": "ghcr.io/myorg/addition:v1",
+  "cli_args": ["--invoke", "add"],
+  "inputs": [10, 20]
+}
+```
+
+## Federated Learning
+
+The proplet participates in federated learning rounds by executing WASM training modules and reporting model updates. The proplet automatically fetches model weights from the Model Registry and datasets from the Local Data Store based on environment variables set by the Coordinator.
+
+For the complete FL architecture and training lifecycle, see [Federated Learning](/docs/federated-learning). For a hands-on example, see [Federated Learning Example](/docs/examples/federated-learning).

@@ -563,27 +563,9 @@ Your output should look like this:
 
 ### Execution Modes
 
-**Job Start** (`POST /jobs/{id}/start`) — The Manager's `StartJob` method dispatches tasks based on the stored execution mode:
+For execution mode options (`parallel`, `sequential`, `configurable`) and their behavior, see [Task Scheduling: Jobs](/docs/task-scheduling#jobs).
 
-| Mode | Manager Behavior |
-| ---- | ---------------- |
-| `parallel` | Calls `StartTask` for ALL tasks simultaneously; each gets its own proplet |
-| `sequential` | Calls `StartTask` for the first task only; subsequent tasks start when previous completes |
-| `configurable` | Reads mode from `JOB_EXECUTION_MODE` environment variable at runtime |
-
-```go
-// From manager/service.go
-switch executionMode {
-case ExecutionModeParallel:
-    return svc.startJobParallel(ctx, tasks)
-case ExecutionModeSequential:
-    return svc.startJobSequential(ctx, tasks)
-case ExecutionModeConfigurable:
-    return svc.startJobConfigurable(ctx, tasks)
-}
-```
-
-**Sequential chaining** — When a task completes, the Manager checks if it belongs to a job. If so, and the job is sequential, it automatically starts the next task in order.
+When a task completes, the Manager checks if it belongs to a job. For sequential jobs, it automatically starts the next task in order.
 
 **Failure handling** — If ANY task in a job fails, the Manager stops all remaining running tasks:
 
@@ -723,15 +705,13 @@ func (wc *WorkflowCoordinator) EvaluateConditionalExecution(ctx context.Context,
 
 ### Workflow Execution Flow
 
-```
-1. POST /workflows          → Manager validates DAG and creates all tasks
-2. POST /tasks/{root}/start → User starts the root task(s)
-3. Root task completes      → Manager calls OnTaskCompletion
-4. Coordinator evaluates    → CheckAndStartReadyTasks finds eligible tasks
-5. Dependent tasks start    → Repeat until all tasks terminal
-```
+Workflow execution begins when you submit a workflow via `POST /workflows`. The Manager validates the DAG structure, checks that all `depends_on` references exist, and creates all tasks in a Pending state. At this point, no tasks are running—the workflow is ready but waiting.
 
-The workflow coordinator runs automatically—you only need to start the root task(s).
+To start execution, you call `POST /tasks/{id}/start` on one or more root tasks (tasks with no dependencies). The Manager assigns each root task to a proplet and publishes start commands over MQTT. When a root task completes, the proplet publishes results back to the Manager, which triggers `OnTaskCompletion`.
+
+The workflow coordinator then takes over. It calls `CheckAndStartReadyTasks`, which scans the workflow for tasks whose dependencies have all reached terminal states. For each eligible task, the coordinator evaluates conditional execution rules (`run_if`) and either starts the task or marks it as Skipped. This process repeats automatically—each task completion triggers another round of evaluation—until all workflow tasks have reached a terminal state.
+
+You only need to start the root task(s); the coordinator handles everything else.
 
 ## Scheduling
 
