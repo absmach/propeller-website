@@ -24,6 +24,22 @@ Tasks without dependencies on each other run in parallel.
 | **Error isolation** | Failures affect only downstream tasks |
 | **Clear structure** | The graph shows the entire workflow |
 
+### Architecture
+
+![Propeller DAG Architecture](./images/DAG/DAG-architecture.svg)
+
+### Components
+
+| Component | Description |
+|-----------|-------------|
+| **Manager** | Central coordinator that receives workflow definitions and orchestrates execution |
+| **Jobs** | Groups of related tasks with a shared execution mode (parallel or sequential) |
+| **Workflows** | DAG-based task definitions with explicit dependencies between tasks |
+| **Standalone Tasks** | Individual tasks executed independently without belonging to a job or workflow |
+| **Scheduling** | Determines task ordering: priority, cron schedules, or round-robin distribution |
+| **Tasks** | The atomic unit of work—a WebAssembly module executed on a proplet |
+| **Proplets** | Edge devices that receive and execute tasks assigned by the Manager |
+
 ## Jobs
 
 Jobs group related tasks with configurable execution modes (parallel, sequential). Jobs execute tasks with a common strategy, simplifying management of multi-task workloads.

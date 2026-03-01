@@ -1,18 +1,29 @@
 ---
-title: DAG Workflow
-description: Execute multi-step workflows with task dependencies using DAG orchestration
+title: DAG Workflows and Jobs
+description: Execute multi-step workflows with task dependencies and jobs with execution modes
 ---
 
-This example demonstrates [DAG (Directed Acyclic Graph) workflow](/docs/task-scheduling#workflows) execution in Propeller. DAG workflows allow you to define task dependencies where child tasks only execute after their parent tasks complete successfully.
+This example demonstrates two orchestration methods in Propeller:
 
-## Prerequisites
+1. **Workflows** — Define explicit task dependencies using a DAG structure. Tasks specify which other tasks they depend on via `depends_on`.
+2. **Jobs** — Group tasks with a shared execution mode (`parallel` or `sequential`). No explicit dependencies—the mode controls execution order.
+
+Both use the same underlying tasks but differ in how execution order is determined.
+
+---
+
+## Part 1: DAG Workflow
+
+This section demonstrates [DAG (Directed Acyclic Graph) workflow](/docs/task-scheduling#workflows) execution. Workflows allow you to define task dependencies where child tasks only execute after their parent tasks complete successfully.
+
+### Prerequisites
 
 Ensure you have:
 - Propeller services running (`make start-supermq`)
 - A [provisioned config](/docs/getting-started#step-3-provision-propeller) with valid credentials
 - The `addition.wasm` module built
 
-## Source Code
+### Source Code
 
 This example uses the [addition-wat](https://github.com/absmach/propeller/tree/main/examples/addition-wat) example, which exports a `main` function that adds two i32 integers:
 
@@ -24,7 +35,7 @@ This example uses the [addition-wat](https://github.com/absmach/propeller/tree/m
         i32.add))
 ```
 
-## Build WASM
+### Build WASM
 
 Propeller executes tasks as WebAssembly modules, so we need to compile the source code to `.wasm` format before uploading.
 
@@ -51,7 +62,7 @@ build/addition.wasm: WebAssembly (wasm) binary module version 0x1 (MVP)
 
 This confirms the file is a valid WebAssembly binary. "Version 0x1 (MVP)" indicates WebAssembly 1.0, the first standardized version supported by all runtimes.
 
-## Create Workflow
+### Create Workflow
 
 Create a DAG workflow with three tasks. Three tasks is the minimum needed to demonstrate [parallel fan-out](/docs/task-scheduling#fan-out-and-fan-in): Task 1 is the root, and Task 2 and Task 3 both depend on it. When Task 1 completes, Tasks 2 and 3 start simultaneously.
 
@@ -150,11 +161,11 @@ The response shows all three tasks created with `state: 0` (Pending). Key fields
 
 For details on dependency validation, see [Task and Dependency Fields](/docs/task-scheduling#task-and-dependency-fields).
 
-## Upload WASM
+### Upload WASM
 
 Since we built `addition.wasm` locally, we upload it directly to each task. For production workflows, you can use `image_url` instead—see [WASM Module Deployment](/docs/task-scheduling#wasm-module-deployment).
 
-### Task 1
+#### Task 1
 
 ```bash
 curl -X PUT "http://localhost:7070/tasks/task-001/upload" \
@@ -184,7 +195,7 @@ Your output should look like this:
 
 The `file` field now contains the WASM binary encoded as base64. This is the actual module that will be sent to the proplet for execution. The `updated_at` timestamp reflects when the upload occurred.
 
-### Tasks 2 and 3
+#### Tasks 2 and 3
 
 Repeat the same upload for the remaining tasks. The response structure is identical—only the task ID, inputs, and `depends_on` fields differ:
 
@@ -196,7 +207,7 @@ curl -X PUT "http://localhost:7070/tasks/task-003/upload" \
 -F "file=@build/addition.wasm"
 ```
 
-## Start Workflow
+### Start Workflow
 
 Start the root task (`task-001`). The manager automatically schedules dependent tasks (`task-002` and `task-003`) when their dependencies complete:
 
@@ -210,7 +221,7 @@ Your output should look like this:
 { "started": true }
 ```
 
-## Check Workflow Status
+### Check Workflow Status
 
 Query tasks by workflow ID to see execution status:
 
@@ -302,3 +313,230 @@ After completion, your output should look like this:
 | `depends_on` | `["task-001"]` | Only present on task-002 and task-003 |
 
 For conditional execution with `run_if` and DAG validation rules, see [Task Scheduling](/docs/task-scheduling#run_if-values).
+
+---
+
+## Part 2: Job
+
+This section demonstrates [job-based execution](/docs/task-scheduling#jobs). Jobs group tasks with a shared execution mode—no explicit dependencies. The mode controls whether tasks run in parallel or sequentially.
+
+### Create Job
+
+Create a job with `parallel` execution mode. All tasks in a parallel job start simultaneously:
+
+```bash
+curl -X POST "http://localhost:7070/jobs" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "addition-pipeline",
+  "execution_mode": "parallel",
+  "tasks": [
+    {
+      "id": "job-task-001",
+      "name": "main",
+      "inputs": [100, 50]
+    },
+    {
+      "id": "job-task-002",
+      "name": "main",
+      "inputs": [25, 75]
+    },
+    {
+      "id": "job-task-003",
+      "name": "main",
+      "inputs": [200, 300]
+    }
+  ]
+}'
+```
+
+Your output should look like this:
+
+```json
+{
+  "job_id": "981a9c91-92e2-4518-a0b6-46b8b590d9bb",
+  "tasks": [
+    {
+      "id": "job-task-001",
+      "name": "main",
+      "state": 0,
+      "cli_args": null,
+      "inputs": [100, 50],
+      "daemon": false,
+      "encrypted": false,
+      "job_id": "981a9c91-92e2-4518-a0b6-46b8b590d9bb",
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-03-01T17:05:45.493390418Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z"
+    },
+    {
+      "id": "job-task-002",
+      "name": "main",
+      "state": 0,
+      "cli_args": null,
+      "inputs": [25, 75],
+      "daemon": false,
+      "encrypted": false,
+      "job_id": "981a9c91-92e2-4518-a0b6-46b8b590d9bb",
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-03-01T17:05:45.493390418Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z"
+    },
+    {
+      "id": "job-task-003",
+      "name": "main",
+      "state": 0,
+      "cli_args": null,
+      "inputs": [200, 300],
+      "daemon": false,
+      "encrypted": false,
+      "job_id": "981a9c91-92e2-4518-a0b6-46b8b590d9bb",
+      "start_time": "0001-01-01T00:00:00Z",
+      "finish_time": "0001-01-01T00:00:00Z",
+      "created_at": "2026-03-01T17:05:45.493390418Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "next_run": "0001-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+Key differences from workflows:
+- **job_id**: Tasks share a `job_id` instead of `workflow_id`
+- **No depends_on**: Tasks have no explicit dependencies—execution order is controlled by `execution_mode`
+- **execution_mode**: Set to `parallel` (all tasks start simultaneously) or `sequential` (tasks run one at a time)
+
+### Upload WASM
+
+Upload the same `addition.wasm` module to each task:
+
+```bash
+curl -X PUT "http://localhost:7070/tasks/job-task-001/upload" \
+-F "file=@build/addition.wasm"
+
+curl -X PUT "http://localhost:7070/tasks/job-task-002/upload" \
+-F "file=@build/addition.wasm"
+
+curl -X PUT "http://localhost:7070/tasks/job-task-003/upload" \
+-F "file=@build/addition.wasm"
+```
+
+### Start Job
+
+Start the job using the job endpoint (not individual tasks):
+
+```bash
+curl -X POST "http://localhost:7070/jobs/981a9c91-92e2-4518-a0b6-46b8b590d9bb/start"
+```
+
+Your output should look like this:
+
+```json
+{
+  "job_id": "981a9c91-92e2-4518-a0b6-46b8b590d9bb",
+  "message": "job started"
+}
+```
+
+### Check Job Status
+
+Query the job to see all task results:
+
+```bash
+curl "http://localhost:7070/jobs/981a9c91-92e2-4518-a0b6-46b8b590d9bb"
+```
+
+After completion, your output should look like this:
+
+```json
+{
+  "job_id": "981a9c91-92e2-4518-a0b6-46b8b590d9bb",
+  "tasks": [
+    {
+      "id": "job-task-001",
+      "name": "main",
+      "state": 3,
+      "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+      "cli_args": null,
+      "inputs": [100, 50],
+      "daemon": false,
+      "encrypted": false,
+      "proplet_id": "ec182939-7940-4b25-869e-47b245ddec09",
+      "job_id": "981a9c91-92e2-4518-a0b6-46b8b590d9bb",
+      "results": "150\n",
+      "start_time": "2026-03-01T17:06:17.452922184Z",
+      "finish_time": "2026-03-01T17:06:17.683702371Z",
+      "created_at": "2026-03-01T17:05:45.493390418Z",
+      "updated_at": "2026-03-01T17:06:17.683702145Z",
+      "next_run": "0001-01-01T00:00:00Z"
+    },
+    {
+      "id": "job-task-002",
+      "name": "main",
+      "state": 3,
+      "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+      "cli_args": null,
+      "inputs": [25, 75],
+      "daemon": false,
+      "encrypted": false,
+      "proplet_id": "ec182939-7940-4b25-869e-47b245ddec09",
+      "job_id": "981a9c91-92e2-4518-a0b6-46b8b590d9bb",
+      "results": "100\n",
+      "start_time": "2026-03-01T17:06:17.468977763Z",
+      "finish_time": "2026-03-01T17:06:17.674829758Z",
+      "created_at": "2026-03-01T17:05:45.493390418Z",
+      "updated_at": "2026-03-01T17:06:17.674829554Z",
+      "next_run": "0001-01-01T00:00:00Z"
+    },
+    {
+      "id": "job-task-003",
+      "name": "main",
+      "state": 3,
+      "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
+      "cli_args": null,
+      "inputs": [200, 300],
+      "daemon": false,
+      "encrypted": false,
+      "proplet_id": "ec182939-7940-4b25-869e-47b245ddec09",
+      "job_id": "981a9c91-92e2-4518-a0b6-46b8b590d9bb",
+      "results": "500\n",
+      "start_time": "2026-03-01T17:06:17.48555379Z",
+      "finish_time": "2026-03-01T17:06:17.664597381Z",
+      "created_at": "2026-03-01T17:05:45.493390418Z",
+      "updated_at": "2026-03-01T17:06:17.664597204Z",
+      "next_run": "0001-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+**Results:**
+- Task 1: `100 + 50 = 150`
+- Task 2: `25 + 75 = 100`
+- Task 3: `200 + 300 = 500`
+
+**Key fields in this example:**
+
+| Field | Value | Meaning |
+|-------|-------|---------|
+| `state` | `3` | All three tasks completed successfully |
+| `results` | `"150\n"`, `"100\n"`, `"500\n"` | Output from each `main(a, b)` call |
+| `proplet_id` | `ec182939-...` | The single proplet that ran all tasks |
+| `start_time` | `17:06:17.452`, `.468`, `.485` | All tasks started within 33ms—parallel execution |
+| `job_id` | `981a9c91-...` | All tasks share the same job ID |
+
+### Workflow vs Job Comparison
+
+| Aspect | Workflow | Job |
+|--------|----------|-----|
+| **Endpoint** | `POST /workflows` | `POST /jobs` |
+| **Execution order** | Defined by `depends_on` arrays | Controlled by `execution_mode` |
+| **Dependencies** | Explicit task-to-task | None—mode determines order |
+| **Use case** | Complex DAGs with fan-out/fan-in | Simple parallel or sequential batches |
+| **Start command** | `POST /tasks/{task_id}/start` (root task) | `POST /jobs/{job_id}/start` |
+
+For detailed job configuration options, see [Jobs](/docs/task-scheduling#jobs).
