@@ -509,12 +509,12 @@ docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml \
 | **Coordinator passthrough** | The Coordinator forwards updates unchanged; it doesn't parse model contents |
 | **Testing** | Test with a single proplet first before scaling to multiple participants |
 
-### Algorithm Examples
+### Extending the Defaults
 
-For detailed implementation guides, see:
+Ready to go beyond logistic regression + FedAvg? These guides show you how:
 
-- [FedProx Algorithm](/docs/examples/fedprox) - Adding proximal regularization for non-IID data
-- [Byzantine-Robust Aggregation](/docs/examples/byzantine-robust) - Median-based aggregation for untrusted environments
+- [FedProx Algorithm](/docs/examples/fedprox) - Modify the WASM client to handle non-IID data with proximal regularization
+- [Byzantine-Robust Aggregation](/docs/examples/byzantine-robust) - Replace FedAvg with median-based aggregation for untrusted environments
 
 ### Update Message Format
 
