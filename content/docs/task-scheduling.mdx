@@ -338,6 +338,16 @@ propeller-cli workflows --offset 0 --limit 100
 }
 ```
 
+## Workflow vs Job Comparison
+
+| Aspect | Workflow | Job |
+|--------|----------|-----|
+| **Endpoint** | [`POST /workflows`](/docs/api/workflows/post) | [`POST /jobs`](/docs/api/jobs/post) |
+| **Execution order** | Defined by `depends_on` arrays | Controlled by `execution_mode` |
+| **Dependencies** | Explicit task-to-task | None—mode determines order |
+| **Use case** | Complex DAGs with fan-out/fan-in | Simple parallel or sequential batches |
+| **Start command** | [`POST /tasks/{task_id}/start`](/docs/api/tasks/task_id/start/post) (root task) | [`POST /jobs/{job_id}/start`](/docs/api/jobs/job_id/start/post) |
+
 ## DAG Validation
 
 The workflow coordinator validates DAG structure before execution:
