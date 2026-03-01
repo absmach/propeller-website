@@ -165,29 +165,29 @@ When the Coordinator receives k-of-n updates:
 
 ### HTTP Endpoints
 
-**Manager Endpoints**:
-- `POST /fl/experiments` - Configure an FL experiment and trigger round start
-- `GET /fl/task?round_id={id}&proplet_id={id}` - Forward task requests to Coordinator
-- `POST /fl/update` - Forward update submissions (JSON)
-- `POST /fl/update_cbor` - Forward update submissions (CBOR)
-- `GET /fl/rounds/{round_id}/complete` - Check round completion status
+**Manager FL API**
 
-**Coordinator Endpoints**:
-- `POST /experiments` - Receive experiment configuration
-- `GET /task?round_id={id}&proplet_id={id}` - Provide FL task details
-- `POST /update` - Receive training updates (JSON)
-- `POST /update_cbor` - Receive training updates (CBOR)
-- `GET /rounds/{round_id}/complete` - Provide round completion status
+The Manager exposes FL endpoints for experiment configuration and coordination. See the [API Reference](/docs/api#federated-learning) for complete endpoint documentation:
 
-**Model Registry Endpoints**:
-- `GET /models/{version}` - Fetch a specific model version
-- `POST /models` - Store a new model version
+- [POST /fl/experiments](/docs/api/fl/experiments/post) - Configure and start an FL experiment
+- [GET /fl/task](/docs/api/fl/task/get) - Get FL task details for a proplet
+- [POST /fl/update](/docs/api/fl/update/post) - Submit training updates (JSON)
+- [POST /fl/update_cbor](/docs/api/fl/update_cbor/post) - Submit training updates (CBOR)
+- [GET /fl/rounds/{round_id}/complete](/docs/api/fl/rounds/round_id/complete/get) - Check round completion status
 
-**Aggregator Endpoints**:
-- `POST /aggregate` - Perform FedAvg on collected updates
+**Internal FL Service Endpoints**
 
-**Local Data Store Endpoints**:
-- `GET /datasets/{proplet_id}` - Fetch dataset for a specific proplet
+The following endpoints are internal to the FL services and not exposed through the Manager API:
+
+| Service | Endpoint | Description |
+|---------|----------|-------------|
+| Coordinator | `POST /experiments` | Receive experiment configuration from Manager |
+| Coordinator | `GET /task` | Provide FL task details to proplets |
+| Coordinator | `POST /update` | Receive training updates |
+| Model Registry | `GET /models/{version}` | Fetch a specific model version |
+| Model Registry | `POST /models` | Store a new model version |
+| Aggregator | `POST /aggregate` | Perform FedAvg on collected updates |
+| Local Data Store | `GET /datasets/{proplet_id}` | Fetch dataset for a specific proplet
 
 ### MQTT Topics
 
