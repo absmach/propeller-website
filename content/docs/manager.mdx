@@ -139,12 +139,41 @@ When starting Docker Compose, the `docker/.env` file references these values, wh
 
 #### HTTP Server
 
+The Manager exposes a REST API over HTTP for client interactions. This provides a familiar, language-agnostic interface—any HTTP client (curl, SDKs, web applications) can create tasks, query proplet status, and manage workflows without understanding MQTT internals.
+
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
-| `MANAGER_HTTP_HOST` | HTTP listen host | `""` (all interfaces) |
-| `MANAGER_HTTP_PORT` | HTTP listen port | `7070` |
+| `MANAGER_HTTP_HOST` | Listen address (empty = all interfaces) | `localhost` |
+| `MANAGER_HTTP_PORT` | Listen port | `7070` |
 | `MANAGER_HTTP_SERVER_CERT` | TLS certificate file path | `""` |
 | `MANAGER_HTTP_SERVER_KEY` | TLS private key file path | `""` |
+| `MANAGER_HTTP_SERVER_CA_CERTS` | CA certificate for verifying client certs (mTLS) | `""` |
+| `MANAGER_HTTP_CLIENT_CA_CERTS` | Client CA certificate for mTLS | `""` |
+| `MANAGER_HTTP_SERVER_READ_TIMEOUT` | Maximum time to read entire request | `15s` |
+| `MANAGER_HTTP_SERVER_WRITE_TIMEOUT` | Maximum time to write response | `15s` |
+| `MANAGER_HTTP_SERVER_READ_HEADER_TIMEOUT` | Maximum time to read request headers | `5s` |
+| `MANAGER_HTTP_SERVER_IDLE_TIMEOUT` | Keep-alive connection timeout | `60s` |
+| `MANAGER_HTTP_SERVER_MAX_HEADER_BYTES` | Maximum request header size | `1048576` (1 MB) |
+
+**Enabling HTTPS:** To enable TLS, provide both certificate and key files:
+
+```bash
+export MANAGER_HTTP_SERVER_CERT=/etc/propeller/cert.pem
+export MANAGER_HTTP_SERVER_KEY=/etc/propeller/key.pem
+```
+
+When both are set, the server accepts HTTPS connections only. For production deployments, always enable TLS to protect task payloads and API credentials in transit.
+
+**Mutual TLS (mTLS):** For zero-trust environments, enable client certificate verification:
+
+```bash
+export MANAGER_HTTP_SERVER_CA_CERTS=/etc/propeller/ca.pem
+export MANAGER_HTTP_CLIENT_CA_CERTS=/etc/propeller/client-ca.pem
+```
+
+This requires clients to present valid certificates signed by the configured CA.
+
+**Timeout tuning:** The default timeouts work well for most deployments. Increase `MANAGER_HTTP_SERVER_WRITE_TIMEOUT` if clients download large Wasm binaries, or increase `MANAGER_HTTP_SERVER_READ_TIMEOUT` if clients upload large files via `/tasks/{id}/upload`.
 
 #### Storage Backend
 
