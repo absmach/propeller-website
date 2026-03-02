@@ -11,7 +11,7 @@ Propeller schedules and executes tasks across distributed edge devices. When tas
 
 A [DAG (Directed Acyclic Graph)](https://www.datacamp.com/blog/what-is-a-dag) defines which tasks must complete before others can start:
 
-![Basic DAG](./images/DAG/DAG-Basic%20DAG.svg)
+![Basic DAG](./images/dag/dag-basic-dag.svg)
 
 - **Tasks** are the individual steps in your workflow
 - **Dependencies** specify which tasks must finish first
@@ -28,7 +28,7 @@ Tasks without dependencies on each other run in parallel.
 
 ### Architecture
 
-![Propeller DAG Architecture](./images/DAG/DAG-architecture.svg)
+![Propeller DAG Architecture](./images/dag/dag-architecture.svg)
 
 ### Components
 
@@ -199,7 +199,7 @@ Workflows provide DAG-based task orchestration with dependencies and conditional
 
 Workflows execute tasks based on dependency relationships and conditional logic. The following diagram shows a typical workflow with success and failure branches:
 
-![DAG Run-If Success/Failure Branching](./images/DAG/DAG-run-if-success-failure-branching.svg)
+![DAG Run-If Success/Failure Branching](./images/dag/dag-run-if-success-failure-branching.svg)
 
 **Execution flow:**
 1. **Payment Task** executes first
@@ -213,7 +213,7 @@ Only one downstream task executes—never both. This pattern is ideal for notifi
 
 The following diagram shows how `depends_on` chains tasks together:
 
-![Task Dependencies](./images/DAG/DAG-dependency.svg)
+![Task Dependencies](./images/dag/dag-dependency.svg)
 
 **Execution flow:**
 - **Task A** has no dependencies and runs first
@@ -231,7 +231,7 @@ DAG workflows support two common parallel execution patterns for distributing an
 
 A single parent task triggers multiple child tasks. All children start simultaneously when the parent completes. This pattern maximizes parallelism for independent work.
 
-![Fan-Out and Fan-In](./images/DAG/DAG-fanout-fanin.svg)
+![Fan-Out and Fan-In](./images/dag/dag-fanout-fanin.svg)
 
 **Example (image processing pipeline):**
 - **Ingest** task runs first—loads the source image
@@ -355,7 +355,7 @@ When tasks depend on each other, downstream tasks often need access to results f
 
 Propeller passes task results through the workflow coordinator. Each task receives the outputs from the tasks listed in its `depends_on` array—and only those outputs. This scoped data passing keeps workflows efficient and predictable.
 
-![Data Passing Between Tasks](./images/DAG/DAG-data-passing-between-tasks.svg)
+![Data Passing Between Tasks](./images/dag/dag-data-passing-between-tasks.svg)
 
 **Diagram explanation:**
 - **Task A** produces results and completes
@@ -371,7 +371,7 @@ Conditional execution lets you build workflows that respond to task outcomes. Co
 - **Failure handlers**: Send alerts, run cleanup routines, or log diagnostics when tasks fail
 - **Always handlers**: Update status dashboards, release locks, or perform cleanup regardless of outcome
 
-![Conditional Branching](./images/DAG/DAG-conditional-branching.svg)
+![Conditional Branching](./images/dag/dag-conditional-branching.svg)
 
 **Diagram explanation:**
 - **Parent Task** completes with either success or failure
@@ -480,7 +480,7 @@ Priority scheduling controls task dispatch order based on priority values. When 
 
 Each task has a `priority` field (0–100). When the Manager has multiple pending tasks, it dispatches the highest-priority task first. This ensures urgent work gets processed before background tasks, even if background tasks were created earlier.
 
-![Priority Within Level](./images/DAG/DAG-priority-within-level.svg)
+![Priority Within Level](./images/dag/dag-priority-within-level.svg)
 
 #### Setting Task Priority
 
@@ -659,7 +659,7 @@ Tasks move through these states during execution:
 | `5` | `Skipped` | Task skipped (e.g., `run_if` condition not met) |
 | `6` | `Interrupted` | Task was stopped externally |
 
-![Task State Transitions](./images/DAG/DAG-state-transitions-in-workflows.svg)
+![Task State Transitions](./images/dag/dag-state-transitions-in-workflows.svg)
 
 ### Interrupted Tasks
 
