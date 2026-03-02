@@ -1,0 +1,67 @@
+---
+title: FedProx Algorithm
+description: Implementing FedProx federated learning algorithm in Propeller
+---
+
+FedProx adds a proximal term to limit how far local updates can deviate from the global model. This helps handle heterogeneous data distributions across proplets.
+
+## Overview
+
+FedProx modifies the local training objective by adding a regularization term that penalizes deviations from the global model. This allows for more stable convergence when proplets have non-IID (non-identically distributed) data.
+
+## WASM Client Modification
+
+Modify `examples/fl-demo/client-wasm/fl-client.go` to add the proximal term during training:
+
+```go
+// Add proximal term during training
+mu := 0.01  // proximal coefficient
+
+for j := 0; j < len(weights) && j < len(x); j++ {
+    // Standard gradient
+    gradient := lr * err * x[j]
+    // Proximal term: penalize deviation from global weights
+    proximal := mu * (weights[j] - globalWeights[j])
+    weights[j] -= gradient + proximal
+}
+```
+
+## Key Changes
+
+| Component | Change Required |
+|-----------|-----------------|
+| WASM Client | Add proximal term to weight updates |
+| Aggregator | No changes needed (uses standard FedAvg) |
+
+## Hyperparameters
+
+| Parameter | Description | Typical Value |
+|-----------|-------------|---------------|
+| `mu` | Proximal coefficient controlling regularization strength | 0.001 - 0.1 |
+
+Higher values of `mu` keep local updates closer to the global model, while lower values allow more local adaptation.
+
+## Rebuild and Deploy
+
+After modifying the WASM client:
+
+```bash
+# Build WASM binary
+cd examples/fl-demo/client-wasm
+GOTOOLCHAIN=go1.25.5 GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
+
+# Push to GHCR
+docker run --rm \
+  -v "$(pwd):/workspace" \
+  -w /workspace \
+  -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" \
+  ghcr.io/oras-project/oras:v1.3.0 \
+  push ghcr.io/YOUR_GITHUB_USERNAME/fl-client-wasm:latest \
+  fl-client.wasm:application/wasm
+```
+
+## Use Cases
+
+- Non-IID data distributions across proplets
+- Systems with varying compute capabilities (allows partial work)
+- Environments requiring stable convergence guarantees
