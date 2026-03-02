@@ -1,11 +1,33 @@
 ---
 title: WASI NN
-description: WASI NN example
+description: Run neural network inference on Propeller using WASI-NN with OpenVINO
 ---
 
-This is a WASI NN (Neural Network) example. It demonstrates running machine learning inference using the WASI NN API with an OpenVINO backend.
+This example demonstrates running machine learning inference using the WASI-NN API with an OpenVINO backend on Propeller. You'll deploy a neural network model to a proplet and execute inference through the platform.
 
 For a comprehensive guide on WASI-NN concepts, supported backends, and detailed build instructions, see the [WASI-NN](/docs/wasi-nn) documentation.
+
+## Overview
+
+In this tutorial, you will:
+
+1. Set up the Propeller platform with WASI-NN support
+2. Prepare an OpenVINO model for inference
+3. Build the WASI-NN example to WebAssembly
+4. Deploy and execute inference through the Manager API
+5. Verify the results
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+- **Docker** and **Docker Compose** (v2.x or later)
+- **Rust** with the `wasm32-wasip1` target (`rustup target add wasm32-wasip1`)
+- **Python 3.8+** with pip (for model preparation)
+- **jq** (for JSON formatting in terminal)
+- **curl** (for API requests)
+- **Git** and the Propeller repository cloned
+- Basic familiarity with the [Getting Started](/docs/getting-started) guide
 
 ## Source Code
 
@@ -16,163 +38,754 @@ The source code is available in the [examples/wasi-nn](https://github.com/absmac
   lang="rust"
 />
 
-## Build Wasm
+## Step 1: Clean Environment (Optional but Recommended)
 
-Build the WASI NN example to WebAssembly:
+Start with a clean environment to avoid conflicts with previous runs. This removes all containers, networks, and volumes from prior deployments.
 
 ```bash
-cd propeller/examples/wasi-nn
-cargo build --target wasm32-wasip1 --release
+cd propeller
+docker compose -f docker/compose.yaml down -v
 ```
 
 Your output should look like this:
 
-```bash
-Compiling wasi-nn v0.1.0
-Compiling wasi-nn-example v0.1.0 (/home/user/propeller/examples/wasi-nn)
- Finished `release` profile [optimized] target(s) in 2.34s
+```
+[+] Running 10/10
+ ✔ Container propeller-proplet        Removed                         1.2s
+ ✔ Container propeller-proxy          Removed                         0.8s
+ ✔ Container propeller-manager        Removed                         0.9s
+ ✔ Container supermq-channels         Removed                         0.5s
+ ✔ Container supermq-clients          Removed                         0.5s
+ ✔ Container supermq-domains          Removed                         0.4s
+ ✔ Container supermq-auth             Removed                         0.6s
+ ✔ Container vernemq                  Removed                         1.0s
+ ✔ Container nats                     Removed                         0.3s
+ ✔ Network docker_propeller-base-net  Removed                         0.3s
 ```
 
-The compiled WASM file will be at `target/wasm32-wasip1/release/wasi-nn-example.wasm`.
+Each line shows a container being stopped and removed. The final line confirms the Docker network was cleaned up. If you see "Warning: No resource found" messages, the environment was already clean.
 
-## Prepare Model Files
+## Step 2: Configure WASI-NN Docker Image
 
-The example requires OpenVINO model files in a `fixture` directory:
+The WASI-NN proplet requires a special Docker image that includes the OpenVINO inference engine. This image provides the WASI-NN host functions needed by the WebAssembly module.
+
+### Update Environment Variables
+
+Edit `docker/.env` to use the WASI-NN proplet image:
+
+```bash
+sed -i 's/PROPLET_IMAGE_TAG=.*/PROPLET_IMAGE_TAG="wasi-nn"/' docker/.env
+```
+
+Verify the change:
+
+```bash
+grep PROPLET_IMAGE_TAG docker/.env
+```
+
+Your output should look like this:
+
+```
+PROPLET_IMAGE_TAG="wasi-nn"
+```
+
+This tells Docker Compose to pull `ghcr.io/absmach/propeller/proplet:wasi-nn` instead of the standard proplet image. The `wasi-nn` tag includes OpenVINO libraries and the wasmtime runtime configured with WASI-NN support.
+
+### Create Docker Compose Override
+
+Create a compose override file to mount the model directory and ensure correct platform:
+
+```bash
+cat > docker/compose.wasi-nn.yaml << 'EOF'
+services:
+  proplet:
+    platform: linux/amd64
+    volumes:
+      - ../fixture:/home/proplet/fixture:ro
+EOF
+```
+
+**Why these settings matter:**
+- `platform: linux/amd64` — The `wasi-nn` image with OpenVINO only supports amd64 architecture. If you're on an ARM Mac (M1/M2/M3), Docker will emulate x86_64 via Rosetta.
+- `volumes: ../fixture:/home/proplet/fixture:ro` — Mounts the local `fixture/` directory (containing model files) into the container at `/home/proplet/fixture` in read-only mode. The WASM code will read model files from this path.
+
+## Step 3: Prepare Model Files
+
+The WASI-NN example requires three files in the `fixture/` directory:
+- `model.xml` — OpenVINO model definition (computational graph)
+- `model.bin` — Model weights (learned parameters)
+- `tensor.bgr` — Input tensor (the image to classify)
+
+### Create the Fixture Directory
 
 ```bash
 mkdir -p fixture
-# Download or copy your OpenVINO model files:
-# - model.xml (graph definition)
-# - model.bin (weights)
-# - tensor.bgr (input tensor in BGR format, 224x224x3)
 ```
 
-## Create Task
+### Option A: Use an Existing OpenVINO Model
 
-Create a task for the WASI NN example:
+If you have a pre-trained OpenVINO model (like MobileNetV2 or ResNet), copy the files:
 
 ```bash
-curl -X POST "http://localhost:7070/tasks" \
--H "Content-Type: application/json" \
--d '{"name": "_start"}'
+cp /path/to/your/model.xml fixture/
+cp /path/to/your/model.bin fixture/
+cp /path/to/your/tensor.bgr fixture/
+```
+
+**Input tensor requirements:**
+- Shape: 1×3×224×224 (batch=1, channels=3 RGB, height=224, width=224)
+- Data type: float32
+- Layout: NCHW (batch, channel, height, width)
+- Size: 1 × 3 × 224 × 224 × 4 bytes = **602,112 bytes**
+
+### Option B: Create a Test Model
+
+Create a minimal test model using OpenVINO's Python tools. This is useful for verifying the inference pipeline works correctly.
+
+#### Install OpenVINO
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install openvino==2024.6.0
+```
+
+Your output should look like this:
+
+```
+Collecting openvino==2024.6.0
+  Downloading openvino-2024.6.0-cp310-cp310-linux_x86_64.whl (38.7 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 38.7/38.7 MB 15.2 MB/s eta 0:00:00
+Collecting numpy<2.2,>=1.16.6
+  Downloading numpy-2.1.3-cp310-cp310-linux_x86_64.whl (16.3 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.3/16.3 MB 18.5 MB/s eta 0:00:00
+Collecting openvino-telemetry>=2023.2.1
+  Downloading openvino_telemetry-2024.1.0-py3-none-any.whl (23 kB)
+Installing collected packages: openvino-telemetry, numpy, openvino
+Successfully installed numpy-2.1.3 openvino-2024.6.0 openvino-telemetry-2024.1.0
+```
+
+This installs the OpenVINO runtime and its Python bindings, which we'll use to programmatically create a model in the OpenVINO IR (Intermediate Representation) format.
+
+#### Create Model Generation Script
+
+```bash
+cat > scripts/create_test_model.py << 'EOF'
+#!/usr/bin/env python3
+"""Generate a minimal OpenVINO model for WASI-NN testing."""
+import numpy as np
+from openvino.runtime import Type, serialize
+import openvino.runtime.opset13 as opset
+from openvino import Model
+
+# Create a minimal model: input -> reduce_mean -> matmul -> softmax -> output
+# Input: [1, 3, 224, 224] (standard ImageNet image input)
+# Output: [1, 1001] (ImageNet classes - 1000 classes + background)
+
+input_shape = [1, 3, 224, 224]
+num_classes = 1001
+
+# Create parameter (input node)
+param = opset.parameter(input_shape, Type.f32, name="input")
+
+# Reduce spatial dimensions: [1, 3, 224, 224] -> [1, 3]
+# This averages all pixels across height and width for each channel
+axes = opset.constant(np.array([2, 3], dtype=np.int64))
+reduced = opset.reduce_mean(param, axes, keep_dims=False)
+
+# Fully connected layer: [1, 3] x [3, 1001] -> [1, 1001]
+# Random weights simulate a trained classifier
+weights = opset.constant(np.random.randn(3, num_classes).astype(np.float32) * 0.01)
+fc = opset.matmul(reduced, weights, False, False)
+
+# Softmax for classification output (probabilities sum to 1)
+output = opset.softmax(fc, axis=1)
+
+# Create and save model
+model = Model([output], [param], "TestModel")
+serialize(model, "fixture/model.xml", "fixture/model.bin")
+print("Model saved to fixture/model.xml and fixture/model.bin")
+EOF
+```
+
+This script creates a minimal neural network that:
+1. Takes a 224×224 RGB image as input
+2. Reduces spatial dimensions via mean pooling
+3. Applies a fully-connected layer to produce 1001 class scores
+4. Uses softmax to convert scores to probabilities
+
+#### Create Tensor Generation Script
+
+```bash
+cat > scripts/create_test_tensor.py << 'EOF'
+#!/usr/bin/env python3
+"""Generate a test input tensor for WASI-NN."""
+import numpy as np
+
+# Create random input tensor in NCHW format
+# Shape: [1, 3, 224, 224], dtype: float32
+# This simulates a 224x224 RGB image normalized to [0, 1]
+tensor = np.random.rand(1, 3, 224, 224).astype(np.float32)
+tensor.tofile("fixture/tensor.bgr")
+print(f"Tensor saved to fixture/tensor.bgr ({tensor.nbytes} bytes)")
+EOF
+```
+
+The tensor represents a random "image" with values between 0 and 1. In production, you would preprocess a real image to match your model's expected input format.
+
+#### Generate Model and Tensor
+
+```bash
+python scripts/create_test_model.py
+python scripts/create_test_tensor.py
+```
+
+Your output should look like this:
+
+```
+Model saved to fixture/model.xml and fixture/model.bin
+Tensor saved to fixture/tensor.bgr (602112 bytes)
+```
+
+The first line confirms the model was exported in OpenVINO IR format (XML defines the graph, BIN contains the weights). The second line shows the tensor size — exactly 602,112 bytes (1 × 3 × 224 × 224 × 4 bytes per float).
+
+#### Verify Files
+
+```bash
+ls -la fixture/
+```
+
+Your output should look like this:
+
+```
+total 620
+drwxrwxr-x 2 user user   4096 Mar  2 07:30 .
+drwxrwxr-x 8 user user   4096 Mar  2 07:30 ..
+-rw-rw-r-- 1 user user  16032 Mar  2 07:30 model.bin
+-rw-rw-r-- 1 user user   3421 Mar  2 07:30 model.xml
+-rw-rw-r-- 1 user user 602112 Mar  2 07:30 tensor.bgr
+```
+
+**File breakdown:**
+- `model.xml` (~3.4 KB) — XML definition of the computational graph
+- `model.bin` (~16 KB) — Binary weights (3 × 1001 × 4 bytes = 12,012 bytes plus overhead)
+- `tensor.bgr` (602,112 bytes) — Input image tensor
+
+## Step 4: Build the CLI and Provision
+
+### Build the CLI
+
+The CLI tool provisions credentials and manages the Propeller platform:
+
+```bash
+make cli
+```
+
+Your output should look like this:
+
+```
+go build -ldflags "-s -w" -o build/cli ./cmd/cli
+```
+
+This compiles the Go CLI binary with stripped debug symbols (`-s -w` reduces binary size).
+
+### Start Infrastructure Services
+
+Start the SuperMQ backend services required for authentication, authorization, and MQTT messaging:
+
+```bash
+docker compose -f docker/compose.yaml -f docker/compose.wasi-nn.yaml --env-file docker/.env up -d \
+  supermq-spicedb supermq-spicedb-migrate supermq-auth-db supermq-auth \
+  supermq-domains-db supermq-domains supermq-clients-db supermq-clients \
+  supermq-channels-db supermq-channels nats vernemq
+```
+
+Your output should look like this:
+
+```
+[+] Running 15/15
+ ✔ Network docker_propeller-base-net   Created                        0.1s
+ ✔ Container supermq-spicedb           Started                        0.8s
+ ✔ Container supermq-spicedb-migrate   Started                        0.9s
+ ✔ Container supermq-auth-db           Started                        0.5s
+ ✔ Container supermq-domains-db        Started                        0.5s
+ ✔ Container supermq-clients-db        Started                        0.5s
+ ✔ Container supermq-channels-db       Started                        0.5s
+ ✔ Container supermq-auth              Started                        1.2s
+ ✔ Container supermq-domains           Started                        1.3s
+ ✔ Container supermq-clients           Started                        1.4s
+ ✔ Container supermq-channels          Started                        1.5s
+ ✔ Container nats                      Started                        0.6s
+ ✔ Container vernemq                   Started                        0.7s
+```
+
+Wait for services to initialize (databases need time to start accepting connections):
+
+```bash
+sleep 10
+```
+
+### Provision Credentials
+
+Generate fresh credentials for all Propeller components (manager, proplet, proxy):
+
+```bash
+./build/cli provision
+```
+
+Your output should look like this:
+
+```
+Creating new user and domain...
+User ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+Domain ID: d1e2f3a4-b5c6-7890-1234-567890abcdef
+
+Creating channel...
+Channel ID: 12345678-90ab-cdef-1234-567890abcdef
+
+Creating manager client...
+Manager Client ID: aabbccdd-1122-3344-5566-778899aabbcc
+Manager Client Key: secret-key-manager-xxxxx
+
+Creating proplet client...
+Proplet Client ID: c81fa4d7-8049-4c70-b432-51797aea8878
+Proplet Client Key: secret-key-proplet-xxxxx
+
+Creating proxy client...
+Proxy Client ID: eeff0011-2233-4455-6677-8899aabbccdd
+Proxy Client Key: secret-key-proxy-xxxxx
+
+Configuration saved to config.toml
+Environment variables updated in docker/.env
+```
+
+**What provisioning does:**
+1. Creates a SuperMQ user and domain for authentication
+2. Creates a channel for MQTT communication between components
+3. Generates unique client IDs and secret keys for manager, proplet, and proxy
+4. Updates `docker/.env` with these credentials so services can authenticate
+
+## Step 5: Start Propeller Services
+
+Start all services with the WASI-NN configuration:
+
+```bash
+docker compose -f docker/compose.yaml -f docker/compose.wasi-nn.yaml --env-file docker/.env up -d
+```
+
+Your output should look like this:
+
+```
+[+] Running 15/15
+ ✔ Container supermq-spicedb           Running                        0.0s
+ ✔ Container supermq-spicedb-migrate   Running                        0.0s
+ ✔ Container supermq-auth-db           Running                        0.0s
+ ✔ Container supermq-auth              Running                        0.0s
+ ✔ Container supermq-domains-db        Running                        0.0s
+ ✔ Container supermq-domains           Running                        0.0s
+ ✔ Container supermq-clients-db        Running                        0.0s
+ ✔ Container supermq-clients           Running                        0.0s
+ ✔ Container supermq-channels-db       Running                        0.0s
+ ✔ Container supermq-channels          Running                        0.0s
+ ✔ Container nats                      Running                        0.0s
+ ✔ Container vernemq                   Running                        0.0s
+ ✔ Container propeller-manager         Started                        2.1s
+ ✔ Container propeller-proplet         Started                        2.3s
+ ✔ Container propeller-proxy           Started                        2.2s
+```
+
+"Running" means the container was already up; "Started" means it was just created. The propeller services (manager, proplet, proxy) should show "Started".
+
+### Verify Services
+
+Check that all services are healthy:
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "propeller|supermq|nats|vernemq"
+```
+
+Your output should look like this:
+
+```
+NAMES                    STATUS
+propeller-proplet        Up 30 seconds
+propeller-proxy          Up 30 seconds
+propeller-manager        Up 31 seconds
+supermq-channels         Up 2 minutes
+supermq-clients          Up 2 minutes
+supermq-domains          Up 2 minutes
+supermq-auth             Up 2 minutes
+vernemq                  Up 2 minutes
+nats                     Up 2 minutes
+```
+
+Look for "Up X seconds/minutes" status — this confirms containers are running. If any show "Restarting" or "Exited", check logs with `docker logs <container-name>`.
+
+### Check Manager Health
+
+Verify the manager's HTTP API is responsive:
+
+```bash
+curl -s http://localhost:7070/health | jq .
 ```
 
 Your output should look like this:
 
 ```json
 {
-  "id": "7e89f012-3456-789a-bcde-f0123456789a",
+  "status": "pass"
+}
+```
+
+`"status": "pass"` indicates the manager is healthy and ready to accept requests on port 7070.
+
+### Verify Proplet Registration
+
+The proplet connects to the manager via MQTT and registers itself. Wait a moment, then verify:
+
+```bash
+curl -s http://localhost:7070/proplets | jq .
+```
+
+Your output should look like this:
+
+```json
+{
+  "proplets": [
+    {
+      "id": "c81fa4d7-8049-4c70-b432-51797aea8878",
+      "alive": true
+    }
+  ]
+}
+```
+
+**Understanding the response:**
+- `id` — The proplet's UUID, matching the `PROPLET_CLIENT_ID` in docker/.env
+- `alive: true` — The proplet is connected and sending heartbeats
+
+**If the proplets array is empty**, wait 10-15 seconds and try again. The proplet needs time to establish the MQTT connection and complete registration. If it remains empty, check proplet logs: `docker logs propeller-proplet`.
+
+## Step 6: Build the WASM Binary
+
+Build the WASI-NN example to WebAssembly:
+
+```bash
+cd examples/wasi-nn
+cargo build --target wasm32-wasip1 --release
+cd ../..
+```
+
+Your output should look like this:
+
+```
+   Compiling wasi v0.14.2
+   Compiling wasi-nn v0.1.0
+   Compiling wasi-nn-example v0.1.0 (/home/user/propeller/examples/wasi-nn)
+    Finished `release` profile [optimized] target(s) in 2.34s
+```
+
+The Rust compiler produces a `.wasm` file targeting the `wasm32-wasip1` platform (WebAssembly System Interface Preview 1). The `--release` flag enables optimizations for smaller binary size and faster execution.
+
+Verify the build:
+
+```bash
+ls -la examples/wasi-nn/target/wasm32-wasip1/release/wasi-nn-example.wasm
+```
+
+Your output should look like this:
+
+```
+-rwxrwxr-x 2 user user 109225 Mar  2 07:45 examples/wasi-nn/target/wasm32-wasip1/release/wasi-nn-example.wasm
+```
+
+The WASM binary is approximately 107 KB. This file contains the compiled inference code that will be executed by the proplet's wasmtime runtime.
+
+## Step 7: Create the Inference Task
+
+Create a task with the required CLI arguments for WASI-NN:
+
+```bash
+curl -s -X POST "http://localhost:7070/tasks" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "_start",
+    "cli_args": ["-S", "nn", "--dir=/home/proplet/fixture::fixture"]
+  }' | jq .
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "25cf6b5a-42c8-4336-8f2d-95cd080a2c8a",
   "name": "_start",
   "kind": "standard",
   "state": 0,
-  "cli_args": null,
+  "cli_args": [
+    "-S",
+    "nn",
+    "--dir=/home/proplet/fixture::fixture"
+  ],
   "daemon": false,
   "encrypted": false,
   "start_time": "0001-01-01T00:00:00Z",
   "finish_time": "0001-01-01T00:00:00Z",
-  "created_at": "2026-02-27T12:00:00.000000000Z",
+  "created_at": "2026-03-02T07:50:00.000000000Z",
   "updated_at": "0001-01-01T00:00:00Z",
   "next_run": "0001-01-01T00:00:00Z",
   "priority": 50
 }
 ```
 
-## Upload Wasm
+**Understanding the response fields:**
+- `id` — Unique task identifier (UUID) used for all subsequent operations
+- `name: "_start"` — The WASM function to invoke (must be `_start` for the entry point)
+- `state: 0` — Task state: 0=created, 1=scheduled, 2=running, 3=completed, 4=failed
+- `cli_args` — Arguments passed to the wasmtime runtime
+- `created_at` — Timestamp when the task was created
 
-Upload the WASM file:
+**Understanding the CLI arguments:**
+- `-S nn` — Enables WASI-NN support in wasmtime. Without this, WASI-NN host functions are unavailable and the WASM will trap.
+- `--dir=/home/proplet/fixture::fixture` — Directory mapping in format `host_path::guest_path`. This makes the container's `/home/proplet/fixture` directory available to the WASM code as `fixture/`. The WASM code reads `fixture/model.xml`, `fixture/model.bin`, and `fixture/tensor.bgr`.
+
+Save the task ID for subsequent commands:
 
 ```bash
-curl -X PUT "http://localhost:7070/tasks/7e89f012-3456-789a-bcde-f0123456789a/upload" \
--F "file=@target/wasm32-wasip1/release/wasi-nn-example.wasm"
+export TASK_ID="25cf6b5a-42c8-4336-8f2d-95cd080a2c8a"
+```
+
+**Note:** Replace the UUID above with the actual `id` from your response.
+
+## Step 8: Upload the WASM Binary
+
+Upload the compiled WASM file to the task:
+
+```bash
+curl -s -X PUT "http://localhost:7070/tasks/${TASK_ID}/upload" \
+  -F "file=@examples/wasi-nn/target/wasm32-wasip1/release/wasi-nn-example.wasm" | jq '{id, name, state, file_size: (.file | length)}'
 ```
 
 Your output should look like this:
 
 ```json
 {
-  "id": "7e89f012-3456-789a-bcde-f0123456789a",
+  "id": "25cf6b5a-42c8-4336-8f2d-95cd080a2c8a",
   "name": "_start",
-  "kind": "standard",
   "state": 0,
-  "file": "...<redacted>...",
-  "cli_args": null,
-  "daemon": false,
-  "encrypted": false,
-  "start_time": "0001-01-01T00:00:00Z",
-  "finish_time": "0001-01-01T00:00:00Z",
-  "created_at": "2026-02-27T12:00:00.000000000Z",
-  "updated_at": "2026-02-27T12:01:00.000000000Z",
-  "next_run": "0001-01-01T00:00:00Z",
-  "priority": 50
+  "file_size": 145636
 }
 ```
 
-## Start Task
+**Understanding the response:**
+- `file_size: 145636` — The base64-encoded WASM file size (larger than the raw binary). The manager stores the WASM file and will distribute it to the proplet when the task starts.
+- `state: 0` — Still in "created" state; upload doesn't change the state.
 
-Start the inference task:
+## Step 9: Start the Inference Task
 
-```bash
-curl -X POST "http://localhost:7070/tasks/7e89f012-3456-789a-bcde-f0123456789a/start"
-```
-
-Your output should look like this:
-
-```json
-{ "started": true }
-```
-
-## Get Task Results
-
-Check the task results:
+Trigger the task execution:
 
 ```bash
-curl -X GET "http://localhost:7070/tasks/7e89f012-3456-789a-bcde-f0123456789a"
+curl -s -X POST "http://localhost:7070/tasks/${TASK_ID}/start" | jq .
 ```
 
 Your output should look like this:
 
 ```json
 {
-  "id": "7e89f012-3456-789a-bcde-f0123456789a",
+  "started": true
+}
+```
+
+`"started": true` confirms the manager has dispatched the task to an available proplet. The manager sends the WASM binary and CLI arguments via MQTT, and the proplet begins execution.
+
+## Step 10: Get Task Results
+
+Wait a few seconds for the inference to complete, then retrieve the results:
+
+```bash
+sleep 5
+curl -s -X GET "http://localhost:7070/tasks/${TASK_ID}" | jq .
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "25cf6b5a-42c8-4336-8f2d-95cd080a2c8a",
   "name": "_start",
   "kind": "standard",
   "state": 3,
-  "file": "...<redacted>...",
-  "cli_args": null,
+  "cli_args": [
+    "-S",
+    "nn",
+    "--dir=/home/proplet/fixture::fixture"
+  ],
   "daemon": false,
   "encrypted": false,
-  "proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895",
-  "results": "",
-  "start_time": "2026-02-27T12:01:05.000000000Z",
-  "finish_time": "2026-02-27T12:01:06.500000000Z",
-  "created_at": "2026-02-27T12:00:00.000000000Z",
-  "updated_at": "2026-02-27T12:01:06.500000000Z",
+  "proplet_id": "c81fa4d7-8049-4c70-b432-51797aea8878",
+  "results": "Read graph XML, first 50 characters: <?xml version=\"1.0\"?>\n<net name=\"Model0\" version=\"\nRead graph weights, size in bytes: 16032\nLoaded graph into wasi-nn with ID: 0\nCreated wasi-nn execution context with ID: 0\nRead input tensor, size in bytes: 602112\nExecuted graph inference\nFound results, sorted top 5: [InferenceResult(892, 0.001038328), InferenceResult(927, 0.0010364817), InferenceResult(978, 0.0010360868), InferenceResult(408, 0.0010360621), InferenceResult(237, 0.0010331866)]\n",
+  "start_time": "2026-03-02T07:56:06.782560206Z",
+  "finish_time": "2026-03-02T07:56:07.221330795Z",
+  "created_at": "2026-03-02T07:50:00.000000000Z",
+  "updated_at": "2026-03-02T07:56:07.221330795Z",
   "next_run": "0001-01-01T00:00:00Z",
   "priority": 50
 }
 ```
 
-## Running with WasmTime
+**Understanding the response:**
 
-You can also run the example directly with WasmTime (requires OpenVINO backend):
+| Field | Value | Meaning |
+|-------|-------|---------|
+| `state` | `3` | Task completed successfully (0=created, 1=scheduled, 2=running, 3=completed, 4=failed) |
+| `proplet_id` | UUID | The proplet that executed the task |
+| `start_time` | ISO 8601 timestamp | When execution began |
+| `finish_time` | ISO 8601 timestamp | When execution completed |
+| `results` | stdout from WASM | The inference output |
+
+**Understanding the inference results:**
+
+The `results` field contains stdout from the WASM program showing each step of the WASI-NN inference pipeline:
+
+1. **"Read graph XML, first 50 characters..."** — The WASM code loaded `model.xml` and displays the first 50 characters to confirm it's a valid OpenVINO model.
+
+2. **"Read graph weights, size in bytes: 16032"** — The companion weights file `model.bin` was loaded (16,032 bytes matches our test model).
+
+3. **"Loaded graph into wasi-nn with ID: 0"** — The OpenVINO backend successfully parsed the model and assigned it graph ID 0.
+
+4. **"Created wasi-nn execution context with ID: 0"** — An execution context was created for running inference.
+
+5. **"Read input tensor, size in bytes: 602112"** — The input image tensor was loaded (602,112 bytes = 1×3×224×224×4).
+
+6. **"Executed graph inference"** — Inference completed successfully.
+
+7. **"Found results, sorted top 5: \[InferenceResult(...)\]"** — The top 5 predictions sorted by confidence:
+   - Format: `InferenceResult(class_id, confidence_score)`
+   - Example: `InferenceResult(892, 0.001038328)` means ImageNet class 892 with 0.1% confidence
+   - With a random test model and random input, scores are nearly uniform (~0.1% each)
+   - With a real model and real image, the top class would have much higher confidence (e.g., 0.95)
+
+**Execution time:** The difference between `finish_time` and `start_time` shows inference took approximately 0.44 seconds.
+
+## Step 11: Check Proplet Logs
+
+View the proplet logs to see detailed execution information:
 
 ```bash
-wasmtime run --dir fixture \
-  --wasi-modules=experimental-wasi-nn \
-  target/wasm32-wasip1/release/wasi-nn-example.wasm
+docker logs propeller-proplet 2>&1 | tail -20
 ```
 
 Your output should look like this:
 
+```
+{"time":"2026-03-02T07:56:06.700Z","level":"INFO","msg":"Received task","task_id":"25cf6b5a-42c8-4336-8f2d-95cd080a2c8a"}
+{"time":"2026-03-02T07:56:06.750Z","level":"INFO","msg":"Task WASM received, starting execution"}
+{"time":"2026-03-02T07:56:06.782Z","level":"INFO","msg":"Starting wasmtime runtime app","task_id":"25cf6b5a-42c8-4336-8f2d-95cd080a2c8a","function":"_start","wasm_size":109225}
+{"time":"2026-03-02T07:56:06.785Z","level":"DEBUG","msg":"Configuring WASI-NN with OpenVINO backend"}
+{"time":"2026-03-02T07:56:06.790Z","level":"DEBUG","msg":"Mapping directory","host":"/home/proplet/fixture","guest":"fixture"}
+{"time":"2026-03-02T07:56:06.800Z","level":"DEBUG","msg":"Executing WASM function","name":"_start"}
+{"time":"2026-03-02T07:56:07.200Z","level":"INFO","msg":"WASM execution completed","duration":"419.5ms"}
+{"time":"2026-03-02T07:56:07.210Z","level":"INFO","msg":"Task completed successfully","task_id":"25cf6b5a-42c8-4336-8f2d-95cd080a2c8a"}
+{"time":"2026-03-02T07:56:07.220Z","level":"DEBUG","msg":"Sending task result to manager","task_id":"25cf6b5a-42c8-4336-8f2d-95cd080a2c8a","result_length":421}
+```
+
+**Log analysis:**
+
+| Log Entry | Meaning |
+|-----------|---------|
+| "Received task" | Proplet received task assignment via MQTT |
+| "Task WASM received" | Binary transfer completed |
+| "Starting wasmtime runtime app" | Wasmtime is initializing with the 109,225-byte WASM |
+| "Configuring WASI-NN" | OpenVINO backend being set up |
+| "Mapping directory" | Host directory mapped to guest filesystem |
+| "Executing WASM function" | The `_start` entry point is being invoked |
+| "WASM execution completed" | Inference finished in ~420ms |
+| "Task completed successfully" | Result captured from stdout |
+| "Sending task result" | 421-byte result string sent back to manager |
+
+---
+
+## Running Locally with WasmTime
+
+You can also run the example directly with WasmTime (requires OpenVINO installed on your host system):
+
 ```bash
-Read graph XML, first 50 characters: <?xml version="1.0" ?>
-<net batch="1" name="mob
-Read graph weights, size in bytes: 3469612
+wasmtime run -S nn --dir fixture \
+  examples/wasi-nn/target/wasm32-wasip1/release/wasi-nn-example.wasm
+```
+
+Your output should look like this:
+
+```
+Read graph XML, first 50 characters: <?xml version="1.0"?>
+<net name="Model0" version="
+Read graph weights, size in bytes: 16032
 Loaded graph into wasi-nn with ID: 0
 Created wasi-nn execution context with ID: 0
 Read input tensor, size in bytes: 602112
 Executed graph inference
-Found results, sorted top 5: [InferenceResult(281, 0.9875), InferenceResult(282, 0.0078), InferenceResult(285, 0.0021), InferenceResult(287, 0.0009), InferenceResult(290, 0.0004)]
+Found results, sorted top 5: [InferenceResult(892, 0.001038328), InferenceResult(927, 0.0010364817), InferenceResult(978, 0.0010360868), InferenceResult(408, 0.0010360621), InferenceResult(237, 0.0010331866)]
 ```
 
-The numbers represent ImageNet class IDs and their confidence scores.
+**Note:** Running locally requires OpenVINO to be installed on your system and wasmtime compiled with WASI-NN support. The proplet Docker image includes OpenVINO pre-configured, making it the easier option for most users.
+
+---
+
+## Troubleshooting
+
+### No Proplets Available
+
+If `curl http://localhost:7070/proplets` returns an empty list or `{"proplets": []}`:
+
+1. **Check proplet logs:** `docker logs propeller-proplet` — Look for MQTT connection errors or authentication failures.
+2. **Verify MQTT connectivity:** `docker logs vernemq` — Ensure the MQTT broker is accepting connections.
+3. **Ensure credentials are correct:** Compare `PROPLET_CLIENT_ID` and `PROPLET_CLIENT_KEY` in `docker/.env` with what was generated by provisioning.
+4. **Restart proplet:** `docker compose -f docker/compose.yaml -f docker/compose.wasi-nn.yaml --env-file docker/.env restart proplet`
+5. **Wait longer:** The proplet may need 15-20 seconds to fully register after startup.
+
+### Task Stuck in State 0 or 1
+
+If the task state remains 0 (created) or 1 (scheduled) after starting:
+
+1. **Check for registered proplets:** `curl http://localhost:7070/proplets` — A task can't execute without available proplets.
+2. **Verify WASM was uploaded:** Check that the `file` field in the task response is non-empty.
+3. **Check manager logs:** `docker logs propeller-manager` — Look for errors dispatching the task.
+4. **Check proplet logs:** `docker logs propeller-proplet` — The proplet may have received but failed to execute the task.
+
+### Task Completes with State 4 (Failed)
+
+If `state: 4`:
+
+1. **Check the results field:** It may contain an error message.
+2. **Verify cli_args:** Ensure `-S nn` is included to enable WASI-NN.
+3. **Verify directory mapping:** The `--dir` format must be `host_path::guest_path`.
+4. **Check model files:** Ensure all three files exist and are readable in `fixture/`.
+
+### WASI-NN Runtime Errors
+
+If you see errors like "wasi-nn not available" or "failed to load graph":
+
+1. **Ensure correct image tag:** Verify `PROPLET_IMAGE_TAG="wasi-nn"` in docker/.env.
+2. **Verify model format:** OpenVINO IR requires both `.xml` (graph) and `.bin` (weights) files.
+3. **Check file permissions:** Model files must be readable by the container.
+4. **Inspect container:** `docker exec -it propeller-proplet ls -la /home/proplet/fixture/` to verify files are mounted.
+
+### Model Loading Errors
+
+If the model fails to load or inference produces errors:
+
+1. **Verify OpenVINO IR format:** The model must be exported in IR format (not ONNX, TensorFlow, or PyTorch format).
+2. **Check model compatibility:** OpenVINO version in the container must support your model's opset version.
+3. **Verify tensor dimensions:** Input tensor must match the model's expected input shape exactly.
+4. **Check file sizes:** `tensor.bgr` should be 602,112 bytes for a 1×3×224×224 float32 tensor.
+
+---
+
+## Next Steps
+
+- Explore the [WASI-NN documentation](/docs/wasi-nn) for advanced configuration options
+- Try using a production model like MobileNetV2 or ResNet for real image classification
+- Learn about [Task Scheduling](/docs/task-scheduling) for recurring inference jobs
+- Set up [Monitoring](/docs/monitoring) for production deployments
+- Explore [TEE (Trusted Execution Environment)](/docs/examples/tee) for confidential inference
