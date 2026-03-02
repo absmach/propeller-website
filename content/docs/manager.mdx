@@ -22,7 +22,7 @@ Distributed edge computing requires a coordinator that understands the state of 
 
 The Manager acts as an intermediary between HTTP clients and MQTT-connected proplets:
 
-![Manager Communication Flow](./images/manager-communication-flow.svg)
+![Manager Communication Flow](./images/manager/manager-communication-flow.svg)
 
 This separation allows clients to use familiar REST APIs while proplets communicate over lightweight MQTT—ideal for constrained edge devices.
 
@@ -778,7 +778,7 @@ The Manager's cron loop calls `StartTask` for due tasks, which then goes through
 
 ### Task Execution Flow
 
-![Task Execution Flow](./images/manager-task-execution-flow.svg)
+![Task Execution Flow](./images/manager/manager-task-execution-flow.svg)
 
 The diagram above illustrates the complete lifecycle of a task from creation to completion. The flow begins when a client sends a `POST /tasks` request, which creates the task in a Pending state within the Manager's database. When the client subsequently calls `POST /tasks/{id}/start`, the Manager selects an available proplet using its round-robin scheduler and publishes a start command over MQTT.
 
@@ -786,7 +786,7 @@ The proplet receives this command on the `control/manager/start` topic, download
 
 ### Proplet Registration Flow
 
-![Proplet Registration Flow](./images/manager-proplet-registration-flow.svg)
+![Proplet Registration Flow](./images/manager/manager-proplet-registration-flow.svg)
 
 This diagram shows how proplets join the system and maintain their availability status. When a proplet starts, it immediately publishes a discovery message to the `control/proplet/create` MQTT topic containing its unique identifier. The Manager receives this message, generates a human-readable name for the proplet, and creates a database record.
 

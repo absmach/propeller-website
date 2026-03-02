@@ -26,6 +26,10 @@ The Proplet focuses solely on execution—it doesn't make scheduling decisions o
 - **Centralized intelligence**: The Manager handles scheduling, load balancing, and workflow coordination
 - **Resilient operation**: Proplets continue executing tasks even during temporary Manager disconnects
 
+The following diagram shows how Proplets communicate with the Manager and Proxy over MQTT, illustrating all message topics and their directions:
+
+![Proplet MQTT Communication Topology](./images/proplet/proplet-mqtt-topology.svg)
+
 For the Manager's role in task orchestration, see [Manager: Task Operations](/docs/manager#task-operations).
 
 ## Running the Proplet
@@ -203,6 +207,10 @@ if let Entry::Vacant(e) = tasks.entry(req.id.clone()) {
 
 **5. Result publishing** — Upon completion (or failure), the proplet publishes results back to the Manager.
 
+The following diagram illustrates this complete task execution flow, showing the decision points and paths through the system:
+
+![Proplet Task Execution Flow](./images/proplet/proplet-task-execution-flow.svg)
+
 For how the Manager handles task scheduling and result processing, see [Manager: Task Operations](/docs/manager#task-operations).
 
 ### Binary Fetching
@@ -223,6 +231,10 @@ fn start_chunk_expiry_task(&self) {
     // ...background task removes expired incomplete assemblies
 }
 ```
+
+The diagram below shows the complete binary fetching flow, from the Proplet's request through the Proxy to the container registry and back:
+
+![Binary Fetching via Proxy](./images/proplet/proplet-binary-fetching.svg)
 
 ### Task Stopping
 

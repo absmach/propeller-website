@@ -54,6 +54,10 @@ When you create a task with an `image_url`, here's the sequence:
 
 The Proplet never talks to the registry directly. It only speaks MQTT.
 
+The following sequence diagram illustrates this complete module delivery flow:
+
+![Proxy Module Delivery Flow](./images/proxy/proxy-module-delivery-flow..svg)
+
 ## Running the Proxy
 
 ### With Docker Compose
@@ -234,6 +238,10 @@ The Proxy runs two goroutines that communicate via channels:
 
 **MQTT Stream**: Takes chunks from the HTTP stream and publishes them to MQTT. Tracks which chunks have been sent for each module and logs completion.
 
+The diagram below shows the internal architecture of the Proxy, illustrating how these two streams interact:
+
+![Proxy Architecture](./images/proxy/proxy-architecture.svg)
+
 ### MQTT Topics Used
 
 | Topic Pattern | Direction | Purpose |
@@ -255,3 +263,7 @@ type ChunkPayload struct {
 ```
 
 The Proplet knows to wait for chunks 0 through TotalChunks-1, then concatenates them in order.
+
+The following diagram shows the complete chunk transfer process, from binary splitting through MQTT delivery to Proplet reassembly:
+
+![Chunk Transfer Process](./images/proxy/proxy-chunk-transfer.svg)
