@@ -162,3 +162,132 @@ paths:
         required: true
         schema:
           type: string
+  /fl/experiments:
+    post:
+      summary: Configure FL Experiment
+      description: Configure a new federated learning experiment with model architecture, aggregation strategy, and privacy settings.
+      responses:
+        "201":
+          description: Experiment configured successfully
+        "400":
+          description: Invalid configuration
+      tags:
+        - Federated Learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Experiment name
+                model_architecture:
+                  type: string
+                  description: Neural network architecture
+                aggregation_strategy:
+                  type: string
+                  enum: [fedavg, fedprox, byzantine_robust]
+                  description: Aggregation algorithm
+                min_participants:
+                  type: integer
+                  description: Minimum number of participants per round
+                rounds:
+                  type: integer
+                  description: Total number of training rounds
+            example:
+              name: "mnist-classification"
+              model_architecture: "cnn"
+              aggregation_strategy: "fedavg"
+              min_participants: 3
+              rounds: 10
+  /fl/task:
+    get:
+      summary: Get FL Task
+      description: Retrieve the current federated learning task configuration and status.
+      responses:
+        "200":
+          description: FL task details
+        "404":
+          description: No active FL task
+      tags:
+        - Federated Learning
+  /fl/update:
+    post:
+      summary: Submit Model Update
+      description: Submit a local model update from a participant after training on local data.
+      responses:
+        "200":
+          description: Update received successfully
+        "400":
+          description: Invalid update format
+      tags:
+        - Federated Learning
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                participant_id:
+                  type: string
+                round_id:
+                  type: string
+                weights:
+                  type: array
+                  items:
+                    type: number
+                  description: Model weight updates
+                metrics:
+                  type: object
+                  properties:
+                    loss:
+                      type: number
+                    accuracy:
+                      type: number
+  /fl/update_cbor:
+    post:
+      summary: Submit Model Update (CBOR)
+      description: Submit a local model update in CBOR format for efficient binary transmission.
+      responses:
+        "200":
+          description: Update received successfully
+        "400":
+          description: Invalid CBOR payload
+      tags:
+        - Federated Learning
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              description: CBOR-encoded model update
+  /fl/rounds/{ROUND_ID}/complete:
+    get:
+      summary: Check Round Completion
+      description: Check if a federated learning round has completed with all participant updates.
+      responses:
+        "200":
+          description: Round completion status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  complete:
+                    type: boolean
+                  participants_submitted:
+                    type: integer
+                  participants_required:
+                    type: integer
+        "404":
+          description: Round not found
+      tags:
+        - Federated Learning
+    parameters:
+      - name: ROUND_ID
+        in: path
+        required: true
+        schema:
+          type: string
