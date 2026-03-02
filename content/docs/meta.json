@@ -11,14 +11,18 @@
     "proplet.mdx",
     "embedded-proplet.mdx",
     "proxy.mdx",
+    "kubernetes-operator.mdx",
     "---Features---",
+    "hal.mdx",
     "monitoring.mdx",
     "tee.mdx",
+    "federated-learning.mdx",
+    "wasi-nn.mdx",
+    "task-scheduling.mdx",
     "reference.mdx",
     "---Resources---",
     "api",
     "developer-guide.mdx",
-    "zephyr.mdx",
-    "coco-k8s-setup.mdx"
+    "zephyr.mdx"
   ]
 }

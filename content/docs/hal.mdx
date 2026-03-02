@@ -3,7 +3,9 @@ title: HAL
 description: Build and run Ubuntu CVMs with proplet pre-installed via QEMU.
 ---
 
-The Hardware Abstraction Layer (HAL) provides a single script — [hal/ubuntu/qemu.sh](https://github.com/absmach/propeller/blob/main/hal/ubuntu/qemu.sh) — that builds an Ubuntu Noble cloud image and boots it as a QEMU virtual machine. On first boot, cloud-init compiles and installs all Propeller services inside the VM automatically.
+The Hardware Abstraction Layer (HAL) provides a single script — [hal/ubuntu/qemu.sh](https://github.com/absmach/propeller/blob/main/hal/ubuntu/qemu.sh) — that builds an **Ubuntu Noble (24.04)** cloud image and boots it as a QEMU virtual machine. On first boot, cloud-init compiles and installs all Propeller services inside the VM automatically.
+
+The first boot takes **10–15 minutes** while cloud-init installs packages and compiles services from source. Subsequent boots start all services immediately in under 30 seconds.
 
 ## Understand what it does
 
@@ -15,15 +17,14 @@ The script has two phases controlled by a positional argument:
 
 On first boot, cloud-init runs unattended and:
 
-1. Installs system packages (`build-essential`, `libssl-dev`, `protobuf-compiler`, `libtss2-dev`, `tpm2-tools`, and others)
-2. Installs the latest Wasmtime release binary from GitHub
-3. Clones and compiles the Attestation Agent with all attesters enabled
-4. Clones and compiles the CoCo Keyprovider
-5. Clones and compiles Proplet from source
-6. Verifies all four binaries exist before enabling any services
-7. Enables and starts three systemd services: `attestation-agent`, `coco-keyprovider`, and `proplet`
-
-First boot takes 10–15 minutes. Subsequent boots start all services immediately.
+1. Installs system packages (`build-essential`, `libssl-dev`, `protobuf-compiler`, `libtss2-dev`, `tpm2-tools`, `rustup`, and others)
+2. Installs the Rust toolchain via `rustup`
+3. Downloads and installs the latest Wasmtime release binary from GitHub
+4. Clones and compiles the **Attestation Agent** from [guest-components](https://github.com/confidential-containers/guest-components) with all attesters enabled
+5. Clones and compiles the **CoCo Keyprovider** for OCI image decryption
+6. Clones and compiles **Proplet** from the Propeller repository
+7. Verifies all four binaries exist before enabling any services
+8. Enables and starts three systemd services: `attestation-agent`, `coco-keyprovider`, and `proplet`
 
 ## Install dependencies
 
@@ -287,3 +288,74 @@ Verify SEV availability on the host:
 grep sev /proc/cpuinfo
 dmesg | grep -i sev
 ```
+
+## Troubleshooting
+
+### First boot hangs or takes too long
+
+First boot compiles Rust projects from source, which can take 15+ minutes on slower systems. Monitor progress:
+
+```bash
+# In the VM console, check cloud-init status
+sudo cloud-init status --wait
+
+# View real-time cloud-init logs
+sudo tail -f /var/log/cloud-init-output.log
+```
+
+### Services fail to start
+
+Check if binaries were installed correctly:
+
+```bash
+ls -la /usr/local/bin/{wasmtime,attestation-agent,coco_keyprovider,proplet}
+```
+
+If any are missing, check cloud-init logs for compilation errors:
+
+```bash
+sudo cat /var/log/cloud-init-output.log | grep -A 20 "ERROR"
+```
+
+### tdx_guest module not loading
+
+On first boot, the TDX module may not load until the extra kernel modules are installed:
+
+```bash
+# Check if module is available
+lsmod | grep tdx
+
+# Manually load if available
+sudo modprobe tdx_guest
+
+# Check device
+ls -la /dev/tdx_guest
+```
+
+If the module isn't available, reboot the VM after cloud-init completes.
+
+### MQTT connection fails
+
+Verify the MQTT broker is reachable from inside the VM:
+
+```bash
+# Test connectivity (QEMU NAT maps 10.0.2.2 to host)
+nc -zv 10.0.2.2 1883
+
+# Check proplet configuration
+cat /etc/default/proplet | grep MQTT
+```
+
+If using a remote broker, ensure the `PROPLET_MQTT_ADDRESS` was set correctly before running `./qemu.sh build`.
+
+### Port forwarding not working
+
+QEMU must be running with the correct hostfwd options. The script sets up:
+
+```
+hostfwd=tcp::2222-:22
+hostfwd=tcp::50010-:50010
+hostfwd=tcp::50011-:50011
+```
+
+If these ports are in use on the host, the VM may fail to start. Free the ports or modify the script.
