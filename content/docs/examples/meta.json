@@ -5,10 +5,15 @@
     "compute.mdx",
     "addition-base64.mdx",
     "addition-external-runtime.mdx",
+    "dag.mdx",
     "filesystem.mdx",
     "http-client.mdx",
     "http-server.mdx",
+    "federated-learning.mdx",
+    "fedprox.mdx",
+    "byzantine-robust.mdx",
     "tee.mdx",
-    "wasi-http.mdx"
+    "wasi-http.mdx",
+    "wasi-nn.mdx"
   ]
 }
