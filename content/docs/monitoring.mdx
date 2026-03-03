@@ -370,11 +370,18 @@ mosquitto_sub -h localhost -p 1883 \
   -t "m/domain-123/c/channel-456/control/proplet/task_metrics" -v
 ```
 
-**Subscribe to all proplet and task metrics:**
+**Subscribe to proplet metrics:**
 
 ```bash
 mosquitto_sub -h localhost -p 1883 \
-  -t "m/+/c/+/control/proplet/#" -v
+  -t "m/+/c/+/control/proplet/metrics" -v
+```
+
+**Subscribe to task metrics:**
+
+```bash
+mosquitto_sub -h localhost -p 1883 \
+  -t "m/+/c/+/control/proplet/task_metrics" -v
 ```
 
 ### API Endpoints
@@ -502,7 +509,8 @@ echo $PROPLET_ENABLE_MONITORING
 Verify MQTT connectivity:
 
 ```bash
-mosquitto_sub -h localhost -p 1883 -t "m/+/c/+/control/proplet/#" -v
+mosquitto_sub -h localhost -p 1883 -t "m/+/c/+/control/proplet/metrics" -v
+mosquitto_sub -h localhost -p 1883 -t "m/+/c/+/control/proplet/task_metrics" -v
 ```
 
 Ensure task has monitoring enabled:
@@ -577,18 +585,18 @@ CPU percentage is calculated over the collection interval. Use intervals ≥ 1 s
 }
 ```
 
-| Field                      | Type    | Description                   |
-| -------------------------- | ------- | ----------------------------- |
-| `enabled`                  | boolean | Enable/disable monitoring     |
+| Field                      | Type    | Description                            |
+| -------------------------- | ------- | -------------------------------------- |
+| `enabled`                  | boolean | Enable/disable monitoring              |
 | `interval`                 | integer | Collection interval in seconds (1–120) |
-| `collect_cpu`              | boolean | Track CPU usage               |
-| `collect_memory`           | boolean | Track memory usage            |
-| `collect_disk_io`          | boolean | Track disk I/O                |
-| `collect_threads`          | boolean | Track thread count            |
-| `collect_file_descriptors` | boolean | Track file descriptors        |
-| `export_to_mqtt`           | boolean | Publish to MQTT               |
-| `retain_history`           | boolean | Keep historical samples       |
-| `history_size`             | integer | Number of samples to retain   |
+| `collect_cpu`              | boolean | Track CPU usage                        |
+| `collect_memory`           | boolean | Track memory usage                     |
+| `collect_disk_io`          | boolean | Track disk I/O                         |
+| `collect_threads`          | boolean | Track thread count                     |
+| `collect_file_descriptors` | boolean | Track file descriptors                 |
+| `export_to_mqtt`           | boolean | Publish to MQTT                        |
+| `retain_history`           | boolean | Keep historical samples                |
+| `history_size`             | integer | Number of samples to retain            |
 
 ### Metrics Schema
 
@@ -659,7 +667,8 @@ docker restart propeller-proplet
 ### Subscribe to Metrics
 
 ```bash
-mosquitto_sub -h localhost -p 1883 -t "m/+/c/+/control/proplet/#" -v
+mosquitto_sub -h localhost -p 1883 -t "m/+/c/+/control/proplet/metrics" -v
+mosquitto_sub -h localhost -p 1883 -t "m/+/c/+/control/proplet/task_metrics" -v
 ```
 
 ### Create Task
