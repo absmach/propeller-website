@@ -268,43 +268,212 @@ skopeo copy dir:$(pwd)/output docker://rodneydav/tee-wasm-addition:encrypted
 
 ## Run a CVM with HAL
 
-Follow the [HAL documentation](./hal) to build and run a Confidential VM. This section provides a quick reference for TEE-specific configuration.
+Propeller provides a [Hardware Abstraction Layer (HAL)](https://github.com/absmach/propeller/tree/main/hal/ubuntu) to build and run Confidential VMs (CVMs) using QEMU. The script installs and starts all required services inside an Ubuntu VM on first boot.
 
-For detailed setup instructions, troubleshooting, and hardware requirements, see the [HAL guide](./hal).
-
-### Quick Setup
+### Install dependencies
 
 ```bash
-# Install dependencies
 sudo apt-get update
-sudo apt-get install -y qemu-system-x86 cloud-image-utils ovmf wget
+sudo apt-get install -y \
+  qemu-system-x86 \
+  cloud-image-utils \
+  ovmf \
+  wget
+```
 
-# Configure credentials (required)
-export PROPLET_DOMAIN_ID="your-domain-id"
-export PROPLET_CLIENT_ID="your-client-id"
-export PROPLET_CLIENT_KEY="your-client-key"
-export PROPLET_CHANNEL_ID="your-channel-id"
+### Configure environment
 
-# Configure TEE-specific settings
-export KBS_URL="http://10.0.2.2:8082"  # KBS on host, accessible via QEMU NAT
-export PROPLET_MQTT_ADDRESS="tcp://mqtt.example.com:1883"
+Set the required variables before running the script:
 
-# Build and run (first boot takes 10-15 minutes)
+| Variable             | Description               | Example             |
+| -------------------- | ------------------------- | ------------------- |
+| `PROPLET_DOMAIN_ID`  | SuperMQ domain identifier | `my-domain-123`     |
+| `PROPLET_CLIENT_ID`  | Unique client identifier  | `proplet-worker-01` |
+| `PROPLET_CLIENT_KEY` | Authentication key        | `secret-key-here`   |
+| `PROPLET_CHANNEL_ID` | Communication channel ID  | `channel-456`       |
+
+Optional variables:
+
+| Variable               | Description                          | Default                |
+| ---------------------- | ------------------------------------ | ---------------------- |
+| `PROPLET_MQTT_ADDRESS` | MQTT broker address                  | `tcp://localhost:1883` |
+| `KBS_URL`              | Key Broker Service URL               | `http://10.0.2.2:8082` |
+| `ENABLE_CVM`           | CVM mode (`auto`/`tdx`/`sev`/`none`) | `auto`                 |
+| `RAM`                  | VM memory                            | `16384M`               |
+| `CPU`                  | CPU cores                            | `4`                    |
+| `DISK_SIZE`            | Disk size                            | `40G`                  |
+
+### Choose a CVM mode
+
+The script auto-detects Intel TDX or AMD SEV. Override with `ENABLE_CVM`:
+
+```bash
+# Auto-detect (default)
+./qemu.sh
+
+# Force Intel TDX
+ENABLE_CVM=tdx ./qemu.sh
+
+# Force AMD SEV
+ENABLE_CVM=sev ./qemu.sh
+
+# Regular VM (no confidential computing)
+ENABLE_CVM=none ./qemu.sh
+```
+
+### Build and run
+
+The script supports three targets:
+
+```bash
+# Build the CVM image (only needed once)
+./qemu.sh build
+
+# Boot an existing image
+./qemu.sh run
+
+# Build and run (default)
 ./qemu.sh
 ```
 
-### Verify TEE Services
+A full example with credentials:
 
-After the VM boots, verify all TEE services are running:
+```bash
+export PROPLET_DOMAIN_ID="a93fa93e-30d0-425e-b5d1-c93cd916dca7"
+export PROPLET_CLIENT_ID="c902e51c-5eac-4a2d-a489-660b5f7ab461"
+export PROPLET_CLIENT_KEY="75a0fefe-9713-478d-aafd-72032c2d9958"
+export PROPLET_CHANNEL_ID="54bdaf41-0009-4d3e-bd49-6d7abda7a832"
+export PROPLET_MQTT_ADDRESS="tcp://0.tcp.in.ngrok.io:10721"
+export KBS_URL="http://10.0.2.2:8082"
+./qemu.sh
+```
+
+The first boot takes 10–15 minutes while cloud-init installs and compiles:
+
+- Rust toolchain
+- Wasmtime runtime
+- Attestation Agent
+- CoCo Keyprovider
+- Proplet
+- Systemd services for all components
+
+At the end, the output looks like this:
+
+```bash
+[  797.319400] cloud-init[1084]:     Finished `release` profile [optimized] target(s) in 5m 23s
+[  797.778561] cloud-init[1084]: === Verifying installations ===
+[  797.782089] cloud-init[1084]: wasmtime: wasmtime 41.0.3 (db1c043b5 2026-02-04)
+[  797.783411] cloud-init[1084]: attestation-agent: installed
+[  797.784432] cloud-init[1084]: coco_keyprovider: installed
+[  797.785475] cloud-init[1084]: proplet: installed
+[  797.786356] cloud-init[1084]: ocicrypt_keyprovider.conf: created
+[  797.787465] cloud-init[1084]: All binaries verified successfully
+[  797.788529] cloud-init[1084]: === Enabling and starting services ===
+[  797.958679] cloud-init[1084]: Created symlink /etc/systemd/system/multi-user.target.wants/attestation-agent.service → /etc/systemd/system/attestation-agent.service.
+[  798.101517] cloud-init[1084]: Created symlink /etc/systemd/system/multi-user.target.wants/coco-keyprovider.service → /etc/systemd/system/coco-keyprovider.service.
+[  798.245947] cloud-init[1084]: Created symlink /etc/systemd/system/multi-user.target.wants/proplet.service → /etc/systemd/system/proplet.service.
+         Starting attestation-agent.service…gent for Confidential Containers...
+[  OK  ] Started attestation-agent.service … Agent for Confidential Containers.
+[  OK  ] Started coco-keyprovider.service -…ovider for Confidential Containers.
+[  OK  ] Started proplet.service - Proplet WebAssembly Workload Orchestrator.
+[  804.469574] cloud-init[1084]: === Service status ===
+[  804.481130] cloud-init[1084]: ● attestation-agent.service - Attestation Agent for Confidential Containers
+[  804.482151] cloud-init[1084]:      Loaded: loaded (/etc/systemd/system/attestation-agent.service; enabled; preset: enabled)
+[  804.482313] cloud-init[1084]:      Active: active (running) since Tue 2026-02-17 15:15:17 UTC; 6s ago
+[  804.482591] cloud-init[1084]:        Docs: https://github.com/confidential-containers/guest-components
+[  804.482853] cloud-init[1084]:     Process: 63861 ExecStartPre=/bin/mkdir -p /run/attestation-agent (code=exited, status=0/SUCCESS)
+[  804.483105] cloud-init[1084]:    Main PID: 63863 (attestation-age)
+[  804.483372] cloud-init[1084]:       Tasks: 5 (limit: 17973)
+[  804.483679] cloud-init[1084]:      Memory: 3.0M (peak: 3.7M)
+[  804.483878] cloud-init[1084]:         CPU: 18ms
+[  804.484139] cloud-init[1084]:      CGroup: /system.slice/attestation-agent.service
+[  804.484429] cloud-init[1084]:              └─63863 /usr/local/bin/attestation-agent --attestation_sock 127.0.0.1:50010
+[  804.484910] cloud-init[1084]: Feb 17 15:15:17 propeller-cvm systemd[1]: Starting attestation-agent.service - Attestation Agent for Confidential Containers...
+[  804.485150] cloud-init[1084]: Feb 17 15:15:17 propeller-cvm systemd[1]: Started attestation-agent.service - Attestation Agent for Confidential Containers.
+[  804.485406] cloud-init[1084]: Feb 17 15:15:17 propeller-cvm attestation-agent[63863]: [2026-02-17T15:15:17Z WARN  attestation_agent] No AA config file specified. Using a default
+[  804.485881] cloud-init[1084]: Feb 17 15:15:17 propeller-cvm attestation-agent[63863]: [2026-02-17T15:15:17Z WARN  attester::tpm::utils] No TPM device (/dev/tpm[0..2]) detected
+[  804.519686] cloud-init[1084]: ● coco-keyprovider.service - CoCo Keyprovider for Confidential Containers
+[  804.523172] cloud-init[1084]:      Loaded: loaded (/etc/systemd/system/coco-keyprovider.service; enabled; preset: enabled)
+[  804.525199] cloud-init[1084]:      Active: active (running) since Tue 2026-02-17 15:15:20 UTC; 4s ago
+[  804.526863] cloud-init[1084]:        Docs: https://github.com/confidential-containers/guest-components
+[  804.528624] cloud-init[1084]:    Main PID: 63870 (coco_keyprovide)
+[  804.529827] cloud-init[1084]:       Tasks: 5 (limit: 17973)
+ci-info: no authorized SSH keys fingerprints found for user propeller.
+[  804.530830] cloud-init[1084]:      Memory: 3.0M (peak: 3.8M)
+[  804.533006] cloud-init[1084]:         CPU: 10ms
+[  804.533904] cloud-init[1084]:      CGroup: /system.slice/coco-keyprovider.service
+[  804.535272] cloud-init[1084]:              └─63870 /usr/local/bin/coco_keyprovider --socket 127.0.0.1:50011 --kbs http://10.0.2.2:8082
+[  804.537349] cloud-init[1084]: Feb 17 15:15:20 propeller-cvm systemd[1]: Started coco-keyprovider.service - CoCo Keyprovider for Confidential Containers.
+[  804.539657] cloud-init[1084]: Feb 17 15:15:20 propeller-cvm coco_keyprovider[63870]: [2026-02-17T15:15:20Z INFO  coco_keyprovider] listening to socket addr: 127.0.0.1:50011
+[  804.542249] cloud-init[1084]: ● proplet.service - Proplet WebAssembly Workload Orchestrator
+[  804.543738] cloud-init[1084]:      Loaded: loaded (/etc/systemd/system/proplet.service; enabled; preset: enabled)
+[  804.545526] cloud-init[1084]:      Active: activating (auto-restart) (Result: exit-code) since Tue 2026-02-17 15:15:22 UTC; 2s ago
+[  804.547565] cloud-init[1084]:        Docs: https://github.com/absmach/propeller
+[  804.548876] cloud-init[1084]:     Process: 63877 ExecStart=/usr/local/bin/proplet (code=exited, status=1/FAILURE)
+[  804.550619] cloud-init[1084]:    Main PID: 63877 (code=exited, status=1/FAILURE)
+[  804.551923] cloud-init[1084]:         CPU: 8ms
+<14>Feb 17 15:15:24 cloud-init: #############################################################
+<14>Feb 17 15:15:24 cloud-init: -----BEGIN SSH HOST KEY FINGERPRINTS-----
+<14>Feb 17 15:15:24 cloud-init: 256 SHA256:SVawa30vDcQWyuLrEDsOXA6xDysfl+6pFe0JfTxG16M root@propeller-cvm (ECDSA)
+<14>Feb 17 15:15:24 cloud-init: 256 SHA256:mPsa8lqq7PJu4FtknYY5iOOzNzH0uPeXtWF2KGnYiuQ root@propeller-cvm (ED25519)
+<14>Feb 17 15:15:24 cloud-init: 3072 SHA256:HhX0NADWpWhI1m9GqAR2gRkJ+0Yfdregu3Uzbd0IHV8 root@propeller-cvm (RSA)
+<14>Feb 17 15:15:24 cloud-init: -----END SSH HOST KEY FINGERPRINTS-----
+<14>Feb 17 15:15:24 cloud-init: #############################################################
+-----BEGIN SSH HOST KEY KEYS-----
+ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBM+vQFBzDfNeOZSQofBqzRhgjL6jU86QrWkvRMhWsKUPHOh1D0fZcrM6XY7H2F8Ep/vT2ACusJP2Ux3hwiZDzd0= root@propeller-cvm
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJrjnELXFuql69k0r2WD6cn1ziUitHQggvHS8Mww8Wj2 root@propeller-cvm
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCKSZVnGU50NIq3HVR49M9Dt0EQUlFOat5WEH9AQywdi66OheU3yTOjHhLP3hLYhFeaCH9UDQcX8PUKqpMMHaALcqgPbznLXvHlNxcqsmdfwuqRmWsiiBxzEyhSdDbqCA1kdl/j0VIqcOGAJQYm3Lat/cGpV0oZ7oI/1WED3OfgZrrHzScnn3Sw6QdjrIZXKe2gBsNfk2K0Itku0iCBjiaBxLEghn6Z66BegZZiI0Yjh1Bxr+1Vr/TfXVEa2902NM7U4UO7PGb46nzMpODcqoVgJrluBT4ZlG9gIhM0I/n+Tz3kLYEB8lvr6SVOKf4ZLozPmxt6e/xfvS5ZWxcNlcqtrBA0Vuds82ZU5Z/O+oP3NAdaYtjsIWL7z+lxyHfrLRTf2Rima7AqxprYRg9Pq8NtQlxuEYWbt074XPDWitcWd3LbRAIJJ0hTvBJ45fFWYGyEAXEsxVjTE2zpW3PoB369LhjtoIr8WiK3UGRQcC7Cw1K7V+PEpPoqfeZxzN0bHDU= root@propeller-cvm
+-----END SSH HOST KEY KEYS-----
+[  804.583963] cloud-init[1084]: ===================================================================
+[  804.585053] cloud-init[1084]: Propeller CVM Setup Complete
+[  804.585209] cloud-init[1084]: ===================================================================
+[  804.585432] cloud-init[1084]: Services started:
+[  804.585888] cloud-init[1084]:   - Attestation Agent (port 50010)
+[  804.586105] cloud-init[1084]:   - CoCo Keyprovider (port 50011)
+[  804.586347] cloud-init[1084]:   - Proplet (MQTT client)
+[  804.586566] cloud-init[1084]: Login: propeller / propeller
+[  804.587012] cloud-init[1084]: Check status:
+[  804.587279] cloud-init[1084]:   sudo systemctl status attestation-agent coco-keyprovider proplet
+[  804.587463] cloud-init[1084]: View logs:
+[  804.587884] cloud-init[1084]:   sudo journalctl -u attestation-agent -f
+[  804.588093] cloud-init[1084]:   sudo journalctl -u coco-keyprovider -f
+[  804.588330] cloud-init[1084]:   sudo journalctl -u proplet -f
+[  804.588545] cloud-init[1084]: ===================================================================
+[  OK  ] Finished cloud-final.service - Cloud-init: Final Stage.
+[  OK  ] Reached target cloud-init.target - Cloud-init target.
+```
+
+### Access the VM
+
+Press `Enter` to log in with username `propeller` and password `propeller`. SSH is also available:
 
 ```bash
 ssh -p 2222 propeller@localhost
-# password: propeller
+```
 
+The VM exposes these ports on the host:
+
+| Port    | Service                            |
+| ------- | ---------------------------------- |
+| `2222`  | SSH (forwarded from guest port 22) |
+| `50010` | Attestation Agent API              |
+| `50011` | CoCo Keyprovider                   |
+
+### Check service status
+
+```bash
 sudo systemctl status attestation-agent coco-keyprovider proplet
 ```
 
-Expected proplet logs showing TEE mode:
+```bash
+sudo journalctl -u attestation-agent -f
+sudo journalctl -u coco-keyprovider -f
+sudo journalctl -u proplet -f
+```
+
+
+
+Proplet logs on successful start:
 
 ```bash
 propeller@propeller-cvm:~$ sudo journalctl -u proplet -f
