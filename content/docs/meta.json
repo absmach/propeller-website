@@ -11,6 +11,7 @@
     "proplet.mdx",
     "embedded-proplet.mdx",
     "proxy.mdx",
+    "kubernetes-operator.mdx",
     "---Features---",
     "monitoring.mdx",
     "tee.mdx",
