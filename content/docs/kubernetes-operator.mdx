@@ -1,1051 +1,525 @@
 ---
-title: Kubernetes Operator
-description: Run WebAssembly tasks on any worker—Kubernetes pod or external device—using kubectl and standard Kubernetes resources
+title: Propeller Kubernetes Operator
+description: Architecture, configuration, and Custom Resource reference for the Propeller Kubernetes Operator.
 ---
 
-If you're already running Kubernetes, the Propeller Kubernetes Operator brings WebAssembly task execution into your existing workflow. Instead of learning a new CLI or API, you define Proplets and Tasks as Kubernetes manifests—apply them with `kubectl`, version them in Git, and manage them exactly like any other Kubernetes resource.
+The Propeller Kubernetes Operator extends any Kubernetes cluster with five Custom Resource Definitions that bring Propeller's WebAssembly task execution model into the Kubernetes control plane. You describe workers (Proplets) and workloads (Tasks, PropellerJobs, FederatedJobs) as Kubernetes manifests, and the operator reconciles them to the desired state—creating Deployments for in-cluster workers, dispatching tasks to remote devices over MQTT, and propagating results back into resource status fields.
 
 The operator source code is available at [github.com/absmach/propeller-k8s-operator](https://github.com/absmach/propeller-k8s-operator).
 
+---
+
 ## Architecture
 
-### Components
+### How the Operator Fits into Propeller
 
-The operator runs five controllers, each watching a specific Custom Resource:
+Propeller consists of a **manager** (task dispatch), **proplets** (workers that execute WASM), and **SuperMQ** (MQTT broker providing authentication and routing). In a standalone deployment these run as separate processes or Docker containers. The Propeller Kubernetes Operator replaces the manager process: it watches Kubernetes Custom Resources for desired state and drives proplets over MQTT to achieve it, while recording outcomes back into Kubernetes status fields.
 
-- **PropletReconciler** — manages worker lifecycle. For `k8s` Proplets it creates and reconciles a `Deployment`. For `external` Proplets it monitors MQTT liveness heartbeats and updates status when devices come online or go offline.
-- **TaskReconciler** — manages task lifecycle. When a Task targets a k8s-backed Proplet it creates a `Job` and `ConfigMap`; when it targets an external Proplet it publishes an MQTT `manager/start` message and waits for result messages back.
-- **FederatedJobReconciler** — sequences `TrainingRound` CRs across federated learning experiments.
-- **TrainingRoundReconciler** — creates per-participant `Task` CRs with FL environment variables and aggregates updates once k-of-n completions arrive.
-- **PropellerJobReconciler** — manages batch `PropellerJob` resources that group Tasks.
+The operator connects to a SuperMQ MQTT broker on startup using the manager's credentials. It subscribes to the wildcard topic for its configured domain and channel, and dispatches to individual proplets by publishing targeted start messages.
+
+### Controllers
+
+The operator runs five controllers concurrently. Each controller owns one Custom Resource kind and drives it through a phase-based state machine.
+
+| Controller                | Custom Resource | Responsibility                                                                                                                                        |
+|---------------------------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `PropletReconciler`       | `Proplet`       | Creates and reconciles Kubernetes Deployments for in-cluster workers; monitors external devices via MQTT heartbeats                                   |
+| `TaskReconciler`          | `Task`          | Schedules a WASM workload on the selected proplet; creates a Kubernetes Job for k8s proplets or publishes an MQTT message for external proplets       |
+| `PropellerJobReconciler`  | `PropellerJob`  | Groups a set of Tasks into a single batch; creates child Task resources and aggregates their outcomes                                                 |
+| `FederatedJobReconciler`  | `FederatedJob`  | Orchestrates a multi-round federated learning experiment by creating and advancing `TrainingRound` resources                                          |
+| `TrainingRoundReconciler` | `TrainingRound` | Creates per-participant Task resources for one training round, collects model updates via MQTT, and aggregates them once k-of-n participants complete |
 
 ### Custom Resource Definitions
 
-The operator introduces five CRDs:
+The operator installs five CRDs into the cluster:
 
-| CRD              | API Group                                          | Description                                  |
-|------------------|----------------------------------------------------|--------------------------------------------- |
-| `Task`           | `propeller.propeller.abstractmachines.fr/v1`       | A WASM workload to execute on a Proplet      |
-| `Proplet`        | `propeller.propeller.abstractmachines.fr/v1`       | A worker node (k8s pod or external device)   |
-| `PropellerJob`   | `propeller.propeller.abstractmachines.fr/v1`       | A batch of Tasks grouped for execution       |
-| `FederatedJob`   | `propeller.propeller.abstractmachines.fr/v1alpha1` | A federated learning experiment              |
-| `TrainingRound`  | `propeller.propeller.abstractmachines.fr/v1alpha1` | A single round within a FederatedJob         |
+| CRD             | API Version                                        | Description                                                  |
+|-----------------|----------------------------------------------------|--------------------------------------------------------------|
+| `Task`          | `propeller.propeller.abstractmachines.fr/v1`       | A single WASM workload to execute on a proplet               |
+| `Proplet`       | `propeller.propeller.abstractmachines.fr/v1`       | A worker node, either a Kubernetes pod or an external device |
+| `PropellerJob`  | `propeller.propeller.abstractmachines.fr/v1`       | A named batch of Tasks executed as a group                   |
+| `FederatedJob`  | `propeller.propeller.abstractmachines.fr/v1alpha1` | A federated learning experiment spanning multiple proplets   |
+| `TrainingRound` | `propeller.propeller.abstractmachines.fr/v1alpha1` | One round within a FederatedJob                              |
 
 ### MQTT Communication
 
-The operator and proplets communicate via MQTT using SuperMQ as the broker. All messages are scoped to a domain and channel using the topic structure:
+All communication between the operator and proplets uses MQTT, routed through SuperMQ. Every message is scoped to a domain and channel:
 
 ```
 m/{domain_id}/c/{channel_id}/{sub-topic}
 ```
 
-The sub-topics used are:
+The operator subscribes to the wildcard `m/{domain_id}/c/{channel_id}/#` and dispatches incoming messages to the appropriate handler by matching the topic suffix.
 
-| Sub-topic                 | Direction          | Purpose                                                          |
-|---------------------------|--------------------|-----------------------------------------------------------------|
-| `control/proplet/alive`   | proplet → operator | Heartbeat sent every 10 s; operator marks proplet online/offline |
-| `control/proplet/create`  | proplet → operator | Discovery message sent on proplet startup                        |
-| `control/proplet/results` | proplet → operator | Task result after WASM execution completes                       |
-| `control/proplet/status`  | proplet → operator | Intermediate task status updates                                 |
-| `control/manager/start`   | operator → proplet | Instructs a proplet to execute a Task                            |
-| `control/manager/stop`    | operator → proplet | Instructs a proplet to stop a running Task                       |
+| Sub-topic                 | Direction          | Purpose                                                        |
+|---------------------------|--------------------|----------------------------------------------------------------|
+| `control/proplet/alive`   | proplet → operator | Heartbeat published by every proplet every 10 seconds          |
+| `control/proplet/create`  | proplet → operator | Discovery message sent once on proplet startup                 |
+| `control/proplet/status`  | proplet → operator | Intermediate task phase updates (running, failed, interrupted) |
+| `control/proplet/results` | proplet → operator | Task result payload after WASM execution completes             |
+| `control/manager/start`   | operator → proplet | Task execution instruction including the full task spec        |
+| `control/manager/stop`    | operator → proplet | Instruction to stop a running task                             |
 
-The operator subscribes to `m/{domain_id}/c/{channel_id}/#` to receive all messages in the channel and dispatches them by topic suffix.
-
-### Task Execution Flow for External Proplets
-
-1. You apply a `Task` manifest with `kubectl apply`.
-2. The TaskReconciler picks up the new object and sets `status.phase = pending`.
-3. The reconciler resolves the target proplet from `spec.propletSelector.propletId` and determines it is `external`.
-4. The reconciler calls `startExternalTask`, which publishes an MQTT message to `control/manager/start` containing the task spec (function name, WASM file or image URL, inputs, environment).
-5. The proplet receives the message, loads the WASM module with Wasmtime, and executes the function.
-6. The proplet publishes the result to `control/proplet/results`.
-7. The PropletReconciler's MQTT handler receives the result and updates `status.results` and `status.phase = completed`.
-
-### Task Execution Flow for Kubernetes-Backed Proplets
-
-1. You apply a `Task` manifest.
-2. The TaskReconciler determines the target proplet is `k8s`.
-3. The reconciler creates a `ConfigMap` containing task environment variables (and a `wasm_file_provided` key if a WASM file is embedded).
-4. The reconciler creates a `Job` whose pod runs the image specified in `spec.imageUrl`.
-5. The reconciler watches the `Job` to completion and updates `status.phase`.
+The MQTT client ID used by the operator is `propeller-controller`. Proplets identify themselves in alive messages using their SuperMQ `client_id`. The operator matches this value against `spec.connectionConfig.clientId` in Proplet CRs to route heartbeats and results to the correct resource.
 
 ---
 
-## Prerequisites
+## Proplet
 
-You need the following tools installed before proceeding:
+A `Proplet` resource represents one worker node. The `spec.type` field selects between two fundamentally different modes of operation.
 
-- **Go 1.24 or later** — required to build and run the operator from source.
-  ```bash
-  go version
-  ```
-  ```
-  go version go1.25.7 linux/amd64
-  ```
+### Types
 
-- **Docker** — runs the SuperMQ stack and proplet containers.
-  ```bash
-  docker version --format '{{.Server.Version}}'
-  ```
-  ```
-  27.5.1
-  ```
+**`k8s`** — The operator creates and manages a Kubernetes `Deployment` in the same cluster. The pod runs the proplet image, which connects back to the same SuperMQ broker using the credentials in `spec.connectionConfig`. The operator reconciles the Deployment whenever the spec changes and reflects the Deployment's readiness in the Proplet status.
 
-- **k3d** — creates a lightweight local Kubernetes cluster.
-  ```bash
-  k3d version
-  ```
-  ```
-  k3d version v5.8.3
-  k3s version v1.31.5-k3s1 (default)
-  ```
+**`external`** — The proplet is a device or process running outside the cluster (a Raspberry Pi, an ESP32, a Docker container on another host). The operator does not create any Kubernetes resources for it. Instead, it watches the MQTT `control/proplet/alive` topic and transitions the Proplet phase to `Running` when heartbeats arrive within the configured threshold, and to `Offline` when they stop.
 
-- **kubectl** — manages Kubernetes resources.
-  ```bash
-  kubectl version --client --short
-  ```
-  ```
-  Client Version: v1.32.1
-  ```
+### Proplet Lifecycle
 
-- **make** — runs the operator build targets.
+```
+Initializing → Running → Offline
+                ↑            |
+                └────────────┘  (heartbeat resumes)
+```
 
-- **jq** — parses JSON from SuperMQ API responses during provisioning.
+- **Initializing** — default phase on creation; no heartbeats received yet, or k8s Deployment not yet ready.
+- **Running** — heartbeat received within `--last-seen-threshold` (default 30 s) for external proplets, or all Deployment replicas ready for k8s proplets.
+- **Offline** — heartbeat not received within threshold (external only).
 
-- **mosquitto-clients** — used to verify MQTT connectivity (`mosquitto_pub`, `mosquitto_sub`).
+### Proplet Conditions
 
-You also need:
+| Condition   | Meaning                                                        |
+|-------------|----------------------------------------------------------------|
+| `Ready`     | Proplet can accept tasks                                       |
+| `Connected` | MQTT heartbeat is current (external) or pod is available (k8s) |
+| `Healthy`   | Proplet is processing tasks without errors                     |
 
-- The **Propeller repository** cloned locally with binaries already built. This guide assumes it is at `~/Documents/propeller`. If you have not built it yet, follow the [Getting Started guide](/docs/getting-started) first.
-- The **Propeller k8s operator repository** cloned locally. This guide assumes it is at `~/Documents/propeller-k8s-operator`.
-  ```bash
-  git clone https://github.com/absmach/propeller-k8s-operator.git ~/Documents/propeller-k8s-operator
-  ```
+### Proplet Spec Reference
+
+| Field                          | Type                                   | Required  | Default | Description                                                                                   |
+|--------------------------------|----------------------------------------|-----------|---------|-----------------------------------------------------------------------------------------------|
+| `type`                         | `k8s` \| `external`                    | Yes       | —       | Worker type                                                                                   |
+| `k8s.image`                    | string                                 | Yes (k8s) | —       | Container image for the proplet pod                                                           |
+| `k8s.logLevel`                 | `debug` \| `info` \| `warn` \| `error` | No        | `info`  | Log verbosity                                                                                 |
+| `k8s.replicas`                 | int32                                  | No        | `1`     | Number of pod replicas (0–100)                                                                |
+| `external.deviceType`          | string                                 | No        | —       | Device category label used for task matching (e.g. `raspberry-pi-4`)                          |
+| `external.capabilities`        | []string                               | No        | —       | Capability strings the device advertises (e.g. `wasm`, `gpu`)                                 |
+| `resources`                    | ResourceList                           | No        | —       | Kubernetes CPU and memory requests/limits                                                     |
+| `connectionConfig.mqttAddress` | string                                 | Yes       | —       | MQTT broker URL (e.g. `tcp://mqtt:1883`)                                                      |
+| `connectionConfig.domainId`    | string                                 | Yes       | —       | SuperMQ domain ID                                                                             |
+| `connectionConfig.channelId`   | string                                 | Yes       | —       | SuperMQ channel ID                                                                            |
+| `connectionConfig.clientId`    | string                                 | Yes       | —       | SuperMQ client credential ID; must match `proplet_id` in alive messages for external proplets |
+| `connectionConfig.clientKey`   | string                                 | Yes       | —       | SuperMQ client secret                                                                         |
+| `connectionConfig.mqttQos`     | uint8                                  | No        | `0`     | MQTT QoS level (0–2)                                                                          |
+| `connectionConfig.mqttTimeout` | duration                               | No        | `30s`   | Broker operation timeout                                                                      |
+
+### Proplet Status Reference
+
+| Field                         | Description                                                                |
+|-------------------------------|----------------------------------------------------------------------------|
+| `phase`                       | `Initializing`, `Running`, or `Offline`                                    |
+| `conditions[Ready]`           | `True` when the proplet is ready to accept tasks                           |
+| `conditions[Connected]`       | `True` when MQTT heartbeat is current (external) or pod is available (k8s) |
+| `conditions[Healthy]`         | `True` when the proplet is operating without errors                        |
+| `lastSeen`                    | Timestamp of the most recent alive heartbeat                               |
+| `aliveHistory`                | Recent heartbeat timestamps                                                |
+| `taskCount`                   | Total tasks executed since registration                                    |
+| `availableResources`          | CPU and memory reported as available                                       |
+| `k8sStatus.readyReplicas`     | Ready pod replicas (k8s type only)                                         |
+| `k8sStatus.availableReplicas` | Available pod replicas (k8s type only)                                     |
 
 ---
 
-## Step 1 — Create a Kubernetes Cluster
+## Task
 
-Create a local single-node cluster with k3d:
+A `Task` resource defines a single WASM workload. The `TaskReconciler` drives it through a phase machine, selecting a proplet, dispatching execution, and capturing the result.
 
-```bash
-k3d cluster create k3s-default --wait
-```
-
-Your output should look like this:
+### Task Lifecycle
 
 ```
-INFO[0000] Created image volume k3d-k3s-default-images
-INFO[0000] Starting new tools node...
-INFO[0001] Creating node 'k3d-k3s-default-server-0'
-INFO[0004] Pulling image 'docker.io/rancher/k3s:v1.31.5-k3s1'
-INFO[0005] Pulling image 'ghcr.io/k3d-io/k3d-tools:5.8.3'
-INFO[0081] Starting node 'k3d-k3s-default-tools'
-INFO[0082] Creating LoadBalancer 'k3d-k3s-default-serverlb'
-INFO[0086] Pulling image 'ghcr.io/k3d-io/k3d-proxy:5.8.3'
-INFO[0115] Using the k3d-tools node to gather environment information
-INFO[0116] HostIP: using network gateway 172.18.0.1 address
-INFO[0116] Starting cluster 'k3s-default'
-INFO[0116] Starting servers...
-INFO[0116] Starting node 'k3d-k3s-default-server-0'
-INFO[0127] All agents already running.
-INFO[0127] Starting helpers...
-INFO[0127] Starting node 'k3d-k3s-default-serverlb'
-INFO[0134] Injecting records for hostAliases (incl. host.k3d.internal) and for 2 network members into CoreDNS configmap...
-INFO[0136] Cluster 'k3s-default' created successfully!
-INFO[0136] You can now use it like this:
-kubectl cluster-info
+pending → scheduled → running → completed
+                 ↘            ↘ failed
+                  failed       interrupted
 ```
 
-Verify the cluster is reachable:
+Valid state transitions are enforced by the operator. An external proplet reports status changes via `control/proplet/status` MQTT messages; the operator validates each proposed transition before applying it.
 
-```bash
-kubectl cluster-info
-```
+| From          | Allowed next states                        |
+|---------------|--------------------------------------------|
+| `pending`     | `scheduled`, `failed`, `skipped`           |
+| `scheduled`   | `running`, `failed`, `skipped`             |
+| `running`     | `completed`, `failed`, `interrupted`       |
+| `completed`   | `pending` (for restart or recurring tasks) |
+| `failed`      | `pending` (for retry)                      |
+| `interrupted` | `pending` (for resume)                     |
+| `skipped`     | — (terminal)                               |
 
-```
-Kubernetes control plane is running at https://0.0.0.0:34963
-CoreDNS is running at https://0.0.0.0:34963/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
-Metrics-server is running at https://0.0.0.0:34963/api/v1/namespaces/kube-system/services/https:metrics-server:https/proxy
-```
+### Execution Paths
 
-> The port (`34963` above) is assigned randomly by k3d and will differ on your machine.
+**External proplet path:**
+1. `TaskReconciler` picks up the new Task and resolves the target proplet by `spec.propletSelector.propletId`.
+2. The reconciler looks up the Proplet CR and confirms its type is `external`.
+3. It publishes an MQTT message to `control/manager/start` containing the full task spec: function name, WASM file or image URL, inputs, environment variables, scheduling parameters, monitoring profile, and the assigned proplet ID.
+4. The proplet receives the message, loads the WASM module with its runtime (e.g. Wasmtime), and executes the named function.
+5. The proplet publishes the result to `control/proplet/results`.
+6. The `PropletReconciler`'s MQTT result handler receives the message, stores the output in `status.results`, and sets `status.phase = completed`.
 
-Verify the node is Ready:
+**k8s proplet path:**
+1. `TaskReconciler` resolves the proplet and confirms its type is `k8s`.
+2. It creates a `ConfigMap` containing task environment variables (function name, inputs, monitoring settings, etc.) and an optional `wasm_file_provided` key if a WASM file is embedded.
+3. It creates a Kubernetes `Job` whose pod runs the image specified in `spec.imageUrl`.
+4. The reconciler watches the Job every 5 seconds. On Job completion it attempts multi-method result extraction: Job annotations, container terminated message, a result ConfigMap (`{jobName}-result`), a result Secret (`{jobName}-result`), or Pod annotations—whichever is populated first.
+5. On success it sets `status.phase = completed` and stores the extracted result in `status.results`.
 
-```bash
-kubectl get nodes
-```
+### Proplet Selection
 
-```
-NAME                       STATUS   ROLES                  AGE   VERSION
-k3d-k3s-default-server-0   Ready    control-plane,master   13s   v1.31.5+k3s1
-```
+The `spec.propletSelector` field controls which proplet receives the task. The scheduler evaluates candidates in two passes:
+
+1. **Candidate filter** — retains only proplets in `Running` phase that satisfy all selector criteria:
+   - `propletId`: exact name match
+   - `matchLabels`: all specified labels must be present on the Proplet CR
+   - `matchDeviceTypes`: Proplet's `external.deviceType` must be in the list
+   - `matchCapabilities`: all listed capabilities must appear in the Proplet's `external.capabilities`
+   - `preferredPropletType`: filters by `k8s` or `external` if set; `any` accepts both
+
+2. **Scoring and selection** — the default scheduler is round-robin: the proplet after the last-selected one scores 0.1; all others score 1.0. The proplet with the lowest score is selected.
+
+If no proplet satisfies the filter, the task remains in `pending` and is requeued.
+
+### Task Spec Reference
+
+| Field                               | Type                         | Required | Default    | Description                                                               |
+|-------------------------------------|------------------------------|----------|------------|---------------------------------------------------------------------------|
+| `name`                              | string                       | Yes      | —          | Task name (max 253 chars)                                                 |
+| `functionName`                      | string                       | Yes      | —          | Exported WASM function to invoke                                          |
+| `kind`                              | `standard` \| `federated`    | No       | `standard` | Task kind                                                                 |
+| `file`                              | string                       | No       | —          | Base64-encoded WASM binary                                                |
+| `imageUrl`                          | string                       | No       | —          | OCI image reference containing the WASM module; required for k8s proplets |
+| `cliArgs`                           | []string                     | No       | —          | Command-line arguments passed to the WASM runtime                         |
+| `inputs`                            | []uint64                     | No       | —          | Numeric inputs passed to the function                                     |
+| `env`                               | map[string]string            | No       | —          | Environment variables available in the module                             |
+| `propletSelector.propletId`         | string                       | No       | —          | Target a specific Proplet by its Kubernetes resource name                 |
+| `propletSelector.matchLabels`       | map[string]string            | No       | —          | Target Proplets matching all labels                                       |
+| `propletSelector.matchDeviceTypes`  | []string                     | No       | —          | Target Proplets with a matching device type                               |
+| `propletSelector.matchCapabilities` | []string                     | No       | —          | Target Proplets advertising all listed capabilities                       |
+| `preferredPropletType`              | `k8s` \| `external` \| `any` | No       | `any`      | Constrain proplet type                                                    |
+| `resourceRequirements.cpu`          | string                       | No       | —          | Minimum CPU the proplet must have available                               |
+| `resourceRequirements.memory`       | string                       | No       | —          | Minimum memory the proplet must have available                            |
+| `daemon`                            | bool                         | No       | `false`    | Run indefinitely; sets Kubernetes RestartPolicy to Always                 |
+| `restartPolicy`                     | Kubernetes RestartPolicy     | No       | —          | Override pod restart policy for k8s tasks                                 |
+| `encrypted`                         | bool                         | No       | `false`    | Signal that the WASM binary is encrypted                                  |
+| `kbsResourcePath`                   | string                       | No       | —          | Key Broker Service path for decrypting the module                         |
+| `dependsOn`                         | []string                     | No       | —          | Task IDs that must complete before this task is scheduled                 |
+| `runIf`                             | `success` \| `failure`       | No       | —          | Conditional execution within a workflow                                   |
+| `workflowId`                        | string                       | No       | —          | Groups tasks into a workflow                                              |
+| `jobId`                             | string                       | No       | —          | Associates this task with a PropellerJob                                  |
+| `schedule`                          | string                       | No       | —          | Cron expression for recurring execution                                   |
+| `isRecurring`                       | bool                         | No       | `false`    | Enable recurring execution via `schedule`                                 |
+| `timezone`                          | string                       | No       | `UTC`      | Timezone for cron evaluation                                              |
+| `priority`                          | int                          | No       | `50`       | Scheduling priority (0–100; higher = more urgent)                         |
+| `monitoringProfile.enabled`         | bool                         | No       | `false`    | Enable metrics collection during execution                                |
+| `monitoringProfile.intervalMs`      | int                          | No       | —          | Collection interval in milliseconds                                       |
+| `monitoringProfile.collectCpu`      | bool                         | No       | —          | Collect CPU usage                                                         |
+| `monitoringProfile.collectMemory`   | bool                         | No       | —          | Collect memory usage                                                      |
+| `monitoringProfile.collectDiskIo`   | bool                         | No       | —          | Collect disk I/O                                                          |
+| `monitoringProfile.collectThreads`  | bool                         | No       | —          | Collect thread count                                                      |
+| `monitoringProfile.collectFds`      | bool                         | No       | —          | Collect file descriptor count                                             |
+| `monitoringProfile.exportToMqtt`    | bool                         | No       | —          | Stream metrics to MQTT                                                    |
+| `monitoringProfile.retainHistory`   | bool                         | No       | —          | Retain metrics history after task completes                               |
+
+### Task Status Reference
+
+| Field                   | Description                                                                           |
+|-------------------------|---------------------------------------------------------------------------------------|
+| `phase`                 | `pending`, `scheduled`, `running`, `completed`, `failed`, `skipped`, or `interrupted` |
+| `assignedProplet`       | Name of the Proplet executing this task                                               |
+| `createdAt`             | When the Task was first processed                                                     |
+| `startedAt`             | When execution began                                                                  |
+| `finishedAt`            | When execution ended                                                                  |
+| `updatedAt`             | Last status update timestamp                                                          |
+| `nextRun`               | Next scheduled execution time (recurring tasks)                                       |
+| `results`               | Return value from the WASM function                                                   |
+| `error`                 | Error message when `phase` is `failed`                                                |
+| `conditions[Scheduled]` | `True` when a proplet has been assigned                                               |
+| `conditions[Started]`   | `True` when execution began                                                           |
+| `conditions[Completed]` | `True` when execution finished successfully                                           |
 
 ---
 
-## Step 2 — Install Custom Resource Definitions
+## PropellerJob
 
-Move into the operator directory and install the CRDs into the cluster:
+A `PropellerJob` groups multiple Tasks into a single managed batch. The `PropellerJobReconciler` creates a child `Task` CR for each entry in `spec.tasks`, sets the `jobId` field on each to the PropellerJob's UID, and then monitors those tasks to completion.
+
+### PropellerJob Lifecycle
+
+```
+Pending → Running → Completed
+                  ↘ Failed
+```
+
+### PropellerJob Spec Reference
+
+| Field           | Type                                         | Required | Default        | Description                                 |
+|-----------------|----------------------------------------------|----------|----------------|---------------------------------------------|
+| `name`          | string                                       | Yes      | —              | Job name                                    |
+| `executionMode` | `parallel` \| `sequential` \| `configurable` | No       | `configurable` | How tasks within the job are executed       |
+| `tasks`         | []TaskSpec                                   | No       | —              | Inline task definitions to create           |
+| `taskRefs`      | []string                                     | No       | —              | Names of existing Task resources to include |
+
+### PropellerJob Status Reference
+
+| Field            | Description                                    |
+|------------------|------------------------------------------------|
+| `phase`          | `Pending`, `Running`, `Completed`, or `Failed` |
+| `startTime`      | When the job began                             |
+| `finishTime`     | When the job completed                         |
+| `taskCount`      | Total number of tasks                          |
+| `completedCount` | Tasks in `completed` phase                     |
+| `failedCount`    | Tasks in `failed` phase                        |
+| `skippedCount`   | Tasks in `skipped` phase                       |
+| `conditions`     | Kubernetes condition array for detailed state  |
+
+---
+
+## FederatedJob
+
+A `FederatedJob` coordinates a multi-round federated learning experiment across a set of proplets. The `FederatedJobReconciler` creates `TrainingRound` CRs sequentially, one per round, advancing to the next round only when the current one completes aggregation.
+
+### FederatedJob Lifecycle
+
+```
+Pending → Running → Completed
+                  ↘ Failed
+```
+
+### FederatedJob Spec Reference
+
+| Field                  | Type              | Required | Description                                                       |
+|------------------------|-------------------|----------|-------------------------------------------------------------------|
+| `experimentId`         | string            | No       | Identifier for this federated learning experiment                 |
+| `modelRef`             | string            | No       | Reference to the initial global model                             |
+| `taskWasmImage`        | string            | Yes      | OCI image containing the WASM training task                       |
+| `participants`         | []ParticipantSpec | Yes      | List of proplet IDs that participate in each round                |
+| `hyperparams`          | object            | No       | Arbitrary hyperparameter values passed to each participant        |
+| `kOfN`                 | int               | Yes      | Minimum number of participant updates required before aggregation |
+| `timeoutSeconds`       | int               | No       | Maximum seconds per round before failing                          |
+| `rounds.total`         | int               | Yes      | Total number of training rounds                                   |
+| `rounds.strategy`      | string            | No       | Round execution strategy                                          |
+| `aggregator.algorithm` | string            | No       | Aggregation algorithm (`fedavg`, `concat`)                        |
+| `aggregator.config`    | object            | No       | Algorithm-specific configuration                                  |
+
+### FederatedJob Status Reference
+
+| Field                | Description                                      |
+|----------------------|--------------------------------------------------|
+| `phase`              | `Pending`, `Running`, `Completed`, or `Failed`   |
+| `currentRound`       | Index of the round currently executing           |
+| `completedRounds`    | Number of rounds that have completed aggregation |
+| `aggregatedModelRef` | Reference to the final aggregated model          |
+| `participants`       | Per-participant status across all rounds         |
+| `conditions`         | Kubernetes condition array                       |
+
+---
+
+## TrainingRound
+
+A `TrainingRound` represents a single round within a `FederatedJob`. The `TrainingRoundReconciler` creates one `Task` per participant, collects their model updates via MQTT result messages, and aggregates them once the k-of-n threshold is reached.
+
+### TrainingRound Lifecycle
+
+```
+Pending → Running → Aggregating → Completed
+                               ↘ Failed (timeout or aggregation error)
+```
+
+### TrainingRound Spec Reference
+
+| Field             | Type                 | Description                                        |
+|-------------------|----------------------|----------------------------------------------------|
+| `roundId`         | string               | Round identifier                                   |
+| `federatedJobRef` | LocalObjectReference | Parent FederatedJob                                |
+| `modelRef`        | string               | Global model reference for this round              |
+| `taskWasmImage`   | string               | OCI image containing the participant training task |
+| `participants`    | []string             | Proplet IDs to include in this round               |
+| `hyperparams`     | object               | Hyperparameter values forwarded to tasks           |
+| `kOfN`            | int                  | Minimum updates needed before aggregation          |
+| `timeoutSeconds`  | int                  | Round timeout in seconds                           |
+
+### TrainingRound Status Reference
+
+| Field                  | Description                                                         |
+|------------------------|---------------------------------------------------------------------|
+| `phase`                | `Pending`, `Running`, `Aggregating`, `Completed`, or `Failed`       |
+| `startTime`, `endTime` | Round timing                                                        |
+| `updatesReceived`      | Number of participant updates collected so far                      |
+| `updatesRequired`      | The k-of-n threshold                                                |
+| `participants`         | Per-participant status (propletId, taskRef, status, updateReceived) |
+| `aggregatedModelRef`   | Reference to the round's aggregated result                          |
+| `conditions`           | Kubernetes condition array                                          |
+
+---
+
+## Scheduler
+
+The scheduler runs inside the `TaskReconciler` to select a proplet for each task. It implements a three-phase algorithm:
+
+1. **Filter** (`SelectCandidateProplets`) — retains only proplets that are in `Running` phase and satisfy all criteria in `spec.propletSelector`.
+2. **Score** (`Score`) — assigns a numeric score to each candidate (lower = preferred).
+3. **Pick** (`Pick`) — selects the candidate with the lowest score; ties are broken deterministically.
+
+The default implementation is **round-robin**: the proplet immediately after the last-selected one receives a score of 0.1; all others receive 1.0. This distributes tasks evenly across available proplets over time.
+
+Errors returned by the scheduler:
+
+| Error                      | Meaning                                          |
+|----------------------------|--------------------------------------------------|
+| `ErrNoProplet`             | No proplets exist in the namespace               |
+| `ErrDeadProplets`          | All proplets are Offline or Initializing         |
+| `ErrNoCandidates`          | No proplets satisfy the task's selector criteria |
+| `ErrInsufficientResources` | No proplet has sufficient CPU or memory          |
+
+---
+
+## Configuration
+
+The operator is configured entirely through command-line flags. There is no configuration file.
+
+### MQTT Flags
+
+| Flag             | Default | Description                                           |
+|------------------|---------|-------------------------------------------------------|
+| `--mqtt-address` | —       | MQTT broker URL (required, e.g. `tcp://mqtt:1883`)    |
+| `--domain-id`    | —       | SuperMQ domain ID (required)                          |
+| `--channel-id`   | —       | SuperMQ channel ID (required)                         |
+| `--client-id`    | —       | Manager client ID for MQTT authentication (required)  |
+| `--client-key`   | —       | Manager client key for MQTT authentication (required) |
+| `--mqtt-qos`     | `0`     | MQTT QoS level (0–2)                                  |
+| `--mqtt-timeout` | `30s`   | Broker operation timeout                              |
+
+### Proplet Monitoring Flags
+
+| Flag                    | Default | Description                                                   |
+|-------------------------|---------|---------------------------------------------------------------|
+| `--liveliness-interval` | `10s`   | How often to check proplet heartbeat timestamps               |
+| `--last-seen-threshold` | `30s`   | How long without a heartbeat before marking a proplet Offline |
+
+### Kubernetes Manager Flags
+
+| Flag                          | Default   | Description                                              |
+|-------------------------------|-----------|----------------------------------------------------------|
+| `--health-probe-bind-address` | `:8081`   | Address for `/healthz` and `/readyz` endpoints           |
+| `--metrics-bind-address`      | `0`       | Address for Prometheus metrics (`0` disables)            |
+| `--metrics-secure`            | `true`    | Serve metrics over HTTPS                                 |
+| `--metrics-cert-path`         | —         | Directory containing the metrics TLS certificate         |
+| `--metrics-cert-name`         | `tls.crt` | Metrics certificate filename                             |
+| `--metrics-cert-key`          | `tls.key` | Metrics key filename                                     |
+| `--leader-elect`              | `false`   | Enable leader election for high-availability deployments |
+| `--enable-http2`              | `false`   | Enable HTTP/2 (disabled by default for security)         |
+| `--webhook-cert-path`         | —         | Directory containing the webhook TLS certificate         |
+| `--webhook-cert-name`         | `tls.crt` | Webhook certificate filename                             |
+| `--webhook-cert-key`          | `tls.key` | Webhook key filename                                     |
+
+---
+
+## Deployment
+
+### Installing CRDs
 
 ```bash
-cd ~/Documents/propeller-k8s-operator
+cd propeller-k8s-operator
 make install
 ```
 
-Your output should look like this:
+This runs `controller-gen` to generate CRD manifests from the Go types, then applies them with `kubectl` via Kustomize.
 
-```
-/home/jeff/Documents/propeller-k8s-operator/bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-Downloading sigs.k8s.io/kustomize/kustomize/v5@v5.6.0
-go: downloading sigs.k8s.io/kustomize/kustomize/v5 v5.6.0
-...
-/home/jeff/Documents/propeller-k8s-operator/bin/kustomize build config/crd | kubectl apply -f -
-customresourcedefinition.apiextensions.k8s.io/federatedjobs.propeller.propeller.abstractmachines.fr created
-customresourcedefinition.apiextensions.k8s.io/propellerjobs.propeller.propeller.abstractmachines.fr created
-customresourcedefinition.apiextensions.k8s.io/proplets.propeller.propeller.abstractmachines.fr created
-customresourcedefinition.apiextensions.k8s.io/tasks.propeller.propeller.abstractmachines.fr created
-customresourcedefinition.apiextensions.k8s.io/trainingrounds.propeller.propeller.abstractmachines.fr created
-```
-
-All five CRDs are now registered with the Kubernetes API server.
-
----
-
-## Step 3 — Create Namespaces
-
-Create namespaces for the operator and for workload resources (Proplets and Tasks):
+### Deploying the Controller
 
 ```bash
-kubectl create namespace propeller-system
-kubectl create namespace propeller-workloads
+make deploy IMG=<your-registry>/propeller-k8s-operator:<tag>
 ```
 
-```
-namespace/propeller-system created
-namespace/propeller-workloads created
-```
+This renders the full deployment manifest (controller Deployment, ClusterRole, ClusterRoleBinding, ServiceAccount) via Kustomize and applies it.
 
----
-
-## Step 4 — Start the Propeller Stack (SuperMQ + Proplet)
-
-The operator communicates with proplets over MQTT via SuperMQ. Start the full Propeller Docker stack from the propeller repository:
+### Running Locally
 
 ```bash
-cd ~/Documents/propeller
-make start-supermq
-```
-
-Your output should look like this:
-
-```
- Container supermq-groups Started
- Container supermq-users Started
- Container supermq-clients Starting
- Container supermq-channels Starting
- Container supermq-channels Started
- Container supermq-clients Started
- Container supermq-mqtt Starting
- Container supermq-coap Starting
- Container supermq-http Starting
- Container supermq-mqtt Started
- Container propeller-manager Starting
- Container propeller-proxy Starting
- Container propeller-proplet Starting
- Container supermq-coap Started
- Container supermq-http Started
- Container supermq-nginx Starting
- Container propeller-proplet Started
- Container propeller-proxy Started
- Container propeller-manager Started
- Container supermq-nginx Started
-```
-
-Confirm the containers are running:
-
-```bash
-docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "supermq|propeller"
-```
-
-```
-supermq-nginx              Up 14 seconds
-propeller-proplet          Up 15 seconds (healthy)
-propeller-proxy            Up 15 seconds
-propeller-manager          Up 15 seconds
-supermq-http               Up 10 seconds
-supermq-mqtt               Up 19 seconds
-supermq-coap               Up 19 seconds
-supermq-clients            Up 15 seconds
-supermq-channels           Up 15 seconds
-supermq-groups             Up 13 seconds
-supermq-users              Up 7 seconds
-supermq-auth               Up 18 seconds
-supermq-domains            Up 16 seconds
-supermq-spicedb            Up 23 seconds
-supermq-notifications      Up 35 seconds
-supermq-auth-redis         Up 37 seconds
-supermq-domains-redis      Up 37 seconds
-supermq-rabbitmq           Up 37 seconds
-supermq-domains-db         Up 37 seconds
-supermq-spicedb-db         Up 37 seconds
-supermq-nats               Up 37 seconds
-supermq-channels-db        Up 37 seconds
-supermq-users-db           Up 37 seconds
-supermq-channels-redis     Up 37 seconds
-supermq-groups-db          Up 37 seconds
-supermq-auth-db            Up 37 seconds
-supermq-clients-redis      Up 37 seconds
-supermq-jaeger             Up 37 seconds
-supermq-clients-db         Up 37 seconds
-```
-
-> The propeller-manager, propeller-proplet, and propeller-proxy containers start but will fail to connect until you provision credentials. That is expected at this stage.
-
----
-
-## Step 5 — Provision SuperMQ Credentials
-
-The operator and proplet need SuperMQ credentials—a domain, channel, and two client IDs with keys—to authenticate on MQTT. You provision these through the SuperMQ HTTP API exposed on port 80 by nginx.
-
-The default admin credentials are set in `docker/.env`:
-
-```
-SMQ_USERS_ADMIN_EMAIL=admin@example.com
-SMQ_USERS_ADMIN_PASSWORD=12345678
-```
-
-### 5.1 — Get an admin access token
-
-```bash
-TOKEN=$(curl -s -X POST http://localhost/users/tokens/issue \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"12345678"}' | jq -r '.access_token')
-echo "Token: ${TOKEN:0:30}..."
-```
-
-```
-Token: eyJhbGciOiJFZERTQSIsImtpZCI6Im...
-```
-
-### 5.2 — Create a domain
-
-```bash
-DOMAIN=$(curl -s -X POST http://localhost/domains \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"propeller-test","route":"propeller-test","permission":"admin"}')
-echo $DOMAIN | jq .
-```
-
-```json
-{
-  "id": "3053156a-1994-4776-9e18-8c5d8883647c",
-  "name": "propeller-test",
-  "route": "propeller-test",
-  "status": "enabled",
-  "created_by": "70ae1ade-ed7a-4c6d-a508-4715efe9215d",
-  "created_at": "2026-03-04T11:14:51.559482Z"
-}
-```
-
-Store the domain ID:
-
-```bash
-DOMAIN_ID=$(echo $DOMAIN | jq -r '.id')
-echo "Domain ID: $DOMAIN_ID"
-```
-
-```
-Domain ID: 3053156a-1994-4776-9e18-8c5d8883647c
-```
-
-### 5.3 — Get a domain-scoped token
-
-Subsequent API calls require a token scoped to the domain:
-
-```bash
-DOMAIN_TOKEN=$(curl -s -X POST http://localhost/users/tokens/issue \
-  -H "Content-Type: application/json" \
-  -d "{\"username\":\"admin\",\"password\":\"12345678\",\"domain_id\":\"$DOMAIN_ID\"}" \
-  | jq -r '.access_token')
-echo "Domain token: ${DOMAIN_TOKEN:0:30}..."
-```
-
-```
-Domain token: eyJhbGciOiJFZERTQSIsImtpZCI6Im...
-```
-
-### 5.4 — Create the manager client
-
-```bash
-MGR=$(curl -s -X POST "http://localhost/${DOMAIN_ID}/clients" \
-  -H "Authorization: Bearer $DOMAIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"propeller-manager","tags":["manager","propeller"],"status":"enabled"}')
-echo $MGR | jq .
-```
-
-```json
-{
-  "id": "0a96e62c-da03-45eb-9699-b7d8dfa843c9",
-  "name": "propeller-manager",
-  "tags": ["manager", "propeller"],
-  "domain_id": "3053156a-1994-4776-9e18-8c5d8883647c",
-  "credentials": {
-    "secret": "8bd64edf-6cec-4cd8-aebd-a8e9695c8d90"
-  },
-  "created_at": "2026-03-04T11:15:14.641587Z",
-  "updated_at": "0001-01-01T00:00:00Z",
-  "status": "enabled"
-}
-```
-
-Store the manager credentials:
-
-```bash
-MGR_ID=$(echo $MGR | jq -r '.id')
-MGR_KEY=$(echo $MGR | jq -r '.credentials.secret')
-echo "Manager  id=$MGR_ID  key=$MGR_KEY"
-```
-
-```
-Manager  id=0a96e62c-da03-45eb-9699-b7d8dfa843c9  key=8bd64edf-6cec-4cd8-aebd-a8e9695c8d90
-```
-
-### 5.5 — Create the proplet client
-
-```bash
-PROP=$(curl -s -X POST "http://localhost/${DOMAIN_ID}/clients" \
-  -H "Authorization: Bearer $DOMAIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"propeller-proplet","tags":["proplet","propeller"],"status":"enabled"}')
-echo $PROP | jq .
-```
-
-```json
-{
-  "id": "b64502f0-25bc-4926-8fbc-ad508f75d96c",
-  "name": "propeller-proplet",
-  "tags": ["proplet", "propeller"],
-  "domain_id": "3053156a-1994-4776-9e18-8c5d8883647c",
-  "credentials": {
-    "secret": "3c905d3c-845b-4b9e-8c51-7ab9a2403163"
-  },
-  "created_at": "2026-03-04T11:15:23.899359Z",
-  "updated_at": "0001-01-01T00:00:00Z",
-  "status": "enabled"
-}
-```
-
-Store the proplet credentials:
-
-```bash
-PROP_ID=$(echo $PROP | jq -r '.id')
-PROP_KEY=$(echo $PROP | jq -r '.credentials.secret')
-echo "Proplet  id=$PROP_ID  key=$PROP_KEY"
-```
-
-```
-Proplet  id=b64502f0-25bc-4926-8fbc-ad508f75d96c  key=3c905d3c-845b-4b9e-8c51-7ab9a2403163
-```
-
-### 5.6 — Create a channel
-
-```bash
-CHAN=$(curl -s -X POST "http://localhost/${DOMAIN_ID}/channels" \
-  -H "Authorization: Bearer $DOMAIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"propeller-channel","status":"enabled"}')
-echo $CHAN | jq .
-```
-
-```json
-{
-  "id": "c19ded40-eeec-448e-86e9-42f490c766a4",
-  "name": "propeller-channel",
-  "domain_id": "3053156a-1994-4776-9e18-8c5d8883647c",
-  "created_at": "2026-03-04T11:15:24.176472Z",
-  "updated_at": "0001-01-01T00:00:00Z",
-  "status": "enabled"
-}
-```
-
-Store the channel ID:
-
-```bash
-CHAN_ID=$(echo $CHAN | jq -r '.id')
-echo "Channel  id=$CHAN_ID"
-```
-
-```
-Channel  id=c19ded40-eeec-448e-86e9-42f490c766a4
-```
-
-### 5.7 — Connect both clients to the channel
-
-```bash
-curl -s -X POST "http://localhost/${DOMAIN_ID}/channels/${CHAN_ID}/connect" \
-  -H "Authorization: Bearer $DOMAIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"client_ids\":[\"$MGR_ID\",\"$PROP_ID\"],\"types\":[\"publish\",\"subscribe\"]}"
-```
-
-```json
-{"message":"entity already exists"}
-```
-
-> A `400` response with `"entity already exists"` confirms the connection was established. SuperMQ returns this on duplicate connect attempts, which is harmless.
-
-### 5.8 — Write config.toml
-
-Write the credentials to `config.toml` in the propeller repository:
-
-```bash
-cat > ~/Documents/propeller/config.toml << EOF
-# SuperMQ Configuration
-
-[manager]
-domain_id = "$DOMAIN_ID"
-client_id = "$MGR_ID"
-client_key = "$MGR_KEY"
-channel_id = "$CHAN_ID"
-
-[proplet]
-domain_id = "$DOMAIN_ID"
-client_id = "$PROP_ID"
-client_key = "$PROP_KEY"
-channel_id = "$CHAN_ID"
-
-[proxy]
-domain_id = "$DOMAIN_ID"
-client_id = "$PROP_ID"
-client_key = "$PROP_KEY"
-channel_id = "$CHAN_ID"
-EOF
-cat ~/Documents/propeller/config.toml
-```
-
-```toml
-# SuperMQ Configuration
-
-[manager]
-domain_id = "3053156a-1994-4776-9e18-8c5d8883647c"
-client_id = "0a96e62c-da03-45eb-9699-b7d8dfa843c9"
-client_key = "8bd64edf-6cec-4cd8-aebd-a8e9695c8d90"
-channel_id = "c19ded40-eeec-448e-86e9-42f490c766a4"
-
-[proplet]
-domain_id = "3053156a-1994-4776-9e18-8c5d8883647c"
-client_id = "b64502f0-25bc-4926-8fbc-ad508f75d96c"
-client_key = "3c905d3c-845b-4b9e-8c51-7ab9a2403163"
-channel_id = "c19ded40-eeec-448e-86e9-42f490c766a4"
-
-[proxy]
-domain_id = "3053156a-1994-4776-9e18-8c5d8883647c"
-client_id = "b64502f0-25bc-4926-8fbc-ad508f75d96c"
-client_key = "3c905d3c-845b-4b9e-8c51-7ab9a2403163"
-channel_id = "c19ded40-eeec-448e-86e9-42f490c766a4"
-```
-
-Also copy it to the docker directory (where the compose file mounts it):
-
-```bash
-cp ~/Documents/propeller/config.toml ~/Documents/propeller/docker/config.toml
-```
-
----
-
-## Step 6 — Update docker/.env and Restart Propeller Containers
-
-The Docker containers read credentials from environment variables in `docker/.env`. Update those values to match the new credentials you just provisioned.
-
-Open `~/Documents/propeller/docker/.env` and update the following six lines. Find each one by searching for the variable name and replace the old UUID with your new one:
-
-```
-MANAGER_DOMAIN_ID=3053156a-1994-4776-9e18-8c5d8883647c
-MANAGER_CHANNEL_ID=c19ded40-eeec-448e-86e9-42f490c766a4
-MANAGER_CLIENT_ID=0a96e62c-da03-45eb-9699-b7d8dfa843c9
-MANAGER_CLIENT_KEY=8bd64edf-6cec-4cd8-aebd-a8e9695c8d90
-
-PROPLET_DOMAIN_ID=3053156a-1994-4776-9e18-8c5d8883647c
-PROPLET_CHANNEL_ID=c19ded40-eeec-448e-86e9-42f490c766a4
-PROPLET_CLIENT_ID=b64502f0-25bc-4926-8fbc-ad508f75d96c
-PROPLET_CLIENT_KEY=3c905d3c-845b-4b9e-8c51-7ab9a2403163
-
-PROXY_DOMAIN_ID=3053156a-1994-4776-9e18-8c5d8883647c
-PROXY_CHANNEL_ID=c19ded40-eeec-448e-86e9-42f490c766a4
-PROXY_CLIENT_ID=b64502f0-25bc-4926-8fbc-ad508f75d96c
-PROXY_CLIENT_KEY=3c905d3c-845b-4b9e-8c51-7ab9a2403163
-```
-
-> Replace all UUIDs above with the values from your provisioning output. The UUIDs shown here are from the example provisioning run—yours will be different.
-
-Recreate only the propeller containers (not SuperMQ) to pick up the new env values:
-
-```bash
-docker compose -f ~/Documents/propeller/docker/compose.yaml \
-  --env-file ~/Documents/propeller/docker/.env \
-  up -d --force-recreate manager proplet proxy
-```
-
-```
- Container propeller-manager Recreated
- Container propeller-proplet Recreated
- Container propeller-proxy Recreated
- Container propeller-manager Starting
- Container propeller-proplet Starting
- Container propeller-proxy Starting
- Container propeller-proplet Started
- Container propeller-manager Started
- Container propeller-proxy Started
-```
-
-Wait a few seconds for the proplet to connect, then check its logs:
-
-```bash
-docker logs propeller-proplet 2>&1 | grep -E "INFO|WARN" | tail -10
-```
-
-```
- INFO Starting Proplet (Rust) - Instance ID: dd8fdbc0-148d-46a2-9df6-ed7b3ec80184
- INFO MQTT client created (TLS: false)
- INFO Using Wasmtime runtime
- INFO Starting MQTT event loop
- INFO Starting PropletService
- INFO Published discovery message
- INFO Subscribed to topic: m/3053156a-1994-4776-9e18-8c5d8883647c/c/c19ded40-eeec-448e-86e9-42f490c766a4/control/manager/start
- INFO Subscribed to topic: m/3053156a-1994-4776-9e18-8c5d8883647c/c/c19ded40-eeec-448e-86e9-42f490c766a4/control/manager/stop
- INFO Subscribed to topic: m/3053156a-1994-4776-9e18-8c5d8883647c/c/c19ded40-eeec-448e-86e9-42f490c766a4/registry/server
- INFO Successfully re-subscribed to topics after reconnection
-```
-
-The proplet is subscribed to your new domain and channel. Note the `Instance ID` in the first line—this is a randomly generated UUID created at startup. It is distinct from the `client_id`.
-
-### Verify MQTT Connectivity
-
-Confirm the manager credentials can publish on MQTT. The MQTT client ID must match the SuperMQ client ID:
-
-```bash
-mosquitto_pub -h localhost -p 1883 \
-  -i "$MGR_ID" -u "$MGR_ID" -P "$MGR_KEY" \
-  -t "m/${DOMAIN_ID}/c/${CHAN_ID}/test" \
-  -m '{"test":"hello"}' && echo "MQTT OK"
-```
-
-```
-MQTT OK
-```
-
-Confirm the alive payload the proplet sends. Subscribe to the liveness topic and capture one message:
-
-```bash
-timeout 15 mosquitto_sub -h localhost -p 1883 \
-  -i "listener-$$" -u "$PROP_ID" -P "$PROP_KEY" \
-  -t "m/${DOMAIN_ID}/c/${CHAN_ID}/control/proplet/alive" \
-  -C 1
-```
-
-```json
-{"proplet_id":"b64502f0-25bc-4926-8fbc-ad508f75d96c","status":"alive","namespace":"default"}
-```
-
-The `proplet_id` field in alive messages is the proplet's `client_id`. The operator matches this value against the `spec.connectionConfig.clientId` field in `Proplet` CRs to identify which Proplet a message belongs to.
-
----
-
-## Step 7 — Patch the Operator MQTT Topic Base
-
-The operator's MQTT base topic must match SuperMQ's routing scheme. Open `internal/controller/proplet_controller.go` in the operator repository and verify line 45:
-
-```go
-var superMQBaseTopic = "m/%s/c/%s"
-```
-
-SuperMQ routes MQTT messages directly on the topic path `m/{domain_id}/c/{channel_id}/{sub-topic}`. The operator subscribes to `m/{domain_id}/c/{channel_id}/#` (wildcard), which matches all sub-topics. If this variable reads `"m/%s/c/%s/messages"` instead, the operator subscribes to the wrong path and never receives proplet messages.
-
----
-
-## Step 8 — Stop the Docker Propeller Manager
-
-The k8s operator will act as the manager. Stop the Docker manager container so it does not compete for the same MQTT subscriptions:
-
-```bash
-docker stop propeller-manager
-```
-
-```
-propeller-manager
-```
-
-The proplet and proxy containers can stay running—only the manager is being replaced by the operator.
-
----
-
-## Step 9 — Run the Operator
-
-Run the operator locally against the k3d cluster. It connects to the same SuperMQ MQTT broker, using the manager credentials:
-
-```bash
-cd ~/Documents/propeller-k8s-operator
-
-nohup go run ./cmd/main.go \
+go run ./cmd/main.go \
   --mqtt-address="tcp://localhost:1883" \
-  --domain-id="3053156a-1994-4776-9e18-8c5d8883647c" \
-  --channel-id="c19ded40-eeec-448e-86e9-42f490c766a4" \
-  --client-id="0a96e62c-da03-45eb-9699-b7d8dfa843c9" \
-  --client-key="8bd64edf-6cec-4cd8-aebd-a8e9695c8d90" \
-  --mqtt-qos=2 \
-  --metrics-secure=false \
-  --health-probe-bind-address=":8082" \
-  > /tmp/operator.log 2>&1 &
+  --domain-id="<domain-id>" \
+  --channel-id="<channel-id>" \
+  --client-id="<manager-client-id>" \
+  --client-key="<manager-client-key>" \
+  --metrics-secure=false
 ```
 
-Wait for the operator to start, then check the log:
+The operator uses the current `kubectl` context for cluster access.
 
-```bash
-sleep 5 && tail -20 /tmp/operator.log
-```
+### RBAC
 
-```
-2026-03-04T14:22:03+03:00	INFO	mqtt	MQTT connection lost
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "proplet", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Proplet", "source": "kind source: *v1.Proplet"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "task", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Task", "source": "kind source: *v1.Task"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "task", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Task", "source": "kind source: *v1.Job"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "federatedjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "FederatedJob", "source": "kind source: *v1alpha1.FederatedJob"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "federatedjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "FederatedJob", "source": "kind source: *v1alpha1.TrainingRound"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "traininground", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "TrainingRound", "source": "kind source: *v1alpha1.TrainingRound"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "traininground", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "TrainingRound", "source": "kind source: *v1.Task"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "propellerjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "PropellerJob", "source": "kind source: *v1.PropellerJob"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "propellerjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "PropellerJob", "source": "kind source: *v1.Task"}
-2026-03-04T14:22:03+03:00	INFO	Starting Controller	{"controller": "proplet", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Proplet"}
-2026-03-04T14:22:03+03:00	INFO	Starting workers	{"controller": "proplet", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Proplet", "worker count": 1}
-2026-03-04T14:22:03+03:00	INFO	Starting Controller	{"controller": "task", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Task"}
-2026-03-04T14:22:03+03:00	INFO	Starting workers	{"controller": "task", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Task", "worker count": 1}
-2026-03-04T14:22:03+03:00	INFO	Starting Controller	{"controller": "federatedjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "FederatedJob"}
-2026-03-04T14:22:03+03:00	INFO	Starting workers	{"controller": "federatedjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "FederatedJob", "worker count": 1}
-2026-03-04T14:22:03+03:00	INFO	Starting Controller	{"controller": "propellerjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "PropellerJob"}
-2026-03-04T14:22:03+03:00	INFO	Starting workers	{"controller": "propellerjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "PropellerJob", "worker count": 1}
-2026-03-04T14:22:03+03:00	INFO	Starting Controller	{"controller": "traininground", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "TrainingRound"}
-2026-03-04T14:22:03+03:00	INFO	Starting workers	{"controller": "traininground", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "TrainingRound", "worker count": 1}
-```
+The operator requires a `ClusterRole` with the following permissions:
 
-> The first log line says `MQTT connection lost`. This is a mislabeled log in the operator source—it fires from the `SetOnConnectHandler` callback and actually means the MQTT connection was **established**. All five controllers start successfully.
+| API Group                                 | Resources                                                               | Verbs                                           |
+|-------------------------------------------|-------------------------------------------------------------------------|-------------------------------------------------|
+| `""` (core)                               | `configmaps`                                                            | create, delete, get, list, patch, update        |
+| `""` (core)                               | `pods`                                                                  | get, list                                       |
+| `""` (core)                               | `secrets`                                                               | get                                             |
+| `apps`                                    | `deployments`                                                           | create, delete, get, list, patch, update, watch |
+| `batch`                                   | `jobs`                                                                  | create, delete, get, list, patch, update, watch |
+| `propeller.propeller.abstractmachines.fr` | `tasks`, `proplets`, `propellerjobs`, `federatedjobs`, `trainingrounds` | create, delete, get, list, patch, update, watch |
+| `propeller.propeller.abstractmachines.fr` | `*/status`                                                              | get, patch, update                              |
+| `propeller.propeller.abstractmachines.fr` | `*/finalizers`                                                          | update                                          |
 
-Confirm the health probe is responding:
+### Container Security
 
-```bash
-curl -s http://localhost:8082/healthz
-```
+When deployed in-cluster the manager pod runs with:
 
-```
-ok
-```
+- `runAsNonRoot: true`
+- `seccompProfile: RuntimeDefault`
+- `readOnlyRootFilesystem: true`
+- `allowPrivilegeEscalation: false`
+- All Linux capabilities dropped
+
+Resource defaults: 10m CPU / 64Mi memory requests; 500m CPU / 128Mi limits.
+
+### Health Probes
+
+| Endpoint       | Purpose                                                             |
+|----------------|---------------------------------------------------------------------|
+| `GET /healthz` | Liveness probe — confirms the process is alive                      |
+| `GET /readyz`  | Readiness probe — confirms the controller manager is ready to serve |
+
+Both endpoints are served on `--health-probe-bind-address` (default `:8081`).
 
 ---
 
-## Step 10 — Create an External Proplet
+## Testing
 
-Register the running docker proplet as an external Proplet CRD. The `spec.connectionConfig.clientId` must match the `proplet_id` the proplet sends in alive messages (verified in step 6 to be the proplet's `client_id`):
-
-```bash
-kubectl apply -n propeller-workloads -f - <<'EOF'
-apiVersion: propeller.propeller.abstractmachines.fr/v1
-kind: Proplet
-metadata:
-  name: docker-proplet
-spec:
-  type: external
-  external:
-    deviceType: docker-container
-    capabilities:
-      - wasm
-      - wasmtime
-  connectionConfig:
-    mqttAddress: "tcp://localhost:1883"
-    domainId: "3053156a-1994-4776-9e18-8c5d8883647c"
-    channelId: "c19ded40-eeec-448e-86e9-42f490c766a4"
-    clientId: "b64502f0-25bc-4926-8fbc-ad508f75d96c"
-    clientKey: "3c905d3c-845b-4b9e-8c51-7ab9a2403163"
-    mqttQos: 2
-    mqttTimeout: 30s
-EOF
-```
-
-```
-proplet.propeller.propeller.abstractmachines.fr/docker-proplet created
-```
-
-> Replace `domainId`, `channelId`, `clientId`, and `clientKey` with your provisioned values.
-
-The proplet publishes an alive heartbeat every 10 seconds. Wait up to 15 seconds, then check the Proplet status:
+The operator includes a controller test suite that uses [envtest](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/envtest) to spin up a real Kubernetes API server and etcd in-process, with all five CRDs loaded from `config/crd/bases`.
 
 ```bash
-kubectl get proplets -n propeller-workloads
-```
-
-```
-NAME               TYPE       PHASE     READY   TASKS   REPLICAS   LAST SEEN   AGE
-docker-proplet     external   Running   True    0                  28s         3m57s
-```
-
-Inspect the full status:
-
-```bash
-kubectl describe proplet docker-proplet -n propeller-workloads
-```
-
-```
-Name:         docker-proplet
-Namespace:    propeller-workloads
-...
-Spec:
-  Connection Config:
-    Channel Id:    c19ded40-eeec-448e-86e9-42f490c766a4
-    Client Id:     b64502f0-25bc-4926-8fbc-ad508f75d96c
-    Client Key:    3c905d3c-845b-4b9e-8c51-7ab9a2403163
-    Domain Id:     3053156a-1994-4776-9e18-8c5d8883647c
-    Mqtt Address:  tcp://localhost:1883
-    Mqtt Qos:      2
-    Mqtt Timeout:  30s
-  External:
-    Capabilities:
-      wasm
-      wasmtime
-    Device Type:  docker-container
-  Type:           external
-Status:
-  Available Resources:
-  Conditions:
-    Last Transition Time:  2026-03-04T11:25:42Z
-    Message:               External proplet is ready and connected
-    Reason:                PropletReady
-    Status:                True
-    Type:                  Ready
-    Last Transition Time:  2026-03-04T11:25:42Z
-    Message:               Proplet last seen 28.418580987s ago
-    Reason:                PropletOnline
-    Status:                True
-    Type:                  Connected
-  Last Seen:               2026-03-04T11:25:42Z
-  Phase:                   Running
-  Task Count:              0
-Events:                    <none>
-```
-
-Both `Ready` and `Connected` conditions are `True`. The `Last Seen` timestamp updates with every heartbeat.
-
----
-
-## Step 11 — Run a Task
-
-Create a Task that targets the docker proplet. This uses the addition WASM module (the same binary used in the [addition example](/docs/examples/addition))—a minimal module that exports a `main` function taking two integers and returning their sum:
-
-```bash
-kubectl apply -n propeller-workloads -f - <<'EOF'
-apiVersion: propeller.propeller.abstractmachines.fr/v1
-kind: Task
-metadata:
-  name: addition-wasm
-spec:
-  name: addition-wasm
-  functionName: main
-  file: "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL"
-  inputs:
-    - 10
-    - 32
-  propletSelector:
-    propletId: "docker-proplet"
-  daemon: false
-EOF
-```
-
-```
-task.propeller.propeller.abstractmachines.fr/addition-wasm created
-```
-
-Check task status:
-
-```bash
-kubectl get tasks -n propeller-workloads
-```
-
-```
-NAME            PHASE       FUNCTION   PROPLET            START TIME   FINISH TIME   PREFERRED TYPE   AGE
-addition-wasm   completed   main       docker-proplet     13s          13s           any              13s
-```
-
-The task went from `pending` to `completed` in under 13 seconds.
-
----
-
-## Step 12 — Verify the Result
-
-Inspect the full task status to confirm the WASM module executed and the result was returned:
-
-```bash
-kubectl describe task addition-wasm -n propeller-workloads
-```
-
-```
-Name:         addition-wasm
-Namespace:    propeller-workloads
-...
-Spec:
-  Daemon:         false
-  File:           AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL
-  Function Name:  main
-  Inputs:
-    10
-    32
-  Kind:                    standard
-  Name:                    addition-wasm
-  Preferred Proplet Type:  any
-  Priority:                50
-  Proplet Selector:
-    Proplet Id:  docker-proplet
-Status:
-  Assigned Proplet:  docker-proplet
-  Conditions:
-    Last Transition Time:  2026-03-04T11:26:19Z
-    Message:               External task is running
-    Reason:                Running
-    Status:                True
-    Type:                  Started
-  Finished At:             2026-03-04T11:26:19Z
-  Phase:                   completed
-  Results:                 42
-  Started At:              2026-03-04T11:26:19Z
-  Updated At:              2026-03-04T11:26:19Z
-Events:                    <none>
-```
-
-`status.results` is `42` — the WASM module computed `10 + 32 = 42` correctly.
-
-Extract just the result with jsonpath:
-
-```bash
-kubectl get task addition-wasm -n propeller-workloads \
-  -o jsonpath='{.status.results}'
-```
-
-```
-42
-```
-
-Confirm in the proplet logs that execution actually happened on the docker container:
-
-```bash
-docker logs propeller-proplet 2>&1 | grep -E "42|result|Result|task" | tail -10
-```
-
-```
- INFO Task 3732d66f-eb2b-471f-bace-024fa3f878e4 completed successfully. Result: 42
- INFO Publishing result for task 3732d66f-eb2b-471f-bace-024fa3f878e4
-DEBUG Published to topic: m/3053156a-1994-4776-9e18-8c5d8883647c/c/c19ded40-eeec-448e-86e9-42f490c766a4/control/proplet/results
- INFO Successfully published result for task 3732d66f-eb2b-471f-bace-024fa3f878e4
-```
-
-The proplet executed the WASM binary with Wasmtime, published the result to `control/proplet/results`, and the operator received it and stored it in `status.results`.
-
----
-
-## Running Unit Tests
-
-The operator includes controller tests that run against a local envtest environment (no cluster required):
-
-```bash
-cd ~/Documents/propeller-k8s-operator
 make test
 ```
 
-```
-/home/jeff/Documents/propeller-k8s-operator/bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-/home/jeff/Documents/propeller-k8s-operator/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
-go fmt ./...
-internal/scheduler/scheduler.go
-go vet ./...
-Downloading sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.21
-...
-Setting up envtest binaries for Kubernetes version 1.33...
-/home/jeff/Documents/propeller-k8s-operator/bin/k8s/1.33.0-linux-amd64
-KUBEBUILDER_ASSETS="/home/jeff/Documents/propeller-k8s-operator/bin/k8s/1.33.0-linux-amd64" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out
-	github.com/absmach/propeller/api/v1		coverage: 0.0% of statements
-	github.com/absmach/propeller/api/v1alpha1		coverage: 0.0% of statements
-	github.com/absmach/propeller/cmd		coverage: 0.0% of statements
-ok  	github.com/absmach/propeller/internal/controller	8.823s	coverage: 5.0% of statements
-	github.com/absmach/propeller/internal/mqtt		coverage: 0.0% of statements
-	github.com/absmach/propeller/internal/scheduler		coverage: 0.0% of statements
-	github.com/absmach/propeller/test/utils		coverage: 0.0% of statements
-```
+End-to-end tests run against a real cluster (Kind by default):
 
-All controller tests pass in 8.8 seconds. The test suite uses [envtest](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/envtest) to spin up a real API server and etcd in-process, with the operator's CRDs loaded from `config/crd/bases`.
+```bash
+make setup-test-e2e   # creates a Kind cluster
+make test-e2e         # runs Ginkgo e2e suite
+make cleanup-test-e2e # tears down the Kind cluster
+```
 
 ---
 
-## Custom Resource Reference
+## Owner References and Garbage Collection
 
-### Proplet Spec
+The operator sets Kubernetes owner references on all resources it creates:
 
-| Field                          | Type                 | Required       | Description                                          |
-|--------------------------------|----------------------|----------------|------------------------------------------------------|
-| `type`                         | `k8s` \| `external`  | Yes            | Where the worker runs                                |
-| `k8s.image`                    | string               | Yes (k8s only) | Container image for the proplet pod                  |
-| `k8s.logLevel`                 | string               | No             | Log verbosity: `debug`, `info`, `warn`, `error`      |
-| `k8s.replicas`                 | int                  | No             | Number of pod replicas (default: 1)                  |
-| `external.deviceType`          | string               | No             | Device label for scheduling (e.g. `raspberry-pi-4`)  |
-| `external.capabilities`        | []string             | No             | Capabilities advertised for task matching            |
-| `resources.cpu`                | string               | No             | CPU request/limit in Kubernetes format (e.g. `100m`) |
-| `resources.memory`             | string               | No             | Memory request/limit (e.g. `256Mi`)                  |
-| `connectionConfig.mqttAddress` | string               | Yes            | Broker URL (e.g. `tcp://mqtt:1883`)                  |
-| `connectionConfig.domainId`    | string               | Yes            | SuperMQ domain ID                                    |
-| `connectionConfig.channelId`   | string               | Yes            | SuperMQ channel ID                                   |
-| `connectionConfig.clientId`    | string               | Yes            | SuperMQ client credential ID                         |
-| `connectionConfig.clientKey`   | string               | Yes            | SuperMQ client secret                                |
-| `connectionConfig.mqttQos`     | int                  | No             | MQTT QoS level 0–2 (default: 1)                      |
-| `connectionConfig.mqttTimeout` | duration             | No             | Broker operation timeout (default: `10s`)            |
+| Parent               | Owned resources                           |
+|----------------------|-------------------------------------------|
+| `PropellerJob`       | `Task` CRs created from inline task specs |
+| `FederatedJob`       | `TrainingRound` CRs                       |
+| `TrainingRound`      | `Task` CRs (one per participant)          |
+| `Proplet` (k8s type) | `Deployment`                              |
+| `Task` (k8s proplet) | `Job`, `ConfigMap`                        |
 
-### Proplet Status
-
-| Field                         | Description                                |
-|-------------------------------|--------------------------------------------|
-| `phase`                       | `Initializing`, `Running`, or `Offline`    |
-| `conditions[Ready]`           | True when proplet is ready to accept tasks |
-| `conditions[Connected]`       | True when MQTT heartbeat is current        |
-| `lastSeen`                    | Timestamp of most recent alive heartbeat   |
-| `taskCount`                   | Total tasks executed since registration    |
-| `k8sStatus.readyReplicas`     | Ready pod replicas (k8s type only)         |
-| `k8sStatus.availableReplicas` | Available pod replicas (k8s type only)     |
-
-### Task Spec
-
-| Field                              | Type              | Required | Description                                      |
-|------------------------------------|-------------------|----------|--------------------------------------------------|
-| `name`                             | string            | Yes      | Task name                                        |
-| `functionName`                     | string            | Yes      | Exported WASM function to call                   |
-| `file`                             | string            | No       | Base64-encoded WASM binary                       |
-| `imageUrl`                         | string            | No       | OCI image reference for the WASM module          |
-| `cliArgs`                          | []string          | No       | Arguments passed to the WASM runtime             |
-| `inputs`                           | []int             | No       | Numeric inputs passed to the function            |
-| `env`                              | map[string]string | No       | Environment variables available in the module    |
-| `propletSelector.propletId`        | string            | No       | Target a specific Proplet by name                |
-| `propletSelector.matchLabels`      | map               | No       | Target Proplets matching all labels              |
-| `propletSelector.matchDeviceTypes` | []string          | No       | Target Proplets with matching device types       |
-| `propletSelector.matchCapabilities`| []string          | No       | Target Proplets with all listed capabilities     |
-| `daemon`                           | bool              | No       | If true, task runs indefinitely (default: false) |
-| `resourceRequirements.cpu`         | string            | No       | Minimum CPU required                             |
-| `resourceRequirements.memory`      | string            | No       | Minimum memory required                          |
-
-### Task Status
-
-| Field                   | Description                                                     |
-|-------------------------|-----------------------------------------------------------------|
-| `phase`                 | `pending`, `running`, `completed`, `failed`, or `interrupted`   |
-| `assignedProplet`       | Name of the Proplet executing this task                         |
-| `startedAt`             | When execution began                                            |
-| `finishedAt`            | When execution ended                                            |
-| `results`               | Return value from the WASM function                             |
-| `error`                 | Error message when `phase` is `failed`                          |
-| `conditions[Started]`   | True when the task began executing                              |
-| `conditions[Completed]` | True when the task finished successfully                        |
+When a parent resource is deleted, Kubernetes garbage-collects all owned children automatically. For Proplet and Task resources, the operator also adds a finalizer to ensure it can clean up resources before the object is removed from the API server.
