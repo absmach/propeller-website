@@ -11,7 +11,6 @@
     "proplet.mdx",
     "embedded-proplet.mdx",
     "proxy.mdx",
-    "kubernetes-operator.mdx",
     "---Features---",
     "fml",
     "hal.mdx",
@@ -20,12 +19,13 @@
     "wasi-nn.mdx",
     "tee.mdx",
     "reference.mdx",
+    "---Kubernetes Operator---",
+    "kubernetes-operator",
     "---Resources---",
     "api",
     "developer-guide.mdx",
     "zephyr.mdx",
     "coco-k8s-setup.mdx",
-    "hal.mdx",
     "vs-kubeedge.mdx"
   ]
 }
