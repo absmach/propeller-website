@@ -176,19 +176,17 @@ All five CRDs are now registered with the Kubernetes API server. See the [CRD re
 
 ---
 
-## Step 3 — Create Namespaces
+## Step 3 — Create a Workloads Namespace
 
-Create namespaces for the operator and for workload resources (Proplets and Tasks):
+Create a namespace for workload resources (Proplets and Tasks). The operator's own namespace (`propeller-k8s-operator-system`) is created automatically by `make deploy` in Step 8:
 
 ```bash
-kubectl create namespace propeller-system
 kubectl create namespace propeller-workloads
 ```
 
 Your output should look like this:
 
 ```bash
-namespace/propeller-system created
 namespace/propeller-workloads created
 ```
 
@@ -686,69 +684,145 @@ The proplet and proxy containers can stay running—only the manager is being re
 
 ---
 
-## Step 8 — Run the Operator
+## Step 8 — Deploy the Operator
 
-Run the operator locally against the k3d cluster. It connects to the same SuperMQ MQTT broker, using the manager credentials:
+The operator runs as a pod inside the k3d cluster. Deploying it requires four steps: configure credentials, build a Docker image, load it into k3d, and apply the manifests.
+
+> **Local development workflow:** This example builds the operator image locally and imports it directly into k3d, avoiding the need for a container registry. This is the fastest workflow for local development and testing. For production deployments, you would typically push the image to a registry and let Kubernetes pull it normally.
+
+### 8.1 — Configure credentials in manager.yaml
+
+Open `config/manager/manager.yaml` and replace the placeholder values in the `args` list with the credentials provisioned in Step 5. Because the operator runs **inside** k3d, the MQTT address must use `host.k3d.internal` (the DNS name k3d injects for the host machine's Docker network gateway) rather than `localhost`:
+
+```yaml
+args:
+  - --leader-elect
+  - --health-probe-bind-address=:8081
+  - --mqtt-address=tcp://host.k3d.internal:1883
+  - --mqtt-qos=2
+  - --mqtt-timeout=30s
+  - --domain-id=3053156a-1994-4776-9e18-8c5d8883647c
+  - --channel-id=c19ded40-eeec-448e-86e9-42f490c766a4
+  - --client-id=0a96e62c-da03-45eb-9699-b7d8dfa843c9
+  - --client-key=8bd64edf-6cec-4cd8-aebd-a8e9695c8d90
+```
+
+Also add `imagePullPolicy: Never` immediately after the `image:` line so k3d uses the locally-loaded image without trying to pull it from a registry:
+
+```yaml
+image: controller:latest
+imagePullPolicy: Never
+```
+
+> Replace all UUIDs above with your provisioned values from Step 5.
+
+> **Registry-based images:** If you push the image to a container registry instead of importing it locally, omit the `imagePullPolicy: Never` line (or set it to `IfNotPresent`). If your registry requires authentication, create an image pull secret and reference it in the Deployment:
+>
+> ```bash
+> kubectl create secret docker-registry regcred \
+>   --docker-server=<registry> \
+>   --docker-username=<user> \
+>   --docker-password=<password> \
+>   -n propeller-k8s-operator-system
+> ```
+>
+> Then add `imagePullSecrets: [{name: regcred}]` to the pod spec in `config/manager/manager.yaml` before deploying.
+
+### 8.2 — Build the Docker image
 
 ```bash
 cd propeller-k8s-operator
-
-nohup go run ./cmd/main.go \
-  --mqtt-address="tcp://localhost:1883" \
-  --domain-id="3053156a-1994-4776-9e18-8c5d8883647c" \
-  --channel-id="c19ded40-eeec-448e-86e9-42f490c766a4" \
-  --client-id="0a96e62c-da03-45eb-9699-b7d8dfa843c9" \
-  --client-key="8bd64edf-6cec-4cd8-aebd-a8e9695c8d90" \
-  --mqtt-qos=2 \
-  --metrics-secure=false \
-  --health-probe-bind-address=":8082" \
-  > /tmp/operator.log 2>&1 &
-```
-
-Wait for the operator to start, then check the log:
-
-```bash
-sleep 5 && tail -20 /tmp/operator.log
+make docker-build IMG=propeller-k8s-operator:latest
 ```
 
 Your output should look like this:
 
 ```bash
-2026-03-04T14:22:03+03:00	INFO	mqtt	MQTT connection lost
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "proplet", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Proplet", "source": "kind source: *v1.Proplet"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "task", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Task", "source": "kind source: *v1.Task"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "task", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Task", "source": "kind source: *v1.Job"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "federatedjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "FederatedJob", "source": "kind source: *v1alpha1.FederatedJob"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "federatedjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "FederatedJob", "source": "kind source: *v1alpha1.TrainingRound"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "traininground", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "TrainingRound", "source": "kind source: *v1alpha1.TrainingRound"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "traininground", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "TrainingRound", "source": "kind source: *v1.Task"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "propellerjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "PropellerJob", "source": "kind source: *v1.PropellerJob"}
-2026-03-04T14:22:03+03:00	INFO	Starting EventSource	{"controller": "propellerjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "PropellerJob", "source": "kind source: *v1.Task"}
-2026-03-04T14:22:03+03:00	INFO	Starting Controller	{"controller": "proplet", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Proplet"}
-2026-03-04T14:22:03+03:00	INFO	Starting workers	{"controller": "proplet", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Proplet", "worker count": 1}
-2026-03-04T14:22:03+03:00	INFO	Starting Controller	{"controller": "task", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Task"}
-2026-03-04T14:22:03+03:00	INFO	Starting workers	{"controller": "task", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "Task", "worker count": 1}
-2026-03-04T14:22:03+03:00	INFO	Starting Controller	{"controller": "federatedjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "FederatedJob"}
-2026-03-04T14:22:03+03:00	INFO	Starting workers	{"controller": "federatedjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "FederatedJob", "worker count": 1}
-2026-03-04T14:22:03+03:00	INFO	Starting Controller	{"controller": "propellerjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "PropellerJob"}
-2026-03-04T14:22:03+03:00	INFO	Starting workers	{"controller": "propellerjob", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "PropellerJob", "worker count": 1}
-2026-03-04T14:22:03+03:00	INFO	Starting Controller	{"controller": "traininground", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "TrainingRound"}
-2026-03-04T14:22:03+03:00	INFO	Starting workers	{"controller": "traininground", "controllerGroup": "propeller.propeller.abstractmachines.fr", "controllerKind": "TrainingRound", "worker count": 1}
+docker build -t propeller-k8s-operator:latest .
+...
+#16 [builder 9/9] RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager cmd/main.go
+#16 DONE 706.7s
+...
+#18 naming to docker.io/library/propeller-k8s-operator:latest done
+```
+
+### 8.3 — Load the image into k3d
+
+k3d nodes run their own containerd instance and cannot access images from the host Docker daemon directly. You must import the image explicitly so it is available in the cluster's containerd store:
+
+```bash
+k3d image import propeller-k8s-operator:latest -c k3s-default
+```
+
+Your output should look like this:
+
+```bash
+INFO[0000] Importing image(s) into cluster 'k3s-default'
+INFO[0001] Saving 1 image(s) from runtime...
+INFO[0005] Importing images into nodes...
+INFO[0013] Successfully imported image(s)
+INFO[0015] Successfully imported 1 image(s) into 1 cluster(s)
+```
+
+> **Skip this step if using a registry.** If you pushed the image to a registry accessible from inside the cluster, skip 8.2 and 8.3 entirely and pass the registry image reference directly to `make deploy` in 8.4.
+
+### 8.4 — Deploy with make deploy
+
+```bash
+make deploy IMG=propeller-k8s-operator:latest
+```
+
+Your output should look like this:
+
+```bash
+./bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+cd config/manager && ./bin/kustomize edit set image controller=propeller-k8s-operator:latest
+./bin/kustomize build config/default | kubectl apply -f -
+namespace/propeller-k8s-operator-system created
+customresourcedefinition.apiextensions.k8s.io/federatedjobs.propeller.propeller.abstractmachines.fr unchanged
+customresourcedefinition.apiextensions.k8s.io/propellerjobs.propeller.propeller.abstractmachines.fr unchanged
+customresourcedefinition.apiextensions.k8s.io/proplets.propeller.propeller.abstractmachines.fr unchanged
+customresourcedefinition.apiextensions.k8s.io/tasks.propeller.propeller.abstractmachines.fr unchanged
+customresourcedefinition.apiextensions.k8s.io/trainingrounds.propeller.propeller.abstractmachines.fr unchanged
+serviceaccount/propeller-k8s-operator-controller-manager created
+...
+deployment.apps/propeller-k8s-operator-controller-manager created
+```
+
+Wait for the operator pod to become ready:
+
+```bash
+kubectl get pods -n propeller-k8s-operator-system
+```
+
+Your output should look like this:
+
+```bash
+NAME                                                         READY   STATUS    RESTARTS   AGE
+propeller-k8s-operator-controller-manager-5485b6db9d-kvz8d   1/1     Running   0          24s
+```
+
+Check the operator logs to confirm it started and connected to MQTT:
+
+```bash
+kubectl logs -n propeller-k8s-operator-system \
+  deployment/propeller-k8s-operator-controller-manager | head -30
+```
+
+Your output should look like this:
+
+```bash
+2026-03-04T15:19:49Z	INFO	mqtt	MQTT connection lost
+2026-03-04T15:19:49Z	INFO	setup	starting manager
+2026-03-04T15:19:49Z	INFO	controller-runtime.metrics	Starting metrics server
+2026-03-04T15:19:49Z	INFO	Starting Controller	{"controller": "proplet", ...}
+2026-03-04T15:19:49Z	INFO	Starting workers	{"controller": "proplet", ..., "worker count": 1}
+2026-03-04T15:19:49Z	INFO	Starting Controller	{"controller": "task", ...}
+2026-03-04T15:19:49Z	INFO	Starting workers	{"controller": "task", ..., "worker count": 1}
+...
 ```
 
 > The first log line says `MQTT connection lost`. This is a mislabeled log in the operator source—it fires from the `SetOnConnectHandler` callback and actually means the MQTT connection was **established**. All five controllers start successfully.
-
-Confirm the health probe is responding:
-
-```bash
-curl -s http://localhost:8082/healthz
-```
-
-Your output should look like this:
-
-```bash
-ok
-```
 
 ---
 
