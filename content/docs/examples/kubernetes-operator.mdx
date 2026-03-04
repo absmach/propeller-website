@@ -66,8 +66,6 @@ You need the following tools installed before proceeding:
 
 - **make** — runs the operator build targets.
 
-- **jq** — parses JSON from SuperMQ API responses during provisioning.
-
 - **mosquitto-clients** — used to verify MQTT connectivity (`mosquitto_pub`, `mosquitto_sub`).
 
 You also need:
@@ -272,260 +270,50 @@ supermq-clients-db         Up 37 seconds
 
 ## Step 5 — Provision SuperMQ Credentials
 
-The operator and proplet need SuperMQ credentials—a domain, channel, and two client IDs with keys—to authenticate on MQTT. You provision these through the SuperMQ HTTP API exposed on port 80 by nginx.
+The operator and proplet need SuperMQ credentials—a domain, channel, and two client IDs with keys—to authenticate on MQTT. Use `propeller-cli provision` to create all these resources through the SuperMQ HTTP API and write the result directly to `docker/config.toml`.
 
-SuperMQ uses a hierarchical resource model: **domains** provide multi-tenant isolation, **clients** represent authenticated entities (the operator and proplets), and **channels** define communication pathways. Clients can only exchange messages over channels they are explicitly connected to.
+### 5.1 — Build propeller-cli
 
-The default admin credentials are set in `docker/.env`:
-
-```bash
-SMQ_USERS_ADMIN_EMAIL=admin@example.com
-SMQ_USERS_ADMIN_PASSWORD=12345678
-```
-
-### 5.1 — Get an admin access token
-
-All SuperMQ API calls require a bearer token for authentication. Start by obtaining a token using the admin credentials:
+If you have not built `propeller-cli` yet, build it from the propeller repository:
 
 ```bash
-TOKEN=$(curl -s -X POST http://localhost/users/tokens/issue \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"12345678"}' | jq -r '.access_token')
-echo "Token: ${TOKEN:0:30}..."
+cd propeller
+make cli
 ```
 
 Your output should look like this:
 
 ```bash
-Token: eyJhbGciOiJFZERTQSIsImtpZCI6Im...
+go build -o build/propeller-cli ./cli/cmd
 ```
 
-### 5.2 — Create a domain
+The binary is placed at `propeller/build/propeller-cli`.
 
-Domains provide multi-tenant isolation in SuperMQ. All resources—clients, channels, and their connections—are scoped to a domain. Create a domain for this Propeller deployment:
+### 5.2 — Run the provision wizard
+
+Run the provision wizard, writing the output directly to the docker directory:
 
 ```bash
-DOMAIN=$(curl -s -X POST http://localhost/domains \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"propeller-test","route":"propeller-test","permission":"admin"}')
-echo $DOMAIN | jq .
+./build/propeller-cli provision -f docker/config.toml
 ```
 
-Your output should look like this:
+The CLI opens an interactive form. Fill in your admin credentials and press Enter to accept the suggested defaults for the optional fields:
 
-```json
-{
-  "id": "3053156a-1994-4776-9e18-8c5d8883647c",
-  "name": "propeller-test",
-  "route": "propeller-test",
-  "status": "enabled",
-  "created_by": "70ae1ade-ed7a-4c6d-a508-4715efe9215d",
-  "created_at": "2026-03-04T11:14:51.559482Z"
-}
+```
+? Username: admin
+? Password: ••••••••
+? Domain name (leave blank to generate): propeller-test
+? Domain route (leave blank to generate): propeller-test
+? Domain permission: admin
+? Manager client name (leave blank to generate): propeller-manager
+? Number of proplets: 1
+? Channel name (leave blank to generate): propeller-channel
 ```
 
-Store the domain ID:
+After completing the form, the CLI provisions all resources and writes `docker/config.toml`. Confirm the file was created:
 
 ```bash
-DOMAIN_ID=$(echo $DOMAIN | jq -r '.id')
-echo "Domain ID: $DOMAIN_ID"
-```
-
-Your output should look like this:
-
-```bash
-Domain ID: 3053156a-1994-4776-9e18-8c5d8883647c
-```
-
-### 5.3 — Get a domain-scoped token
-
-Operations on resources within a domain require a token scoped to that domain. Issue a new token with the domain ID:
-
-```bash
-DOMAIN_TOKEN=$(curl -s -X POST http://localhost/users/tokens/issue \
-  -H "Content-Type: application/json" \
-  -d "{\"username\":\"admin\",\"password\":\"12345678\",\"domain_id\":\"$DOMAIN_ID\"}" \
-  | jq -r '.access_token')
-echo "Domain token: ${DOMAIN_TOKEN:0:30}..."
-```
-
-Your output should look like this:
-
-```bash
-Domain token: eyJhbGciOiJFZERTQSIsImtpZCI6Im...
-```
-
-### 5.4 — Create the manager client
-
-Clients are authenticated entities that can connect to the MQTT broker. The Kubernetes operator needs its own client identity to publish task dispatch messages and subscribe to proplet responses:
-
-```bash
-MGR=$(curl -s -X POST "http://localhost/${DOMAIN_ID}/clients" \
-  -H "Authorization: Bearer $DOMAIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"propeller-manager","tags":["manager","propeller"],"status":"enabled"}')
-echo $MGR | jq .
-```
-
-Your output should look like this:
-
-```json
-{
-  "id": "0a96e62c-da03-45eb-9699-b7d8dfa843c9",
-  "name": "propeller-manager",
-  "tags": ["manager", "propeller"],
-  "domain_id": "3053156a-1994-4776-9e18-8c5d8883647c",
-  "credentials": {
-    "secret": "8bd64edf-6cec-4cd8-aebd-a8e9695c8d90"
-  },
-  "created_at": "2026-03-04T11:15:14.641587Z",
-  "updated_at": "0001-01-01T00:00:00Z",
-  "status": "enabled"
-}
-```
-
-Store the manager credentials:
-
-```bash
-MGR_ID=$(echo $MGR | jq -r '.id')
-MGR_KEY=$(echo $MGR | jq -r '.credentials.secret')
-echo "Manager  id=$MGR_ID  key=$MGR_KEY"
-```
-
-Your output should look like this:
-
-```bash
-Manager  id=0a96e62c-da03-45eb-9699-b7d8dfa843c9  key=8bd64edf-6cec-4cd8-aebd-a8e9695c8d90
-```
-
-### 5.5 — Create the proplet client
-
-Each proplet also needs its own client identity. The proplet uses this to authenticate with MQTT, publish heartbeats and results, and subscribe to task dispatch messages. The client ID becomes the `proplet_id` in alive messages—the operator uses this to match heartbeats to Proplet CRs:
-
-```bash
-PROP=$(curl -s -X POST "http://localhost/${DOMAIN_ID}/clients" \
-  -H "Authorization: Bearer $DOMAIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"propeller-proplet","tags":["proplet","propeller"],"status":"enabled"}')
-echo $PROP | jq .
-```
-
-Your output should look like this:
-
-```json
-{
-  "id": "b64502f0-25bc-4926-8fbc-ad508f75d96c",
-  "name": "propeller-proplet",
-  "tags": ["proplet", "propeller"],
-  "domain_id": "3053156a-1994-4776-9e18-8c5d8883647c",
-  "credentials": {
-    "secret": "3c905d3c-845b-4b9e-8c51-7ab9a2403163"
-  },
-  "created_at": "2026-03-04T11:15:23.899359Z",
-  "updated_at": "0001-01-01T00:00:00Z",
-  "status": "enabled"
-}
-```
-
-Store the proplet credentials:
-
-```bash
-PROP_ID=$(echo $PROP | jq -r '.id')
-PROP_KEY=$(echo $PROP | jq -r '.credentials.secret')
-echo "Proplet  id=$PROP_ID  key=$PROP_KEY"
-```
-
-Your output should look like this:
-
-```bash
-Proplet  id=b64502f0-25bc-4926-8fbc-ad508f75d96c  key=3c905d3c-845b-4b9e-8c51-7ab9a2403163
-```
-
-### 5.6 — Create a channel
-
-Channels are the message routing mechanism in SuperMQ. All MQTT messages are scoped to a channel, and clients can only publish or subscribe to topics on channels they are connected to. Create a channel for Propeller communication:
-
-```bash
-CHAN=$(curl -s -X POST "http://localhost/${DOMAIN_ID}/channels" \
-  -H "Authorization: Bearer $DOMAIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"propeller-channel","status":"enabled"}')
-echo $CHAN | jq .
-```
-
-Your output should look like this:
-
-```json
-{
-  "id": "c19ded40-eeec-448e-86e9-42f490c766a4",
-  "name": "propeller-channel",
-  "domain_id": "3053156a-1994-4776-9e18-8c5d8883647c",
-  "created_at": "2026-03-04T11:15:24.176472Z",
-  "updated_at": "0001-01-01T00:00:00Z",
-  "status": "enabled"
-}
-```
-
-Store the channel ID:
-
-```bash
-CHAN_ID=$(echo $CHAN | jq -r '.id')
-echo "Channel  id=$CHAN_ID"
-```
-
-Your output should look like this:
-
-```bash
-Channel  id=c19ded40-eeec-448e-86e9-42f490c766a4
-```
-
-### 5.7 — Connect both clients to the channel
-
-Clients must be explicitly connected to a channel before they can exchange messages on it. Connect both the manager and proplet clients with publish and subscribe permissions:
-
-```bash
-curl -s -X POST "http://localhost/${DOMAIN_ID}/channels/${CHAN_ID}/connect" \
-  -H "Authorization: Bearer $DOMAIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"client_ids\":[\"$MGR_ID\",\"$PROP_ID\"],\"types\":[\"publish\",\"subscribe\"]}"
-```
-
-Your output should look like this:
-
-```json
-{"message":"entity already exists"}
-```
-
-> A `400` response with `"entity already exists"` confirms the connection was established. SuperMQ returns this on duplicate connect attempts, which is harmless.
-
-### 5.8 — Write config.toml
-
-The Propeller containers read their SuperMQ credentials from a configuration file. Write the provisioned credentials to `config.toml` so the proplet and proxy can authenticate:
-
-```bash
-cat > config.toml << EOF
-# SuperMQ Configuration
-
-[manager]
-domain_id = "$DOMAIN_ID"
-client_id = "$MGR_ID"
-client_key = "$MGR_KEY"
-channel_id = "$CHAN_ID"
-
-[proplet]
-domain_id = "$DOMAIN_ID"
-client_id = "$PROP_ID"
-client_key = "$PROP_KEY"
-channel_id = "$CHAN_ID"
-
-[proxy]
-domain_id = "$DOMAIN_ID"
-client_id = "$PROP_ID"
-client_key = "$PROP_KEY"
-channel_id = "$CHAN_ID"
-EOF
-cat config.toml
+cat docker/config.toml
 ```
 
 Your output should look like this:
@@ -552,10 +340,32 @@ client_key = "3c905d3c-845b-4b9e-8c51-7ab9a2403163"
 channel_id = "c19ded40-eeec-448e-86e9-42f490c766a4"
 ```
 
-Also copy it to the docker directory (where the compose file mounts it):
+> The UUIDs shown are from an example run—yours will differ.
+
+### 5.3 — Export credentials as shell variables
+
+Later steps reference these credentials. Export them from `docker/config.toml`:
 
 ```bash
-cp config.toml docker/config.toml
+DOMAIN_ID=$(grep 'domain_id' docker/config.toml | head -1 | sed 's/.*= "\(.*\)"/\1/')
+CHAN_ID=$(grep 'channel_id' docker/config.toml | head -1 | sed 's/.*= "\(.*\)"/\1/')
+MGR_ID=$(awk '/^\[manager\]/,/^\[proplet\]/' docker/config.toml | grep 'client_id' | sed 's/.*= "\(.*\)"/\1/')
+MGR_KEY=$(awk '/^\[manager\]/,/^\[proplet\]/' docker/config.toml | grep 'client_key' | sed 's/.*= "\(.*\)"/\1/')
+PROP_ID=$(awk '/^\[proplet\]/,/^\[proxy\]/' docker/config.toml | grep 'client_id' | sed 's/.*= "\(.*\)"/\1/')
+PROP_KEY=$(awk '/^\[proplet\]/,/^\[proxy\]/' docker/config.toml | grep 'client_key' | sed 's/.*= "\(.*\)"/\1/')
+echo "DOMAIN_ID: $DOMAIN_ID"
+echo "CHAN_ID:    $CHAN_ID"
+echo "MGR_ID:    $MGR_ID"
+echo "PROP_ID:   $PROP_ID"
+```
+
+Your output should look like this:
+
+```bash
+DOMAIN_ID: 3053156a-1994-4776-9e18-8c5d8883647c
+CHAN_ID:    c19ded40-eeec-448e-86e9-42f490c766a4
+MGR_ID:    0a96e62c-da03-45eb-9699-b7d8dfa843c9
+PROP_ID:   b64502f0-25bc-4926-8fbc-ad508f75d96c
 ```
 
 ---
@@ -583,7 +393,7 @@ PROXY_CLIENT_ID=b64502f0-25bc-4926-8fbc-ad508f75d96c
 PROXY_CLIENT_KEY=3c905d3c-845b-4b9e-8c51-7ab9a2403163
 ```
 
-> Replace all UUIDs above with the values from your provisioning output. The UUIDs shown here are from the example provisioning run—yours will be different.
+> Replace all UUIDs above with the values from `docker/config.toml`. The UUIDs shown here are from the example provisioning run—yours will be different.
 
 Recreate only the propeller containers (not SuperMQ) to pick up the new env values:
 
@@ -714,7 +524,7 @@ image: controller:latest
 imagePullPolicy: Never
 ```
 
-> Replace all UUIDs above with your provisioned values from Step 5.
+> Replace all UUIDs above with the values from `docker/config.toml` (written in Step 5).
 
 > **Registry-based images:** If you push the image to a container registry instead of importing it locally, omit the `imagePullPolicy: Never` line (or set it to `IfNotPresent`). If your registry requires authentication, create an image pull secret and reference it in the Deployment:
 >
