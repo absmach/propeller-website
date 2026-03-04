@@ -13,7 +13,7 @@ The operator source code is available at [github.com/absmach/propeller-k8s-opera
 
 ### How the Operator Fits into Propeller
 
-Propeller consists of a **manager** (task dispatch), **proplets** (workers that execute WASM), and **SuperMQ** (MQTT broker providing authentication and routing). In a standalone deployment these run as separate processes or Docker containers. The Propeller Kubernetes Operator replaces the manager process: it watches Kubernetes Custom Resources for desired state and drives proplets over MQTT to achieve it, while recording outcomes back into Kubernetes status fields.
+Propeller consists of a **manager** (task dispatch), **proplets** (workers that execute WASM), and **[SuperMQ](https://docs.supermq.absmach.eu/)** (MQTT broker providing authentication and routing). In a standalone deployment these run as separate processes or Docker containers. The Propeller Kubernetes Operator replaces the manager process: it watches Kubernetes Custom Resources for desired state and drives proplets over MQTT to achieve it, while recording outcomes back into Kubernetes status fields.
 
 The operator connects to a SuperMQ MQTT broker on startup using the manager's credentials. It subscribes to the wildcard topic for its configured domain and channel, and dispatches to individual proplets by publishing targeted start messages.
 
