@@ -11,6 +11,7 @@
     "http-server.mdx",
     "tee.mdx",
     "wasi-http.mdx",
-    "hal-test.mdx"
+    "hal-test.mdx",
+    "kubernetes-operator.mdx"
   ]
 }
