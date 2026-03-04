@@ -974,41 +974,6 @@ The proplet executed the WASM binary with Wasmtime, published the result to `con
 
 ---
 
-## Running Unit Tests
-
-The operator includes controller tests that run against a local envtest environment (no cluster required):
-
-```bash
-cd propeller-k8s-operator
-make test
-```
-
-Your output should look like this:
-
-```bash
-./bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-./bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
-go fmt ./...
-internal/scheduler/scheduler.go
-go vet ./...
-Downloading sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.21
-...
-Setting up envtest binaries for Kubernetes version 1.33...
-./bin/k8s/1.33.0-linux-amd64
-KUBEBUILDER_ASSETS="./bin/k8s/1.33.0-linux-amd64" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out
-	github.com/absmach/propeller/api/v1		coverage: 0.0% of statements
-	github.com/absmach/propeller/api/v1alpha1		coverage: 0.0% of statements
-	github.com/absmach/propeller/cmd		coverage: 0.0% of statements
-ok  	github.com/absmach/propeller/internal/controller	8.823s	coverage: 5.0% of statements
-	github.com/absmach/propeller/internal/mqtt		coverage: 0.0% of statements
-	github.com/absmach/propeller/internal/scheduler		coverage: 0.0% of statements
-	github.com/absmach/propeller/test/utils		coverage: 0.0% of statements
-```
-
-All controller tests pass in 8.8 seconds. The test suite uses [envtest](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/envtest) to spin up a real API server and etcd in-process, with the operator's CRDs loaded from `config/crd/bases`.
-
----
-
 ## Custom Resource Reference
 
 This section provides a quick reference for the Custom Resources used in this example. For the complete specification including all fields, lifecycle diagrams, and advanced options, see the [Propeller Kubernetes Operator documentation](/docs/kubernetes-operator).
