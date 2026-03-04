@@ -155,11 +155,11 @@ make install
 Your output should look like this:
 
 ```bash
-/home/jeff/Documents/propeller-k8s-operator/bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+./bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 Downloading sigs.k8s.io/kustomize/kustomize/v5@v5.6.0
 go: downloading sigs.k8s.io/kustomize/kustomize/v5 v5.6.0
 ...
-/home/jeff/Documents/propeller-k8s-operator/bin/kustomize build config/crd | kubectl apply -f -
+./bin/kustomize build config/crd | kubectl apply -f -
 customresourcedefinition.apiextensions.k8s.io/federatedjobs.propeller.propeller.abstractmachines.fr created
 customresourcedefinition.apiextensions.k8s.io/propellerjobs.propeller.propeller.abstractmachines.fr created
 customresourcedefinition.apiextensions.k8s.io/proplets.propeller.propeller.abstractmachines.fr created
@@ -979,16 +979,16 @@ make test
 Your output should look like this:
 
 ```bash
-/home/jeff/Documents/propeller-k8s-operator/bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-/home/jeff/Documents/propeller-k8s-operator/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+./bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+./bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 go fmt ./...
 internal/scheduler/scheduler.go
 go vet ./...
 Downloading sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.21
 ...
 Setting up envtest binaries for Kubernetes version 1.33...
-/home/jeff/Documents/propeller-k8s-operator/bin/k8s/1.33.0-linux-amd64
-KUBEBUILDER_ASSETS="/home/jeff/Documents/propeller-k8s-operator/bin/k8s/1.33.0-linux-amd64" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out
+./bin/k8s/1.33.0-linux-amd64
+KUBEBUILDER_ASSETS="./bin/k8s/1.33.0-linux-amd64" go test $(go list ./... | grep -v /e2e) -coverprofile cover.out
 	github.com/absmach/propeller/api/v1		coverage: 0.0% of statements
 	github.com/absmach/propeller/api/v1alpha1		coverage: 0.0% of statements
 	github.com/absmach/propeller/cmd		coverage: 0.0% of statements
