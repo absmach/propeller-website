@@ -9,6 +9,7 @@
     "http-client.mdx",
     "http-server.mdx",
     "tee.mdx",
-    "wasi-http.mdx"
+    "wasi-http.mdx",
+    "kubernetes-operator.mdx"
   ]
 }
