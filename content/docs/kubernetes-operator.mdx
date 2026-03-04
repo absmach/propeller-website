@@ -7,7 +7,6 @@ The Propeller Kubernetes Operator extends any Kubernetes cluster with five Custo
 
 The operator source code is available at [github.com/absmach/propeller-k8s-operator](https://github.com/absmach/propeller-k8s-operator).
 
----
 
 ## Architecture
 
@@ -70,7 +69,6 @@ The operator subscribes to the wildcard `m/{domain_id}/c/{channel_id}/#` and dis
 
 The MQTT client ID used by the operator is `propeller-controller`. Proplets identify themselves in alive messages using their SuperMQ `client_id`. The operator matches this value against `spec.connectionConfig.clientId` in Proplet CRs to route heartbeats and results to the correct resource.
 
----
 
 ## Proplet
 
@@ -134,7 +132,6 @@ A `Proplet` resource represents one worker node. The `spec.type` field selects b
 | `k8sStatus.readyReplicas`     | Ready pod replicas (k8s type only)                                         |
 | `k8sStatus.availableReplicas` | Available pod replicas (k8s type only)                                     |
 
----
 
 ## Task
 
@@ -252,7 +249,6 @@ If no proplet satisfies the filter, the task remains in `pending` and is requeue
 | `conditions[Started]`   | `True` when execution began                                                           |
 | `conditions[Completed]` | `True` when execution finished successfully                                           |
 
----
 
 ## PropellerJob
 
@@ -286,7 +282,6 @@ A `PropellerJob` groups multiple Tasks into a single managed batch. The `Propell
 | `skippedCount`   | Tasks in `skipped` phase                       |
 | `conditions`     | Kubernetes condition array for detailed state  |
 
----
 
 ## FederatedJob
 
@@ -325,7 +320,6 @@ A `FederatedJob` coordinates a multi-round federated learning experiment across 
 | `participants`       | Per-participant status across all rounds         |
 | `conditions`         | Kubernetes condition array                       |
 
----
 
 ## TrainingRound
 
@@ -362,7 +356,6 @@ A `TrainingRound` represents a single round within a `FederatedJob`. The `Traini
 | `aggregatedModelRef`   | Reference to the round's aggregated result                          |
 | `conditions`           | Kubernetes condition array                                          |
 
----
 
 ## Scheduler
 
@@ -387,7 +380,6 @@ Errors returned by the scheduler:
 | `ErrNoCandidates`          | No proplets satisfy the task's selector criteria |
 | `ErrInsufficientResources` | No proplet has sufficient CPU or memory          |
 
----
 
 ## Configuration
 
@@ -428,7 +420,6 @@ The operator is configured entirely through command-line flags. There is no conf
 | `--webhook-cert-name`         | `tls.crt` | Webhook certificate filename                             |
 | `--webhook-cert-key`          | `tls.key` | Webhook key filename                                     |
 
----
 
 ## Deployment
 
@@ -511,7 +502,6 @@ Resource defaults: 10m CPU / 64Mi memory requests; 500m CPU / 128Mi limits.
 
 Both endpoints are served on `--health-probe-bind-address` (default `:8081`).
 
----
 
 ## Testing
 
@@ -529,7 +519,6 @@ make test-e2e         # runs Ginkgo e2e suite
 make cleanup-test-e2e # tears down the Kind cluster
 ```
 
----
 
 ## Owner References and Garbage Collection
 
