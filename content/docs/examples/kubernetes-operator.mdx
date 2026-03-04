@@ -70,12 +70,15 @@ You need the following tools installed before proceeding:
 
 You also need:
 
-- The **Propeller repository** cloned locally with binaries already built. This guide assumes it is at `~/Documents/propeller`. If you have not built it yet, follow the [Getting Started guide](/docs/getting-started) first.
-- The **Propeller k8s operator repository** cloned locally. This guide assumes it is at `~/Documents/propeller-k8s-operator`.
+- The **Propeller repository** cloned locally with binaries already built. If you have not built it yet, follow the [Getting Started guide](/docs/getting-started) first.
+- The **Propeller k8s operator repository** cloned locally:
 
   ```bash
-  git clone https://github.com/absmach/propeller-k8s-operator.git ~/Documents/propeller-k8s-operator
+  git clone https://github.com/absmach/propeller-k8s-operator.git
+  cd propeller-k8s-operator
   ```
+
+This guide uses `propeller/` and `propeller-k8s-operator/` to refer to these directories. Adjust the paths if you cloned them elsewhere.
 
 ---
 
@@ -148,7 +151,7 @@ k3d-k3s-default-server-0   Ready    control-plane,master   13s   v1.31.5+k3s1
 Move into the operator directory and install the CRDs into the cluster:
 
 ```bash
-cd ~/Documents/propeller-k8s-operator
+cd propeller-k8s-operator
 make install
 ```
 
@@ -194,7 +197,7 @@ namespace/propeller-workloads created
 The operator communicates with proplets over MQTT via SuperMQ. Start the full Propeller Docker stack from the propeller repository:
 
 ```bash
-cd ~/Documents/propeller
+cd propeller
 make start-supermq
 ```
 
@@ -487,7 +490,7 @@ Your output should look like this:
 Write the credentials to `config.toml` in the propeller repository:
 
 ```bash
-cat > ~/Documents/propeller/config.toml << EOF
+cat > config.toml << EOF
 # SuperMQ Configuration
 
 [manager]
@@ -508,7 +511,7 @@ client_id = "$PROP_ID"
 client_key = "$PROP_KEY"
 channel_id = "$CHAN_ID"
 EOF
-cat ~/Documents/propeller/config.toml
+cat config.toml
 ```
 
 Your output should look like this:
@@ -538,7 +541,7 @@ channel_id = "c19ded40-eeec-448e-86e9-42f490c766a4"
 Also copy it to the docker directory (where the compose file mounts it):
 
 ```bash
-cp ~/Documents/propeller/config.toml ~/Documents/propeller/docker/config.toml
+cp config.toml docker/config.toml
 ```
 
 ---
@@ -547,7 +550,7 @@ cp ~/Documents/propeller/config.toml ~/Documents/propeller/docker/config.toml
 
 The Docker containers read credentials from environment variables in `docker/.env`. Update those values to match the new credentials you just provisioned.
 
-Open `~/Documents/propeller/docker/.env` and update the following six lines. Find each one by searching for the variable name and replace the old UUID with your new one:
+Open `docker/.env` and update the following six lines. Find each one by searching for the variable name and replace the old UUID with your new one:
 
 ```bash
 MANAGER_DOMAIN_ID=3053156a-1994-4776-9e18-8c5d8883647c
@@ -571,8 +574,8 @@ PROXY_CLIENT_KEY=3c905d3c-845b-4b9e-8c51-7ab9a2403163
 Recreate only the propeller containers (not SuperMQ) to pick up the new env values:
 
 ```bash
-docker compose -f ~/Documents/propeller/docker/compose.yaml \
-  --env-file ~/Documents/propeller/docker/.env \
+docker compose -f docker/compose.yaml \
+  --env-file docker/.env \
   up -d --force-recreate manager proplet proxy
 ```
 
@@ -684,7 +687,7 @@ The proplet and proxy containers can stay running—only the manager is being re
 Run the operator locally against the k3d cluster. It connects to the same SuperMQ MQTT broker, using the manager credentials:
 
 ```bash
-cd ~/Documents/propeller-k8s-operator
+cd propeller-k8s-operator
 
 nohup go run ./cmd/main.go \
   --mqtt-address="tcp://localhost:1883" \
@@ -972,7 +975,7 @@ The proplet executed the WASM binary with Wasmtime, published the result to `con
 The operator includes controller tests that run against a local envtest environment (no cluster required):
 
 ```bash
-cd ~/Documents/propeller-k8s-operator
+cd propeller-k8s-operator
 make test
 ```
 
