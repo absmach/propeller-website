@@ -276,6 +276,8 @@ supermq-clients-db         Up 37 seconds
 
 The operator and proplet need SuperMQ credentials—a domain, channel, and two client IDs with keys—to authenticate on MQTT. You provision these through the SuperMQ HTTP API exposed on port 80 by nginx.
 
+SuperMQ uses a hierarchical resource model: **domains** provide multi-tenant isolation, **clients** represent authenticated entities (the operator and proplets), and **channels** define communication pathways. Clients can only exchange messages over channels they are explicitly connected to.
+
 The default admin credentials are set in `docker/.env`:
 
 ```bash
@@ -284,6 +286,8 @@ SMQ_USERS_ADMIN_PASSWORD=12345678
 ```
 
 ### 5.1 — Get an admin access token
+
+All SuperMQ API calls require a bearer token for authentication. Start by obtaining a token using the admin credentials:
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost/users/tokens/issue \
@@ -299,6 +303,8 @@ Token: eyJhbGciOiJFZERTQSIsImtpZCI6Im...
 ```
 
 ### 5.2 — Create a domain
+
+Domains provide multi-tenant isolation in SuperMQ. All resources—clients, channels, and their connections—are scoped to a domain. Create a domain for this Propeller deployment:
 
 ```bash
 DOMAIN=$(curl -s -X POST http://localhost/domains \
@@ -336,7 +342,7 @@ Domain ID: 3053156a-1994-4776-9e18-8c5d8883647c
 
 ### 5.3 — Get a domain-scoped token
 
-Subsequent API calls require a token scoped to the domain:
+Operations on resources within a domain require a token scoped to that domain. Issue a new token with the domain ID:
 
 ```bash
 DOMAIN_TOKEN=$(curl -s -X POST http://localhost/users/tokens/issue \
@@ -353,6 +359,8 @@ Domain token: eyJhbGciOiJFZERTQSIsImtpZCI6Im...
 ```
 
 ### 5.4 — Create the manager client
+
+Clients are authenticated entities that can connect to the MQTT broker. The Kubernetes operator needs its own client identity to publish task dispatch messages and subscribe to proplet responses:
 
 ```bash
 MGR=$(curl -s -X POST "http://localhost/${DOMAIN_ID}/clients" \
@@ -395,6 +403,8 @@ Manager  id=0a96e62c-da03-45eb-9699-b7d8dfa843c9  key=8bd64edf-6cec-4cd8-aebd-a8
 
 ### 5.5 — Create the proplet client
 
+Each proplet also needs its own client identity. The proplet uses this to authenticate with MQTT, publish heartbeats and results, and subscribe to task dispatch messages. The client ID becomes the `proplet_id` in alive messages—the operator uses this to match heartbeats to Proplet CRs:
+
 ```bash
 PROP=$(curl -s -X POST "http://localhost/${DOMAIN_ID}/clients" \
   -H "Authorization: Bearer $DOMAIN_TOKEN" \
@@ -436,6 +446,8 @@ Proplet  id=b64502f0-25bc-4926-8fbc-ad508f75d96c  key=3c905d3c-845b-4b9e-8c51-7a
 
 ### 5.6 — Create a channel
 
+Channels are the message routing mechanism in SuperMQ. All MQTT messages are scoped to a channel, and clients can only publish or subscribe to topics on channels they are connected to. Create a channel for Propeller communication:
+
 ```bash
 CHAN=$(curl -s -X POST "http://localhost/${DOMAIN_ID}/channels" \
   -H "Authorization: Bearer $DOMAIN_TOKEN" \
@@ -472,6 +484,8 @@ Channel  id=c19ded40-eeec-448e-86e9-42f490c766a4
 
 ### 5.7 — Connect both clients to the channel
 
+Clients must be explicitly connected to a channel before they can exchange messages on it. Connect both the manager and proplet clients with publish and subscribe permissions:
+
 ```bash
 curl -s -X POST "http://localhost/${DOMAIN_ID}/channels/${CHAN_ID}/connect" \
   -H "Authorization: Bearer $DOMAIN_TOKEN" \
@@ -489,7 +503,7 @@ Your output should look like this:
 
 ### 5.8 — Write config.toml
 
-Write the credentials to `config.toml` in the propeller repository:
+The Propeller containers read their SuperMQ credentials from a configuration file. Write the provisioned credentials to `config.toml` so the proplet and proxy can authenticate:
 
 ```bash
 cat > config.toml << EOF
@@ -654,19 +668,7 @@ The `proplet_id` field in alive messages is the proplet's `client_id`. The opera
 
 ---
 
-## Step 7 — Patch the Operator MQTT Topic Base
-
-The operator's MQTT base topic must match SuperMQ's routing scheme. Open `internal/controller/proplet_controller.go` in the operator repository and verify line 45:
-
-```go
-var superMQBaseTopic = "m/%s/c/%s"
-```
-
-SuperMQ routes MQTT messages directly on the topic path `m/{domain_id}/c/{channel_id}/{sub-topic}`. The operator subscribes to `m/{domain_id}/c/{channel_id}/#` (wildcard), which matches all sub-topics. If this variable reads `"m/%s/c/%s/messages"` instead, the operator subscribes to the wrong path and never receives proplet messages.
-
----
-
-## Step 8 — Stop the Docker Propeller Manager
+## Step 7 — Stop the Docker Propeller Manager
 
 The k8s operator will act as the manager. Stop the Docker manager container so it does not compete for the same MQTT subscriptions:
 
@@ -684,7 +686,7 @@ The proplet and proxy containers can stay running—only the manager is being re
 
 ---
 
-## Step 9 — Run the Operator
+## Step 8 — Run the Operator
 
 Run the operator locally against the k3d cluster. It connects to the same SuperMQ MQTT broker, using the manager credentials:
 
@@ -750,7 +752,7 @@ ok
 
 ---
 
-## Step 10 — Create an External Proplet
+## Step 9 — Create an External Proplet
 
 Register the running docker proplet as an external Proplet CRD. The `spec.connectionConfig.clientId` must match the `proplet_id` the proplet sends in alive messages (verified in step 6 to be the proplet's `client_id`). See the [Proplet spec reference](/docs/kubernetes-operator#proplet-spec-reference) for all available fields.
 
@@ -849,7 +851,7 @@ Both `Ready` and `Connected` conditions are `True`. The `Last Seen` timestamp up
 
 ---
 
-## Step 11 — Run a Task
+## Step 10 — Run a Task
 
 Create a Task that targets the docker proplet. This uses the addition WASM module (the same binary used in the [addition example](/docs/examples/addition))—a minimal module that exports a `main` function taking two integers and returning their sum. See the [Task spec reference](/docs/kubernetes-operator#task-spec-reference) for all available fields.
 
@@ -895,7 +897,7 @@ The task went from `pending` to `completed` in under 13 seconds.
 
 ---
 
-## Step 12 — Verify the Result
+## Step 11 — Verify the Result
 
 Inspect the full task status to confirm the WASM module executed and the result was returned:
 
