@@ -3,7 +3,9 @@ title: Running a WASM Task via the Propeller Kubernetes Operator
 description: Propeller Kubernetes Operator example
 ---
 
-This is a Propeller Kubernetes Operator example. It provisions SuperMQ, deploys the operator, registers an external proplet, and runs a WebAssembly addition task.
+This is a Propeller Kubernetes Operator example. It provisions [SuperMQ](https://docs.supermq.absmach.eu/), deploys the operator, registers an external proplet, and runs a WebAssembly addition task.
+
+For a complete reference of the operator's architecture, Custom Resource Definitions, configuration options, and MQTT communication patterns, see the [Propeller Kubernetes Operator documentation](/docs/kubernetes-operator).
 
 ## Source Code
 
@@ -170,7 +172,7 @@ customresourcedefinition.apiextensions.k8s.io/tasks.propeller.propeller.abstract
 customresourcedefinition.apiextensions.k8s.io/trainingrounds.propeller.propeller.abstractmachines.fr created
 ```
 
-All five CRDs are now registered with the Kubernetes API server.
+All five CRDs are now registered with the Kubernetes API server. See the [CRD reference](/docs/kubernetes-operator#custom-resource-definitions) for details on each resource type.
 
 ---
 
@@ -750,7 +752,7 @@ ok
 
 ## Step 10 — Create an External Proplet
 
-Register the running docker proplet as an external Proplet CRD. The `spec.connectionConfig.clientId` must match the `proplet_id` the proplet sends in alive messages (verified in step 6 to be the proplet's `client_id`):
+Register the running docker proplet as an external Proplet CRD. The `spec.connectionConfig.clientId` must match the `proplet_id` the proplet sends in alive messages (verified in step 6 to be the proplet's `client_id`). See the [Proplet spec reference](/docs/kubernetes-operator#proplet-spec-reference) for all available fields.
 
 ```bash
 kubectl apply -n propeller-workloads -f - <<'EOF'
@@ -849,7 +851,7 @@ Both `Ready` and `Connected` conditions are `True`. The `Last Seen` timestamp up
 
 ## Step 11 — Run a Task
 
-Create a Task that targets the docker proplet. This uses the addition WASM module (the same binary used in the [addition example](/docs/examples/addition))—a minimal module that exports a `main` function taking two integers and returning their sum:
+Create a Task that targets the docker proplet. This uses the addition WASM module (the same binary used in the [addition example](/docs/examples/addition))—a minimal module that exports a `main` function taking two integers and returning their sum. See the [Task spec reference](/docs/kubernetes-operator#task-spec-reference) for all available fields.
 
 ```bash
 kubectl apply -n propeller-workloads -f - <<'EOF'
@@ -1006,6 +1008,8 @@ All controller tests pass in 8.8 seconds. The test suite uses [envtest](https://
 ---
 
 ## Custom Resource Reference
+
+This section provides a quick reference for the Custom Resources used in this example. For the complete specification including all fields, lifecycle diagrams, and advanced options, see the [Propeller Kubernetes Operator documentation](/docs/kubernetes-operator).
 
 ### Proplet Spec
 
