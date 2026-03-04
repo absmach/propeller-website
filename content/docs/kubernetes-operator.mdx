@@ -449,7 +449,17 @@ This runs `controller-gen` to generate CRD manifests from the Go types, then app
 make deploy IMG=<your-registry>/propeller-k8s-operator:<tag>
 ```
 
-This renders the full deployment manifest (controller Deployment, ClusterRole, ClusterRoleBinding, ServiceAccount) via Kustomize and applies it.
+This renders the full deployment manifest (controller Deployment, ClusterRole, ClusterRoleBinding, ServiceAccount, CRDs) via Kustomize and applies it. The operator namespace (`propeller-k8s-operator-system`) is created automatically.
+
+For local development with k3d, build the image and import it directly into the cluster nodes before deploying (no registry required):
+
+```bash
+make docker-build IMG=propeller-k8s-operator:latest
+k3d image import propeller-k8s-operator:latest -c k3s-default
+make deploy IMG=propeller-k8s-operator:latest
+```
+
+Set `imagePullPolicy: Never` in `config/manager/manager.yaml` when using a locally-loaded image.
 
 ### Running Locally
 
