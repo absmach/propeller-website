@@ -1,203 +1,474 @@
 ---
 title: Embedded Proplet
-description: WAMR integration for WebAssembly execution on embedded Zephyr devices
+description: WebAssembly runtime for microcontroller-based edge devices using Zephyr RTOS and WAMR
 ---
 
-## WAMR Integration in the Embedded Proplet
+The Embedded Proplet brings WebAssembly execution to microcontrollers like the ESP32-S3. It is a C firmware application running on Zephyr RTOS that connects to a Propeller [Manager](/docs/manager) over MQTT and executes WebAssembly tasks using the WebAssembly Micro Runtime (WAMR). When the Manager sends a task, the Embedded Proplet decodes the WASM module, runs it locally on the device, and reports results back — enabling computation at the true edge with as little as 128 KB RAM.
 
-Propeller integrates [WAMR](https://github.com/bytecodealliance/wasm-micro-runtime) within its decentralized worker-node framework, enabling distributed execution of WASM workloads on [Zephyr](https://www.zephyrproject.org/)-based embedded devices through the embedded proplet. The WAMR runtime is integrated into the Propeller project as a Git submodule, ensuring modular dependency management and streamlined updates. The integration is defined within the CMakeLists.txt configuration, where WAMR is compiled as part of the Zephyr build system. The embedded proplet explicitly configures WAMR for the ESP32-S3 (XTENSA) architecture by setting `WAMR_BUILD_PLATFORM="zephyr"` and `WAMR_BUILD_TARGET="XTENSA"`. Other target options include `"ARM"`, `"RISCV"`, `"X86_64"`, and `"MIPS"`, making the embedded proplet adaptable to a wide range of embedded architectures beyond XTENSA.
+## Why the Embedded Proplet
 
-To ensure an optimal balance between performance and flexibility in embedded environments, the embedded proplet is configured to support both interpreter mode (`WAMR_BUILD_INTERP=1`) and ahead-of-time (AOT) compilation (`WAMR_BUILD_AOT=1`). The above configuration allows for efficient execution of pre-compiled WASM modules while retaining the ability to interpret dynamically loaded binaries. Disabling the interpreter (`WAMR_BUILD_INTERP=0`) mandates the use of AOT-compiled modules, potentially improving runtime efficiency but limiting flexibility. Conversely, disabling AOT (`WAMR_BUILD_AOT=0`) forces reliance on interpretation, which may introduce performance overhead but ensures broader compatibility for modules that have not been precompiled. The built-in WAMR libc (`WAMR_BUILD_LIBC_BUILTIN=1`) is utilized instead of [WASI](https://github.com/WebAssembly/WASI), as full WASI support in Zephyr is still evolving. Furthermore, a global heap pool (`WAMR_BUILD_GLOBAL_HEAP_POOL=1`) is allocated with a size of 40 KB (`WAMR_BUILD_GLOBAL_HEAP_SIZE=40960`), ensuring efficient memory management for WASM execution.
+### Extending to Constrained Devices
 
-## Extending the Zephyr Build System for WAMR Integration
+The standard [Proplet](/docs/proplet) runs on Linux with Wasmtime, requiring ~100 MB RAM minimum. The Embedded Proplet targets microcontrollers with kilobytes of memory, enabling Propeller to reach sensors, actuators, and other embedded devices at the true edge.
 
-To integrate WAMR seamlessly within the Zephyr build system, the following configurations and module definitions are applied. First, the build system includes `runtime_lib.cmake` from the WAMR repository, ensuring that all necessary runtime components are compiled as part of the Zephyr application. The approach enables the embedded proplet to efficiently execute WASM workloads while using Zephyr’s build and dependency management capabilities. Additionally, the Zephyr build system is extended to recognize WAMR as an integral part of the embedded proplet by modifying the `ZEPHYR_EXTRA_MODULES` variable. The modification ensures that the WAMR repository path is explicitly included, allowing Zephyr to treat WAMR as a native library. Consequently, WAMR’s runtime components are automatically included during the firmware compilation process, avoiding manual dependency management.
+### Native RTOS Integration
 
-To establish a direct connection between the application and WAMR’s execution environment, the build system explicitly includes WAMR’s core runtime headers and source files. This guarantees that the WebAssembly engine is properly compiled and linked within the firmware, ensuring smooth execution of WASM workloads.
+Built on Zephyr RTOS, the Embedded Proplet integrates with hardware-level features like WiFi drivers, interrupt handling, and real-time scheduling. This is essential for devices that interact directly with physical hardware.
 
-Finally, WAMR is embedded into the Zephyr application as a dedicated library using `zephyr_library_named(wamr_lib)`. The application then links WAMR with the Zephyr build system through `target_link_libraries(app PRIVATE wamr_lib)`, allowing the WASM execution environment to be tightly integrated with the Zephyr firmware.
+### Same Protocol, Different Runtime
 
-## WASM Handler
+The Embedded Proplet uses the same MQTT messaging protocol and topic structure as the standard Proplet. The Manager sees it as just another Proplet—it publishes discovery messages, receives tasks, and reports results identically.
 
-The WASM handler, implemented in `wasm_handler.c` and `wasm_handler.h`, serves as the primary interface between the embedded proplet and the embedded device. It is responsible for reading binary WebAssembly modules, validating their integrity, and loading the wasm modules into WAMR’s runtime. The validation step ensures that corrupted or malformed modules do not compromise system stability. Once a WASM module is loaded, the handler initializes the runtime environment to ensure proper execution. The initialization includes allocating a dedicated stack (16 KB) and heap (16 KB) using `wasm_runtime_instantiate()`. To support concurrent execution of multiple WASM workloads, the handler maintains an array where each running module is tracked with a unique task ID. The implementation of the embedded proplet also ensures that WASM modules can be explicitly terminated, freeing memory and execution slots when no longer needed.
+### Differences from Standard Proplet
 
-For WASM modules to interact with external hardware and networking components, the embedded proplet exposes controlled system interfacing methods. The methods provide secure access to essential embedded system capabilities, including:
+| Feature               | Standard Proplet          | Embedded Proplet             |
+|-----------------------|---------------------------|------------------------------|
+| Runtime               | Wasmtime                  | WAMR                         |
+| OS                    | Linux                     | Zephyr RTOS                  |
+| Min RAM               | ~100 MB                   | 128 KB                       |
+| WASI support          | Supported                 | Not supported                |
+| Module format         | Go / Rust / TinyGo + WASI | WAT / bare WASM              |
+| I/O types             | File, network, env vars   | Integer values (i32)         |
+| Concurrent tasks      | Unlimited                 | 10 running, 4 monitored      |
 
-- Publishing results over MQTT: The handler enables the embedded proplet to send execution results to the Manager using `publish_results()`, facilitating seamless communication with the Manager.
-- Interacting with external inputs: Embedded Proplets receive dynamic inputs through a defined input structure (`inputs[MAX_INPUTS]`), allowing parameterized execution of WebAssembly code
-- Performing logging and debugging: The embedded proplet integrates with Zephyr’s logging framework, ensuring that execution logs and error messages are captured for real-time monitoring and debugging.
+## Prerequisites
 
-Since embedded devices have limited resources, the WASM handler enforces strict memory isolation and execution constraints to maintain system reliability. This is achieved through:
+Before building the Embedded Proplet, set up the development environment as described in the [Zephyr Guide](/docs/zephyr). You'll need:
 
-- Creating execution environments: Each WASM module operates within a sandboxed memory region, using `wasm_runtime_create_exec_env()`, preventing unintended access to system memory.
-- Limiting execution time and memory usage: The WASM handler enforces a predefined memory allocation (e.g., a global heap size of 40 KB) to prevent system-wide memory exhaustion.
-- Handling runtime exceptions: The system continuously monitors for execution errors using `wasm_runtime_get_exception()`. If an error occurs, it is logged, and the execution is halted to prevent cascading failures.
-
-For WebAssembly modules to interact with hardware and networking components, the WASM handler facilitates controlled access to system interfaces. The controlled access is achieved by exposing custom host functions, which allow WebAssembly code to:
-
-- Publish results over MQTT: Using `publish_results()`, execution results from a WASM module can be sent over an MQTT channel.
-- Interact with external inputs: WASM functions can receive input values (`inputs[MAX_INPUTS]`) that modify their behavior dynamically.
-- Perform logging and debugging: The handler integrates with Zephyr’s logging system, providing real-time execution feedback.
-
-## Ensuring Memory Isolation and Stability
-
-Since embedded devices have limited resources, the WASM handler enforces strict memory constraints and execution limits. This is done by:
-
-- Creating execution environments using `wasm_runtime_create_exec_env()`, which ensures each WASM module operates in a sandboxed memory region.
-- Limiting execution time by enforcing predefined memory allocations (e.g., 40 KB global heap) to prevent system-wide memory exhaustion.
-- Handling runtime exceptions by checking for error messages from `wasm_runtime_get_exception()`, preventing runtime crashes caused by invalid operations.
-
-A key aspect of WAMR integration is ensuring sandboxed execution. Each WASM module operates in an isolated environment, with controlled access to system resources. The WASM handler enforces strict memory and execution limits, preventing any single module from consuming excessive resources or interfering with other processes. Additionally, the system enables secure inter-process communication between WASM modules and native Zephyr components, allowing WebAssembly workloads to interact with hardware peripherals and networking functions through a well-defined API.
-
-Propeller also leverages WAMR’s extensibility by incorporating custom host functions. These functions allow WASM modules to perform operations such as network communication, sensor data acquisition, and logging. By defining specific host functions, Propeller enables WASM workloads to execute efficiently while maintaining security and stability within the embedded environment.
-
-Another critical component of the WAMR integration is task scheduling and workload management. The orchestrator assigns WASM tasks to available proplets based on resource availability, with the WASM handler dynamically managing execution priorities. Each proplet periodically reports its workload status to the orchestrator, enabling real-time load balancing and task reassignment if needed.
-
-## Task Scheduling and Resource Management
-
-The Propeller Orchestrator dynamically assigns workloads to proplets based on resource availability, power constraints, and scheduling priorities. Each proplet operates independently while receiving tasks from the orchestrator, executing them in an isolated runtime environment. This design guarantees security and stability while preventing resource contention among different workloads.
-
-The embedded proplet system is structured into the following components:
-
-The networking and connectivity components of the embedded proplet are built upon the networking stack of Zephyr, providing robust support for WiFi and IP-based communication. The configuration file enables WiFi networking and network management, allowing devices to establish and maintain wireless connections effectively. The system also supports general networking capabilities through the network management layer of Zephyr, which enables runtime control and configuration of networking interfaces.
-
-The system relies on DHCPv4 for dynamic IP address allocation, ensuring that each embedded proplet can automatically obtain an IP address when connecting to the network. The above eliminates the need for static IP configurations and allows seamless integration into existing network infrastructures. Additionally, the networking stack supports both TCP and UDP, ensuring compatibility with various communication protocols used in distributed systems. To manage multiple network interfaces, the configuration allows up to two IPv4 addresses, configured through `CONFIG_NET_IF_MAX_IPV4_COUNT=2`, per network interface. Though IPv6 support is available, it is disabled in the configuration file, as the embedded proplet currently prioritizes IPv4 networking. At the link-layer level, the system enables Ethernet and WiFi management, ensuring that edge devices connect using standard networking interfaces. The configuration file also specifies a maximum of two managed WiFi interfaces, allowing the system to handle multiple WiFi connections efficiently.
-
-Packet and buffer management is fine-tuned to optimize networking performance for embedded devices, where memory and processing power are constrained and can lead to dropped packets, increased retransmissions, and degraded communication efficiency. The configuration sets `CONFIG_NET_BUF_RX_COUNT=64` and `CONFIG_NET_BUF_TX_COUNT=64`, ensuring that sufficient buffers are allocated for incoming and outgoing network packets to reduce packet loss and improve transmission reliability. Similarly, `CONFIG_NET_PKT_RX_COUNT=32` and `CONFIG_NET_PKT_TX_COUNT=32` define the number of packet descriptors available for processing network traffic, balancing memory usage and network performance. The dedicated memory allocations for networking tasks `CONFIG_NET_RX_STACK_SIZE=2048` and `CONFIG_NET_TX_STACK_SIZE=2048`, further improve the responsiveness and stability of the system in handling concurrent network operations. Additionally, `CONFIG_NET_MAX_CONTEXTS=10` ensures that multiple networking contexts can be managed concurrently, allowing seamless handling of multiple network sockets, connections, or protocols.
-
-A key aspect of connectivity in the embedded proplet is the integration of MQTT for message-based communication. The configuration enables the MQTT library and socket support for seamless data exchange between Propeller nodes and the orchestrator. The MQTT client is configured to maintain session state and use a keep-alive mechanism to ensure continuous connectivity.
-
-To enhance reliability, the embedded proplet supports the Last Will and Testament (LWT) feature of MQTT. The feature ensures that in the event of an unexpected disconnection of the embedded proplet, a predefined message is sent to the broker, notifying the Manager of the disconnection event. Additionally, the embedded proplet leverages Quality of Service (QoS) levels to provide varying degrees of message reliability, ensuring that critical messages are received without duplication or loss. The configuration also allows for adaptive reconnection strategies, ensuring that embedded proplets can re-establish connections in case of temporary network disruptions.
-
-For debugging and diagnostics, the configuration enables logging with a default logging level of 3. This provides useful insights into networking operations without excessive verbosity. The system also supports early console output (`CONFIG_EARLY_CONSOLE=y`) and network statistics tracking (`CONFIG_NET_STATISTICS=y`), allowing developers to monitor network performance and diagnose potential issues efficiently.
-
-- WASM Handler : Interfaces with WAMR to load, execute, and manage WASM modules on the embedded device, enforcing isolation and resource constraints.
-- Configuration and Build System: Defines system parameters, dependencies, and build instructions to streamline deployment on Zephyr OS.
-- Data Serialization: Handles encoding and decoding of structured data in JSON format for efficient message parsing within the Propeller network.
-
-## Setup
-
-When running:
+- Zephyr SDK (v0.16.0+)
+- ESP-IDF (v5.1+) for ESP32-S3
+- West build system
+- WAMR submodule initialized
+- The Propeller stack running (Manager + MQTT broker) — follow the [Getting Started](/docs/getting-started) guide
 
 ```bash
+cd propeller/embed-proplet
+git submodule update --init --recursive
+```
+
+## Building and Flashing
+
+### Configure Device Identity
+
+Edit `src/main.c` with your device settings:
+
+```c
+#define WIFI_SSID "<YOUR_WIFI_SSID>"
+#define WIFI_PSK "<YOUR_WIFI_PSK>"
+#define PROPLET_ID "<YOUR_PROPLET_ID>"
+#define DOMAIN_ID "<YOUR_DOMAIN_ID>"
+#define CHANNEL_ID "<YOUR_CHANNEL_ID>"
+```
+
+Set the MQTT broker address and port in `src/mqtt_client.c` to the host running your Propeller stack:
+
+```c
+#define MQTT_BROKER_HOSTNAME "10.42.0.1" /* Replace with your broker's IP */
+#define MQTT_BROKER_PORT 1883
+```
+
+The WiFi driver connects on **2.4 GHz only** (`WIFI_FREQ_BAND_2_4_GHZ` in `wifi_manager.c`). 5 GHz networks are not supported.
+
+### Build for ESP32-S3
+
+```bash
+cd embed-proplet
 west build -b esp32s3_devkitc/esp32s3/procpu -p auto .
 ```
 
-CMake might stop with:
+Expected build output:
+
+```
+-- west build: generating a build system
+-- Zephyr version: 4.0.99 (/path/to/zephyrproject/zephyr)
+-- Board: esp32s3_devkitc, qualifiers: esp32s3/procpu
+-- ZEPHYR_TOOLCHAIN_VARIANT: zephyr
+-- Found toolchain: zephyr 0.17.0 (/path/to/zephyr-sdk-0.17.0)
+-- Configuring done
+-- Build files have been written to: /path/to/propeller/embed-proplet/build
+[1/1041] Building C object CMakeFiles/app.dir/src/cJSON.c.obj
+[2/1041] Building C object CMakeFiles/app.dir/src/main.c.obj
+[3/1041] Building C object CMakeFiles/app.dir/src/mqtt_client.c.obj
+[4/1041] Building C object CMakeFiles/app.dir/src/task_monitor.c.obj
+[5/1041] Building C object CMakeFiles/app.dir/src/wasm_handler.c.obj
+[6/1041] Building C object CMakeFiles/app.dir/src/wifi_manager.c.obj
+...
+[1041/1041] Linking CXX executable zephyr/zephyr.elf
+
+Memory region         Used Size  Region Size  %age Used
+   iram0_0_seg:       72676 B       527 KB     13.45%
+   dram0_0_seg:      258888 B       318 KB     79.30%
+       IDT_LIST:          0 GB         2 KB      0.00%
+```
+
+The firmware image (`zephyr.bin`) is approximately 640 KB.
+
+### Flash the Device
 
 ```bash
-Could NOT find Threads (missing: Threads_FOUND)
-...
-FATAL ERROR: command exited with status 1: ...
+west flash
 ```
 
-This is triggered by WAMR’s top-level `CMakeLists.txt` in `wasm-micro-runtime/`, specifically the lines:
+### Monitor Output
+
+```bash
+west espressif monitor
+```
+
+Expected startup sequence:
+
+```
+[00:00:00.001,000] <inf> main: Starting Proplet...
+[00:00:00.045,000] <inf> wifi_manager: Attempting to connect to Wi-Fi...
+[00:00:02.317,000] <inf> wifi_manager: Connected to Wi-Fi
+[00:00:02.318,000] <inf> wifi_manager: Successfully connected to Wi-Fi
+[00:00:02.319,000] <inf> task_monitor: Task monitor initialized (max tasks: 4)
+[00:00:02.320,000] <inf> mqtt_client: Attempting to connect to the MQTT broker...
+[00:00:02.890,000] <inf> mqtt_client: MQTT connection accepted by broker
+[00:00:02.891,000] <inf> mqtt_client: MQTT client connected successfully
+[00:00:02.892,000] <inf> mqtt_client: Subscribing to topics for channel ID: <channel_id>
+[00:00:02.950,000] <inf> mqtt_client: Subscribed successfully
+[00:00:02.951,000] <inf> mqtt_client: Successfully subscribed to topics for channel ID: <channel_id>
+[00:00:02.952,000] <inf> mqtt_client: Discovery published successfully to topic: m/<domain_id>/c/<channel_id>/control/proplet/create
+[00:00:02.953,000] <inf> mqtt_client: QoS 1 Message published successfully
+```
+
+## Architecture
+
+The Embedded Proplet consists of several C modules that handle different responsibilities.
+
+### Source Components
+
+| File              | Purpose                                               |
+|-------------------|-------------------------------------------------------|
+| `main.c`          | Entry point, WiFi/MQTT initialization, heartbeat loop |
+| `wifi_manager.c`  | WiFi connection management                            |
+| `mqtt_client.c`   | MQTT protocol, discovery, subscriptions               |
+| `wasm_handler.c`  | WAMR module loading and execution                     |
+| `task_monitor.c`  | Task state tracking and metrics                       |
+
+### WAMR Integration
+
+The CMake configuration sets up WAMR for the Zephyr/Xtensa target:
 
 ```cmake
-set (THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
+set(WAMR_BUILD_PLATFORM "zephyr")
+set(WAMR_BUILD_TARGET "XTENSA")
+set(WAMR_BUILD_INTERP 1)          # interpreter mode enabled
+set(WAMR_BUILD_AOT 1)             # AOT mode enabled
+set(WAMR_BUILD_LIBC_BUILTIN 1)    # built-in libc (basic math/string)
+set(WAMR_BUILD_LIBC_WASI 0)       # WASI disabled
+set(WAMR_BUILD_GLOBAL_HEAP_POOL 1)
+set(WAMR_BUILD_GLOBAL_HEAP_SIZE 40960)  # 40 KB
 ```
 
-because `WAMR` tries to detect and link `pthread` on the `host` system (Linux, Windows, macOS).
+WAMR supports both interpreter and AOT modes. AOT-compiled modules are more compact and faster but require pre-compilation for the target architecture. `WAMR_BUILD_LIBC_WASI` is explicitly disabled because WASI file, socket, and lock support is not yet available on the Zephyr platform.
 
-- However, on `Zephyr`, especially for an `ESP32-S3` target, we do not use the host’s pthread library at all. There’s no concept of a local Linux “Threads” library in a cross-compile for an Xtensa SoC.
-- So CMake’s `find_package(Threads REQUIRED)` fails with “Could NOT find Threads” because there’s no suitable host pthread dev package to fulfill that requirement in the cross-compilation environment.
+### Memory Budget
 
-Installing host pthread dev files sometimes helps in a purely local scenario, but it can still fail or is semantically incorrect for embedded cross-builds.
+The ESP32-S3 has 520 KB SRAM. Typical allocation:
 
-The Solution is to bypass `find_package(Threads REQUIRED)` on Zephyr. So, in your WAMR repo file `wasm-micro-runtime/CMakeLists.txt`, locate where it calls:
+| Subsystem         | Memory   |
+|-------------------|----------|
+| Zephyr kernel     | ~100 KB  |
+| WiFi/MQTT stack   | ~150 KB  |
+| Logging buffers   | ~20 KB   |
+| WAMR + modules    | ~40 KB   |
+| User heap         | ~210 KB  |
 
-```cmake
-find_package(Threads REQUIRED)
+Memory limits from `CMakeLists.txt`:
+- Global WAMR heap: 40 KB
+- Per-module stack: 16 KB
+- Per-module heap: 16 KB
+
+## Configuration
+
+### Zephyr Configuration (`prj.conf`)
+
+Key settings in the project configuration:
+
+```ini
+# Networking
+CONFIG_NETWORKING=y
+CONFIG_NET_TCP=y
+CONFIG_NET_UDP=y
+CONFIG_NET_SOCKETS=y
+CONFIG_NET_DHCPV4=y
+
+# WiFi
+CONFIG_WIFI=y
+CONFIG_WIFI_NM=y
+
+# MQTT
+CONFIG_MQTT_LIB=y
+CONFIG_MQTT_KEEPALIVE=30
+CONFIG_MQTT_CLEAN_SESSION=n
+# CONFIG_MQTT_LIB_TLS=y  # Uncomment to enable TLS
+
+# HTTP client (used for registry/model fetching)
+CONFIG_HTTP_CLIENT=y
+CONFIG_HTTP_CLIENT_BUFFER_SIZE=4096
+
+# Memory
+CONFIG_HEAP_MEM_POOL_SIZE=65536
+CONFIG_MAIN_STACK_SIZE=8192
+
+# Logging
+CONFIG_LOG=y
+CONFIG_LOG_DEFAULT_LEVEL=3
+
+# Metrics (CPU load, heap stats, thread monitoring)
+CONFIG_SYS_HEAP_RUNTIME_STATS=y
+CONFIG_THREAD_MONITOR=y
+CONFIG_CPU_LOAD=y
 ```
 
-and wrap that call in a conditional so it does not run on Zephyr:
+`CONFIG_MQTT_CLEAN_SESSION=n` preserves broker subscriptions across reconnections. `CONFIG_MQTT_KEEPALIVE=30` sets the keepalive to 30 seconds. `CONFIG_WIFI_ESP32` is board-specific and belongs in the board overlay file, not here.
 
-```cmake
-if (NOT WAMR_BUILD_PLATFORM STREQUAL "zephyr")
-  set (THREADS_PREFER_PTHREAD_FLAG ON)
-  find_package(Threads REQUIRED)
-endif()
+### Board-Specific Configuration
+
+Create `boards/esp32s3_devkitc_procpu.conf` for board-specific overrides:
+
+```ini
+CONFIG_WIFI_ESP32=y
+CONFIG_ESP32_WIFI_STA_RECONNECT=y
+CONFIG_ESP32_WIFI_STA_AUTO_DHCPV4=y
+CONFIG_ESP32_WIFI_AP_STA_MODE=n
+CONFIG_ESP32_WIFI_DEBUG_PRINT=y
 ```
 
-then clean and rebuild:
+### Runtime Constants
 
+In `src/main.c`:
+
+```c
+#define PROPLET_LIVELINESS_INTERVAL_MS 10000   // Heartbeat frequency
+#define PROPLET_METRICS_INTERVAL_MS 30000      // System metrics frequency
+#define PROPLET_TASK_METRICS_INTERVAL_MS 10000 // Task metrics frequency
+```
+
+## MQTT Communication
+
+The Embedded Proplet connects to the broker on port `1883` (no TLS by default). It uses the namespace `"embedded"` in all metrics payloads to identify itself to the Manager.
+
+### MQTT Topics
+
+| Direction      | Topic                                                          | Purpose                               |
+|----------------|----------------------------------------------------------------|---------------------------------------|
+| Publish        | `m/<domain>/c/<channel>/control/proplet/create`               | Discovery on startup                  |
+| Publish        | `m/<domain>/c/<channel>/control/proplet/alive`                | Periodic alive heartbeat              |
+| Publish        | `m/<domain>/c/<channel>/control/proplet/metrics`              | System metrics (CPU, memory, uptime)  |
+| Publish        | `m/<domain>/c/<channel>/control/proplet/task_metrics`         | Per-task execution metrics            |
+| Publish        | `m/<domain>/c/<channel>/control/proplet/results`              | Task execution results                |
+| Publish        | `m/<domain>/c/<channel>/registry/proplet`                     | Request a WASM module from registry   |
+| Subscribe      | `m/<domain>/c/<channel>/control/manager/start`                | Receive task start command            |
+| Subscribe      | `m/<domain>/c/<channel>/control/manager/stop`                 | Receive task stop command             |
+| Subscribe      | `m/<domain>/c/<channel>/registry/server`                      | Receive WASM module from registry     |
+
+### Discovery
+
+On startup, the Embedded Proplet publishes a discovery message to register with the Manager:
+
+```c
+publish_discovery(domain_id, PROPLET_ID, channel_id);
+```
+
+The Manager receives this and adds the Proplet to its fleet.
+
+### Heartbeats
+
+The main loop publishes periodic messages:
+
+- **Alive messages** (every 10s): Indicate the Proplet is operational
+- **System metrics** (every 30s): CPU load, heap usage, uptime, thread count
+- **Task metrics** (every 10s): Per-task CPU/memory aggregates for active tasks
+
+### Disconnect Detection (Will Message)
+
+The Embedded Proplet registers an MQTT will message at connect time. If the proplet disconnects unexpectedly, the broker automatically publishes to the alive topic:
+
+```json
+{"status": "offline", "proplet_id": "<proplet_id>", "namespace": "embedded"}
+```
+
+This allows the Manager to detect unplanned disconnections without waiting for a missed heartbeat.
+
+### WASM Reception
+
+The Embedded Proplet receives WASM modules in two ways:
+
+- **Inline in the start command**: For small modules, the base64-encoded WASM is embedded directly in the `control/manager/start` payload
+- **Via registry pull**: If the start payload contains an `image_url`, the proplet publishes a fetch request to `registry/proplet` and waits for the response on `registry/server`
+
+The `wasm_handler` decodes the base64 module and loads it into WAMR. See the [Addition (Embedded Proplet)](/docs/examples/addition-embedded) example for a concrete walkthrough.
+
+### Task Lifecycle
+
+When a task is started from the Manager:
+
+1. **Receive**: The Manager publishes to `m/<domain_id>/c/<channel_id>/control/manager/start` with the task ID, name, base64-encoded WASM module, and input values
+2. **Load**: `wasm_handler` decodes the base64 module, initializes a WAMR runtime instance, and loads the module
+3. **Execute**: The runtime looks up the exported `main` function and calls it with the task inputs as i32 arguments
+4. **Report**: The result is published as a string to `m/<domain_id>/c/<channel_id>/control/proplet/results`
+5. **Monitor**: `task_monitor` records CPU/memory samples and publishes task metrics every 10 seconds
+
+## Writing WASM Modules
+
+WAMR on Zephyr has `WAMR_BUILD_LIBC_WASI` disabled (`0` in `CMakeLists.txt`), meaning all WASI interfaces are unavailable — no file system access, no network sockets, no environment variables. This includes both WASI P1 and WASI P2. If you are used to writing WASI modules for the standard [Proplet](/docs/proplet), you will need to write modules differently for the Embedded Proplet.
+
+`WAMR_BUILD_LIBC_BUILTIN` is enabled, so modules can use basic built-in math and string operations without importing them from the host.
+
+### Function Signature
+
+The Embedded Proplet looks up and calls a function named `main` in the loaded module. The signature must accept one i32 argument per input value and return one i32 result:
+
+```wat
+(func (export "main") (param i32 i32) (result i32)
+  local.get 0
+  local.get 1
+  i32.add)
+```
+
+- **Inputs**: Each element of the task's `inputs` array is passed as an i32 argument to `main`
+- **Output**: The i32 return value is published as a string to the results MQTT topic
+- **Encoding**: Modules are base64-encoded in the task payload and decoded on-device before loading
+
+### Native Host Functions
+
+The runtime registers three host functions that WASM modules can import from the `"env"` module:
+
+| Function           | Signature        | Returns                                  |
+|--------------------|------------------|------------------------------------------|
+| `get_proplet_id`   | `() → (i32, i32)` | Pointer and length of the proplet ID string |
+| `get_model_data`   | `() → (i32, i32)` | Pointer and length of fetched model data |
+| `get_dataset_data` | `() → (i32, i32)` | Pointer and length of fetched dataset data |
+
+These are primarily used by federated learning tasks that need access to model weights or dataset payloads fetched at runtime.
+
+### Module Size and Concurrency
+
+Keep modules within the WAMR global heap limit (40 KB by default). Each module instance gets a 16 KB stack and 16 KB heap.
+
+Two separate limits govern concurrent execution:
+- **MAX_WASM_APPS = 10** (`wasm_handler.c`): Maximum WASM app slots that can be loaded and running simultaneously
+- **MAX_MONITORED_TASKS = 4** (`task_monitor.h`): Maximum tasks that can be tracked with CPU/memory metrics at once
+
+Exceeding MAX_WASM_APPS prevents new tasks from starting. Exceeding MAX_MONITORED_TASKS allows tasks to run but without metrics tracking.
+
+### Supported Module Formats
+
+| Format     | How to produce                          | Notes                              |
+|------------|-----------------------------------------|------------------------------------|
+| WAT        | `wat2wasm` from WABT                    | Easiest for simple numeric modules |
+| WASM (AOT) | WAMR `wamrc` for Xtensa target          | More compact and faster at runtime |
+| WASM (interp) | Any compiler targeting bare WASM     | No WASI imports allowed            |
+
+## Running an Example
+
+See the [Addition (Embedded Proplet)](/docs/examples/addition-embedded) example for a complete walkthrough of building the firmware, deploying a WASM task, and reading the device logs.
+
+## Troubleshooting
+
+### CMake Threads Support Error
+
+**Error:** `CMakeLists.txt:XX Could not find Threads`
+
+**Solution:** Add to `prj.conf`:
+```ini
+CONFIG_PTHREAD_IPC=y
+CONFIG_POSIX_API=y
+```
+
+### MQTT Connection Failures
+
+**Symptom:** `MQTT connect failed` in logs
+
+**Debug steps:**
+1. Verify WiFi connected: look for `Successfully connected to Wi-Fi` log
+2. Check configuration matches SuperMQ broker settings
+3. Enable debug logging:
+   ```ini
+   CONFIG_MQTT_LOG_LEVEL_DBG=y
+   CONFIG_NET_LOG=y
+   ```
+
+### Out of Memory
+
+**Symptom:** WASM module fails to load with memory errors
+
+**Solutions:**
+1. Use AOT compilation for smaller module size
+2. Increase `WAMR_BUILD_GLOBAL_HEAP_SIZE` in `CMakeLists.txt`
+3. Reduce heap for other subsystems in `prj.conf`
+
+### Configuration Not Taking Effect
+
+**Symptom:** Settings in `prj.conf` are ignored
+
+**Solution:** Clean rebuild:
 ```bash
 rm -rf build
 west build -b esp32s3_devkitc/esp32s3/procpu -p auto .
 ```
 
-### Dynamic Linking
+Check for conflicts with board-specific `*.conf` files.
 
-Zephyr does not support dynamic linking on most embedded targets (including ESP32-S3). When WAMR’s CMakeLists tries:
+## Porting to Other Hardware
 
-```cmake
-add_library(iwasm_shared SHARED ...)
-```
+WAMR supports multiple architectures. To port the Embedded Proplet:
 
-you see the warning:
+### 1. Update CMakeLists.txt
 
 ```cmake
-ADD_LIBRARY called with SHARED option but the target platform does not support
-dynamic linking. Building a STATIC library instead. This may lead to problems.
+# For ARM Cortex-M (nRF52840, STM32F4):
+set(BOARD nrf52840dk_nrf52840)
+set(WAMR_BUILD_TARGET "THUMB")
+
+# For RISC-V (ESP32-C3):
+set(BOARD esp32c3_devkitm)
+set(WAMR_BUILD_TARGET "RISCV32")
 ```
 
-This is harmless on Zephyr—it just forces the shared library to become a static library—but it can be confusing. To fix it, you should skip building a shared library entirely when you are on Zephyr.
+### 2. Create Board Configuration
 
-In your `modules/wamr/wasm-micro-runtime/CMakeLists.txt`, right after you set `WAMR_BUILD_PLATFORM="zephyr"`, force shared libs off:
+Add `boards/<board_name>.conf` with board-specific settings.
 
-```cmake
-if (WAMR_BUILD_PLATFORM STREQUAL "zephyr")
-  set(WAMR_BUILD_SHARED 0 CACHE BOOL "Disable shared library on Zephyr" FORCE)
-endif ()
+### 3. Adjust Memory Settings
+
+Different boards have different RAM. Scale `HEAP_MEM_POOL_SIZE` and `WAMR_BUILD_GLOBAL_HEAP_SIZE` accordingly.
+
+### 4. Build and Flash
+
+```bash
+rm -rf build
+west build -b <board_name> -p auto .
+west flash
 ```
 
-If that’s in place, the `if (WAMR_BUILD_SHARED)` block that calls:
+### Supported Architectures
 
-```cmake
-add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
-...
-```
+| Architecture  | WAMR Target | Example Boards       |
+|---------------|-------------|----------------------|
+| Xtensa        | `XTENSA`    | ESP32, ESP32-S3      |
+| ARM Cortex-M  | `THUMB`     | nRF52840, STM32F4    |
+| RISC-V 32     | `RISCV32`   | ESP32-C3             |
+| RISC-V 64     | `RISCV64`   | SiFive               |
 
-will not run. Hence, no “shared library” warning on Zephyr.
+### Hardware Requirements
 
-Alternatively, you can guard the `iwasm_shared` block with:
+| Requirement    | Minimum                      |
+|----------------|------------------------------|
+| RAM            | 128 KB                       |
+| Flash          | 512 KB                       |
+| Networking     | WiFi, Ethernet, or BLE       |
+| Zephyr support | Board in Zephyr's board list |
 
-```cmake
-# SHARED LIBRARY
-if (WAMR_BUILD_SHARED AND NOT WAMR_BUILD_PLATFORM STREQUAL "zephyr")
-    add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
-    ...
-endif ()
-```
+## Related Documentation
 
-That way, the shared library part is skipped on Zephyr.
-
-Either approach ensures the warning disappears, and you end up only with a static WAMR build (`iwasm_static`) on Zephyr, which is what you actually need.
-
-### Configuration Files
-
-Configuration options are split between `prj.conf` and `esp32s3-devkitc.conf`, which Zephyr's build system merges based on the board and build target. Follow best practices to avoid conflicting settings.
-
-### **Purpose of Each File**
-
-1. **`prj.conf`:**
-   - Application-specific settings.
-   - Defines project-specific features, libraries, and behaviors.
-
-2. **`esp32s3-devkitc.conf`:**
-   - Board-specific settings.
-   - Configures hardware-specific options for the ESP32-S3.
-
-3. **`esp32s3-devkitc.overlay`:**
-   - Extends or modifies the board's Devicetree source.
-
-### **Configuration Hierarchy**
-
-Zephyr processes files in this order:
-
-1. **Default Kconfig files**: Zephyr subsystems and modules.
-2. **Board files**: `esp32s3-devkitc.conf` overrides defaults.
-3. **Application files**: `prj.conf` overrides earlier settings.
-
-If a setting appears in both `prj.conf` and `esp32s3-devkitc.conf`, the value in `prj.conf` takes precedence. Avoid duplicate definitions to prevent conflicts.
+| Topic                           | Description                                                |
+|---------------------------------|------------------------------------------------------------|
+| [Zephyr Guide](/docs/zephyr)    | Development environment setup for Zephyr and WAMR          |
+| [Proplet](/docs/proplet)        | Full-featured Proplet for Linux/containerized environments  |
+| [HAL](/docs/hal)                | Hardware Abstraction Layer for runtime environments         |
+| [Addition Example](/docs/examples/addition-embedded) | End-to-end addition example on the Embedded Proplet |
+| [Proxy](/docs/proxy)            | Binary chunking for large module delivery                  |
