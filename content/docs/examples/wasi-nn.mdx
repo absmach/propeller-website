@@ -1,23 +1,11 @@
 ---
 title: WASI NN
-description: Run neural network inference on Propeller using WASI-NN with OpenVINO
+description: WASI-NN example
 ---
 
-This example demonstrates running machine learning inference using the WASI-NN API with an OpenVINO backend on Propeller. You'll deploy a neural network model to a proplet and execute inference through the platform.
+This example demonstrates running machine learning inference using the WASI-NN API with an OpenVINO backend. It loads a neural network model and performs inference on an input tensor. For this example we need the `wasi-nn` proplet image which includes OpenVINO libraries.
 
 For a comprehensive guide on WASI-NN concepts, supported backends, and detailed build instructions, see the [WASI-NN](/docs/wasi-nn) documentation.
-
-## Prerequisites
-
-Before starting, ensure you have:
-
-- **Docker** and **Docker Compose** (v2.x or later)
-- **Rust** with the `wasm32-wasip1` target (`rustup target add wasm32-wasip1`)
-- **Python 3.8+** with pip (for model preparation)
-- **jq** (for JSON formatting in terminal)
-- **curl** (for API requests)
-- **Git** and the Propeller repository cloned
-- Basic familiarity with the [Getting Started](/docs/getting-started) guide
 
 ## Source Code
 
