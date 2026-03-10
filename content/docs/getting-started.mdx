@@ -372,8 +372,8 @@ Logs from propeller manager container `docker logs propeller-manager` look like 
 Logs from propeller proplet container `docker logs propeller-proplet` look like this:
 
 ```bash
-2026-02-13T09:36:23.426879Z  INFO Proplet configuration: PropletConfig { log_level: "debug", instance_id: "39c19eb4-2ee3-45c3-967b-6a2c109f5b7d", mqtt_address: "tcp://mqtt-adapter:1883", mqtt_timeout: 30, mqtt_qos: 2, mqtt_keep_alive: 30, mqtt_max_packet_size: 10485760, mqtt_inflight: 10, mqtt_request_channel_capacity: 128, liveliness_interval: 10, metrics_interval: 10, domain_id: "002cbbc7-0834-4ce7-be9e-d57b5fe6cd85", channel_id: "bda8692b-35fa-4d4d-88a7-dc412edfda63", client_id: "a95517f9-5655-4cf5-a7c8-aa00290b3895", client_key: "ea812299-b561-494d-80aa-0f636142f147", k8s_namespace: Some("default"), external_wasm_runtime: Some("wasmtime"), enable_monitoring: true, tee_enabled: false, kbs_uri: None, aa_config_path: None, layer_store_path: "/tmp/proplet/layers", pull_concurrent_limit: 4 }
-2026-02-13T09:36:23.426891Z  INFO Starting Proplet (Rust) - Instance ID: 39c19eb4-2ee3-45c3-967b-6a2c109f5b7d
+2026-02-13T09:36:23.426879Z  INFO Proplet configuration: PropletConfig { log_level: "debug", mqtt_address: "tcp://mqtt-adapter:1883", mqtt_timeout: 30, mqtt_qos: 2, mqtt_keep_alive: 30, mqtt_max_packet_size: 10485760, mqtt_inflight: 10, mqtt_request_channel_capacity: 128, liveliness_interval: 10, metrics_interval: 10, domain_id: "002cbbc7-0834-4ce7-be9e-d57b5fe6cd85", channel_id: "bda8692b-35fa-4d4d-88a7-dc412edfda63", client_id: "a95517f9-5655-4cf5-a7c8-aa00290b3895", client_key: "ea812299-b561-494d-80aa-0f636142f147", k8s_namespace: Some("default"), external_wasm_runtime: Some("wasmtime"), enable_monitoring: true, tee_enabled: false, kbs_uri: None, aa_config_path: None, layer_store_path: "/tmp/proplet/layers", pull_concurrent_limit: 4 }
+2026-02-13T09:36:23.426891Z  INFO Starting Proplet (Rust) - Client ID: a95517f9-5655-4cf5-a7c8-aa00290b3895
 2026-02-13T09:36:23.426926Z  INFO MQTT client created (TLS: false)
 2026-02-13T09:36:23.426960Z  INFO Using external Wasm runtime: wasmtime
 2026-02-13T09:36:23.427023Z  INFO Starting MQTT event loop
@@ -460,7 +460,7 @@ propeller-proplet
 Example logs:
 
 ```bash
-2026-02-13T09:13:11.246621Z  INFO Starting Proplet (Rust) - Instance ID: 67b2bcb2-9c56-4c57-b163-085d6ec2c313
+2026-02-13T09:13:11.246621Z  INFO Starting Proplet (Rust) - Client ID: 67b2bcb2-9c56-4c57-b163-085d6ec2c313
 2026-02-13T09:13:11.249067Z  INFO MQTT client created (TLS: false)
 2026-02-13T09:13:11.249145Z  INFO Using Wasmtime runtime
 2026-02-13T09:13:11.249230Z  INFO Starting MQTT event loop
@@ -532,7 +532,14 @@ This will output a response like the following:
         "2026-02-13T09:37:43.476417402Z",
         "2026-02-13T09:37:53.475723197Z",
         "2026-02-13T09:38:03.476886244Z"
-      ]
+      ],
+      "environment": "docker",
+      "os": "linux",
+      "hostname": "propeller-proplet",
+      "cpu_arch": "x86_64",
+      "total_memory_bytes": 8589934592,
+      "proplet_version": "0.1.0",
+      "wasm_runtime": "wasmtime"
     }
   ]
 }

@@ -12,15 +12,17 @@ The `proplet` is configured using environment variables.
 | Environment Variable            | Description                                                                                          | Default                |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------- |
 | `PROPLET_LOG_LEVEL`             | Log level (e.g., `debug`, `info`, `warn`, `error`)                                                   | `info`                 |
-| `PROPLET_INSTANCE_ID`           | A unique ID for this proplet instance.                                                               | A new UUID             |
 | `PROPLET_MQTT_ADDRESS`          | The address of the MQTT broker.                                                                      | `tcp://localhost:1883` |
 | `PROPLET_MQTT_TIMEOUT`          | The timeout for MQTT operations.                                                                     | `30s`                  |
 | `PROPLET_MQTT_QOS`              | The Quality of Service level for MQTT messages.                                                      | `2`                    |
 | `PROPLET_LIVELINESS_INTERVAL`   | The interval at which the proplet sends liveliness messages.                                         | `10s`                  |
 | `PROPLET_DOMAIN_ID`             | The domain ID for this proplet.                                                                      |                        |
 | `PROPLET_CHANNEL_ID`            | The channel ID for this proplet.                                                                     |                        |
-| `PROPLET_CLIENT_ID`             | The client ID for MQTT authentication.                                                               |                        |
-| `PROPLET_CLIENT_KEY`            | The client key for MQTT authentication.                                                              |                        |
+| `PROPLET_CLIENT_ID`             | The client ID used as the proplet's identity and for MQTT authentication.                            |                        |
+| `PROPLET_CLIENT_KEY`            | The client key (secret) used as the MQTT password.                                                   |                        |
+| `PROPLET_DESCRIPTION`           | A human-readable description of this proplet instance.                                               | `""` (empty)           |
+| `PROPLET_TAGS`                  | Comma-separated list of tags for this proplet (e.g., `"edge,prod"`).                                 | `""` (empty)           |
+| `PROPLET_LOCATION`              | Physical or logical location of this proplet (e.g., `"rack-3-shelf-2"`).                             | `""` (empty)           |
 | `PROPLET_EXTERNAL_WASM_RUNTIME` | The path to an external WebAssembly runtime. If not set, the embedded `wazero` runtime will be used. | `""` (empty string)    |
 
 ## Usage
@@ -148,12 +150,23 @@ The Manager knows which Proplet is on which channel through the following mechan
    m/:domain_id/c/:manager_channel_id/messages/control/proplet/create
    ```
 
-   The payload of this message includes the `PropletID` and `ChannelID`, notifying the Manager about the mapping of Proplet IDs to their respective channels:
+   The payload includes the proplet's identity and enriched metadata so the Manager can immediately register all known attributes:
 
    ```json
    {
-     "PropletID": "{PropletID}",
-     "ChanID": "{ChannelID}"
+     "proplet_id": "{proplet_id}",
+     "namespace": "{namespace}",
+     "description": "optional description",
+     "tags": ["tag1", "tag2"],
+     "location": "optional location",
+     "ip": "192.168.1.100",
+     "environment": "binary",
+     "os": "linux",
+     "hostname": "my-host",
+     "cpu_arch": "x86_64",
+     "total_memory_bytes": 8589934592,
+     "proplet_version": "0.1.0",
+     "wasm_runtime": "wasmtime-internal"
    }
    ```
 
@@ -165,13 +178,13 @@ The Manager knows which Proplet is on which channel through the following mechan
    m/:domain_id/c/:manager_channel_id/messages/control/proplet/alive
    ```
 
-   The payload contains the same `PropletID` and `ChannelID` information. This helps the Manager maintain an updated map of active Proplets and their channels:
+   The payload contains the proplet's identity and current namespace. This helps the Manager maintain an updated map of active proplets and their channels:
 
    ```json
    {
+     "proplet_id": "{proplet_id}",
      "status": "alive",
-     "PropletID": "{PropletID}",
-     "ChanID": "{ChannelID}"
+     "namespace": "{namespace}"
    }
    ```
 
@@ -181,9 +194,9 @@ The Manager knows which Proplet is on which channel through the following mechan
 
    ```json
    {
+     "proplet_id": "{proplet_id}",
      "status": "offline",
-     "PropletID": "{PropletID}",
-     "ChanID": "{ChannelID}"
+     "namespace": "{namespace}"
    }
    ```
 
