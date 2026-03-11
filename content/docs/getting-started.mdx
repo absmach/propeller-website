@@ -521,7 +521,7 @@ This will output a response like the following:
       "name": "Dankert-Gene",
       "task_count": 0,
       "alive": true,
-      "alive_history": [
+      "alive_at": [
         "2026-02-13T09:36:33.477959042Z",
         "2026-02-13T09:36:43.476291799Z",
         "2026-02-13T09:36:53.478319036Z",
@@ -533,13 +533,19 @@ This will output a response like the following:
         "2026-02-13T09:37:53.475723197Z",
         "2026-02-13T09:38:03.476886244Z"
       ],
-      "environment": "docker",
-      "os": "linux",
-      "hostname": "propeller-proplet",
-      "cpu_arch": "x86_64",
-      "total_memory_bytes": 8589934592,
-      "proplet_version": "0.1.0",
-      "wasm_runtime": "wasmtime"
+      "metadata": {
+        "description": "Proplet running in Docker",
+        "tags": ["docker", "prod"],
+        "location": "rack-1",
+        "ip": "172.18.0.5",
+        "environment": "docker",
+        "os": "linux",
+        "hostname": "propeller-proplet",
+        "cpu_arch": "x86_64",
+        "total_memory_bytes": 8589934592,
+        "proplet_version": "0.1.0",
+        "wasm_runtime": "wasmtime"
+      }
     }
   ]
 }
