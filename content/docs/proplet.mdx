@@ -23,6 +23,7 @@ The `proplet` is configured using environment variables.
 | `PROPLET_DESCRIPTION`           | A human-readable description of this proplet instance.                                               | `""` (empty)           |
 | `PROPLET_TAGS`                  | Comma-separated list of tags for this proplet (e.g., `"edge,prod"`).                                 | `""` (empty)           |
 | `PROPLET_LOCATION`              | Physical or logical location of this proplet (e.g., `"rack-3-shelf-2"`).                             | `""` (empty)           |
+| `PROPLET_COLLECT_SYSTEM_INFO`   | When `true`, automatically collects ip, os, hostname, cpu_arch, memory, and environment metadata.    | `true`                 |
 | `PROPLET_EXTERNAL_WASM_RUNTIME` | The path to an external WebAssembly runtime. If not set, the embedded `wazero` runtime will be used. | `""` (empty string)    |
 
 ## Usage
