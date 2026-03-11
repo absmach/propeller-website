@@ -169,8 +169,13 @@ Only SuperMQ services start at this point. The Propeller services (manager, prop
 Logs from `docker logs supermq-users` look like this once SuperMQ is ready:
 
 ```bash
-{"time":"2026-02-13T08:42:11.242006073Z","level":"INFO","msg":"users service http server listening at users:9002 without TLS"}
-{"time":"2026-02-13T08:42:11.242647928Z","level":"INFO","msg":"users service gRPC server listening at users:7002 without TLS"}
+2026/03/11 12:26:28 The binary was build using Nats as the events store
+{"time":"2026-03-11T12:26:29.440604341Z","level":"INFO","msg":"Token service client successfully connected to auth gRPC server without TLS"}
+{"time":"2026-03-11T12:26:29.630497981Z","level":"INFO","msg":"AuthN successfully set up jwks authentication on http://auth:9001/keys/.well-known/jwks.json"}
+{"time":"2026-03-11T12:26:29.755397522Z","level":"INFO","msg":"AuthZ successfully connected to auth gRPC server without TLS"}
+{"time":"2026-03-11T12:26:29.755538739Z","level":"INFO","msg":"Policy client successfully connected to spicedb gRPC server"}
+{"time":"2026-03-11T12:26:30.292218327Z","level":"INFO","msg":"users service http server listening at users:9002 without TLS"}
+{"time":"2026-03-11T12:26:30.300372209Z","level":"INFO","msg":"users service gRPC server listening at users:7002 without TLS"}
 ```
 
 ### 2. Provision SuperMQ with `propeller-cli`
@@ -254,34 +259,37 @@ The three Propeller containers start, read `config.toml` from their mount paths,
 Logs from `docker logs propeller-manager` look like this:
 
 ```bash
-{"time":"2026-02-13T09:36:23.416841939Z","level":"INFO","msg":"MQTT connection established"}
-{"time":"2026-02-13T09:36:23.416905339Z","level":"WARN","msg":"COORDINATOR_URL not configured - FL features will not be available"}
-{"time":"2026-02-13T09:36:23.529414079Z","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"112.35019ms"}
-{"time":"2026-02-13T09:36:23.529644534Z","level":"INFO","msg":"cron scheduler started","check_interval":60000000000}
-{"time":"2026-02-13T09:36:23.529893334Z","level":"INFO","msg":"manager service http server listening at manager:7070 without TLS"}
+{"time":"2026-03-11T12:27:33.357939305Z","level":"INFO","msg":"MQTT connection established"}
+{"time":"2026-03-11T12:27:33.403309894Z","level":"WARN","msg":"COORDINATOR_URL not configured - FL features will not be available"}
+{"time":"2026-03-11T12:27:33.46779898Z","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"64.275789ms"}
+{"time":"2026-03-11T12:27:33.469816287Z","level":"INFO","msg":"cron scheduler started","check_interval":60000000000}
+{"time":"2026-03-11T12:27:33.469895969Z","level":"INFO","msg":"manager service http server listening at manager:7070 without TLS"}
+{"time":"2026-03-11T12:27:34.249707574Z","level":"WARN","msg":"Failed to handle MQTT message: proplet not found"}
+{"time":"2026-03-11T12:27:35.31169476Z","level":"WARN","msg":"Failed to handle MQTT message: proplet not found"}
+{"time":"2026-03-11T12:27:35.327183283Z","level":"INFO","msg":"successfully created proplet"}
 ```
 
 Logs from `docker logs propeller-proplet` look like this:
 
 ```bash
-2026-02-13T09:36:23.426891Z  INFO Starting Proplet (Rust) - Client ID: a95517f9-5655-4cf5-a7c8-aa00290b3895
-2026-02-13T09:36:23.426926Z  INFO MQTT client created (TLS: false)
-2026-02-13T09:36:23.426960Z  INFO Using external Wasm runtime: wasmtime
-2026-02-13T09:36:23.427023Z  INFO Starting MQTT event loop
-2026-02-13T09:36:23.470780Z  INFO Starting PropletService
-2026-02-13T09:36:23.470842Z  INFO Published discovery message
-2026-02-13T09:36:23.470847Z  INFO Subscribed to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/control/manager/start
-2026-02-13T09:36:23.470856Z  INFO Subscribed to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/control/manager/stop
-2026-02-13T09:36:23.470861Z  INFO Subscribed to topic: m/002cbbc7-0834-4ce7-be9e-d57b5fe6cd85/c/bda8692b-35fa-4d4d-88a7-dc412edfda63/registry/server
+2026-03-11T12:27:34.223571Z  INFO Starting Proplet (Rust) - Instance ID: 533c7fdd-2c0f-467b-8166-cf0c783851b0
+2026-03-11T12:27:34.223648Z  INFO MQTT client created (TLS: false)
+2026-03-11T12:27:34.224921Z  INFO Starting MQTT event loop
+2026-03-11T12:27:34.225280Z  INFO Using external Wasm runtime: wasmtime
+2026-03-11T12:27:34.313708Z  INFO Starting PropletService
+2026-03-11T12:27:34.314392Z  INFO Published discovery message
+2026-03-11T12:27:34.314570Z  INFO Subscribed to topic: m/bacde037-edee-46f0-b7f4-92d3e7b9f4db/c/08716892-f8b3-44a7-854a-7fe74d872059/control/manager/start
+2026-03-11T12:27:34.314813Z  INFO Subscribed to topic: m/bacde037-edee-46f0-b7f4-92d3e7b9f4db/c/08716892-f8b3-44a7-854a-7fe74d872059/control/manager/stop
+2026-03-11T12:27:34.315008Z  INFO Subscribed to topic: m/bacde037-edee-46f0-b7f4-92d3e7b9f4db/c/08716892-f8b3-44a7-854a-7fe74d872059/registry/server
 ```
 
 Logs from `docker logs propeller-proxy` look like this:
 
 ```bash
-{"time":"2026-02-13T09:36:23.41915525Z","level":"INFO","msg":"successfully initialized MQTT and HTTP config"}
-{"time":"2026-02-13T09:36:23.419288391Z","level":"INFO","msg":"starting proxy service"}
-{"time":"2026-02-13T09:36:23.419156021Z","level":"INFO","msg":"MQTT connection established"}
-{"time":"2026-02-13T09:36:23.503434027Z","level":"INFO","msg":"successfully subscribed to topic"}
+{"time":"2026-03-11T12:27:33.497514333Z","level":"INFO","msg":"successfully initialized MQTT and HTTP config"}
+{"time":"2026-03-11T12:27:33.49805019Z","level":"INFO","msg":"MQTT connection established"}
+{"time":"2026-03-11T12:27:33.499155557Z","level":"INFO","msg":"starting proxy service"}
+{"time":"2026-03-11T12:27:33.527468921Z","level":"INFO","msg":"successfully subscribed to topic"}
 ```
 
 ### 5. Health check
