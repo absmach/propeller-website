@@ -217,9 +217,6 @@ CONFIG_FLASH_MAP=y
 CONFIG_NVS=y
 CONFIG_SETTINGS=y
 CONFIG_SETTINGS_NVS=y
-CONFIG_SHELL=y
-CONFIG_SHELL_BACKEND_SERIAL=y
-CONFIG_SHELL_STACK_SIZE=2048
 ```
 
 The `storage_partition` required by the Settings subsystem is already defined by the ESP32-S3 board support files at address `0x3b0000` (192 KB). No DTS overlay is needed.
@@ -252,50 +249,6 @@ credentials_load(&creds, &defaults);
 ```
 
 The function initialises the Settings subsystem and loads any values previously saved to NVS, overriding the defaults field by field. The final credential struct is then used for WiFi connection and the MQTT client connection.
-
-### Shell commands
-
-While the device is running, connect to its serial port at 115200 baud. The Zephyr shell prompt (`uart:~$`) accepts two commands:
-
-**Show current credentials:**
-
-```
-uart:~$ proplet creds show
-wifi_ssid  : MyNetwork
-wifi_psk   : mypassword
-proplet_id : <your-proplet-client-id>
-client_key : <your-proplet-client-key>
-domain_id  : <your-domain-id>
-channel_id : <your-channel-id>
-```
-
-**Update a single field:**
-
-```
-uart:~$ proplet creds set <field> <value>
-```
-
-For example:
-
-```
-uart:~$ proplet creds set wifi_ssid MyNetwork
-Saved wifi_ssid. Reboot to apply.
-
-uart:~$ proplet creds set client_key <your-proplet-client-key>
-Saved client_key. Reboot to apply.
-```
-
-The new value is written to NVS immediately and takes effect on the next boot. Changes do not affect the running session.
-
-### Provisioning from the CLI
-
-The `propeller-cli provision add-proplets embed` command automates the full provisioning flow. It creates a new SuperMQ client, connects it to the existing channel, and pushes all six credentials to the device over serial in one step:
-
-```bash
-propeller-cli provision add-proplets embed -f docker/config.toml
-```
-
-The command reads `domain_id` and `channel_id` from the existing `config.toml`, so the embedded proplet joins the same channel as all other proplets in the deployment. See [Getting Started — Embedded proplets](./getting-started#embedded-proplets) for the full walkthrough.
 
 ### MQTT authentication
 
