@@ -496,6 +496,108 @@ Example logs:
 {"time":"2026-02-13T12:14:14.705055456+03:00","level":"INFO","msg":"successfully subscribed to topic"}
 ```
 
+## Adding More Proplets to an Existing Deployment
+
+Once your initial deployment is running, you can add more proplets without re-provisioning from scratch. The `add-proplets` subcommand reads your existing `config.toml`, creates new SuperMQ clients, connects them to the same channel, and appends their credentials to the file.
+
+### Software proplets
+
+Run:
+
+```bash
+propeller-cli provision add-proplets
+```
+
+The command asks for your SuperMQ username and password (to authenticate), then for the number of new proplets to create. It connects each new client to the existing channel and appends a numbered `[propletN]` section to `config.toml`.
+
+For example, if you already have one proplet (`[proplet]`) and add two more, the file becomes:
+
+```toml
+# SuperMQ Configuration
+
+[manager]
+domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
+client_id = "f2fe9a33-144a-4346-a5d6-38e2eb07815e"
+client_key = "ef7da52b-c01f-4b62-9502-6723d639405b"
+channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
+
+[proplet]
+domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
+client_id = "fa407362-9c5f-41b8-9a09-9d0c0b039287"
+client_key = "991c4d03-2f2c-4ba5-97a6-45bead85457e"
+channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
+
+[proplet2]
+domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
+client_id = "b3c12d45-89ef-4f10-a123-7c5d8e9f0a12"
+client_key = "22ab3ef0-9c1d-48f2-b6a5-cd5f1234567e"
+channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
+
+[proplet3]
+domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
+client_id = "d7e89f01-2345-6789-abcd-ef0123456789"
+client_key = "33cd4fg1-0d2e-59g3-c7b6-de6g2345678f"
+channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
+
+[proxy]
+...
+```
+
+> **Note:** New sections are always numbered from where the existing count left off. If you later run `add-proplets` again to add two more, the new sections will be `[proplet4]` and `[proplet5]`.
+
+Each new software proplet process needs to know which section of `config.toml` to read. Set the `PROPLET_CONFIG_SECTION` environment variable before starting it:
+
+```bash
+PROPLET_CONFIG_SECTION=proplet2 propeller-proplet
+PROPLET_CONFIG_SECTION=proplet3 propeller-proplet
+```
+
+Or in `docker/compose.yaml`, add an `environment` entry per proplet service:
+
+```yaml
+environment:
+  PROPLET_CONFIG_SECTION: proplet2
+```
+
+After copying the updated `config.toml` into `docker/`, restart the stack:
+
+```bash
+make stop-supermq
+make start-supermq
+```
+
+### Embedded proplets
+
+To add an embedded proplet (for example, an ESP32-S3 running Zephyr) to an existing deployment, use the `embed` subcommand:
+
+```bash
+propeller-cli provision add-proplets embed
+```
+
+The command:
+
+1. Reads `domain_id` and `channel_id` from the existing `config.toml`.
+2. Authenticates with SuperMQ and creates one new client.
+3. Connects the new client to the existing channel.
+4. Prompts for the device's WiFi SSID, WiFi password, and serial port (default: `/dev/ttyUSB0`).
+5. Opens the serial port and writes all six credentials to the device using the embedded shell.
+
+The provisioning looks like this:
+
+```
+? Enter your username <your-username>
+? Enter your password ********
+? WiFi SSID for the embedded proplet MyNetwork
+? WiFi password ***********
+? Serial port (e.g. /dev/ttyUSB0) /dev/ttyUSB0
+
+Embedded proplet provisioned on /dev/ttyUSB0 (client_id: <your-proplet-client-id>). Reboot the device to apply.
+```
+
+After provisioning, power-cycle or reboot the device. It will boot with the new credentials, connect to WiFi, and register with the manager over MQTT.
+
+> **Note:** The `embed` subcommand does **not** append a section to `config.toml`. The embedded proplet stores its credentials in on-device NVS flash and does not read `config.toml`. See [Embedded Proplet](./embedded-proplet) for details on the credential storage mechanism.
+
 ## Postman Collection
 
 This is a [collection](../postman_collection.json) of the API calls that can be used to interact with the Propeller system.

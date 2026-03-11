@@ -23,6 +23,12 @@ The `proplet` is configured using environment variables.
 | `PROPLET_CLIENT_KEY`            | The client key for MQTT authentication.                                                              |                        |
 | `PROPLET_EXTERNAL_WASM_RUNTIME` | The path to an external WebAssembly runtime. If not set, the embedded `wazero` runtime will be used. | `""` (empty string)    |
 
+## Running Multiple Proplets
+
+In a multi-proplet deployment, credentials are supplied through `config.toml` instead of individual environment variables. Each proplet process reads the section matching the `PROPLET_CONFIG_SECTION` environment variable (default: `"proplet"`). New proplets can be added to a running deployment without re-provisioning using `propeller-cli provision add-proplets`.
+
+See [Adding More Proplets](./getting-started#adding-more-proplets-to-an-existing-deployment) in the Getting Started guide for the full walkthrough, including `config.toml` structure, Docker Compose configuration, and the `add-proplets embed` subcommand for embedded devices.
+
 ## Usage
 
 ### Using the Embedded `wazero` Runtime
