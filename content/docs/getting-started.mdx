@@ -566,38 +566,6 @@ make stop-supermq
 make start-supermq
 ```
 
-### Embedded proplets
-
-To add an embedded proplet (for example, an ESP32-S3 running Zephyr) to an existing deployment, use the `embed` subcommand:
-
-```bash
-propeller-cli provision add-proplets embed
-```
-
-The command:
-
-1. Reads `domain_id` and `channel_id` from the existing `config.toml`.
-2. Authenticates with SuperMQ and creates one new client.
-3. Connects the new client to the existing channel.
-4. Prompts for the device's WiFi SSID, WiFi password, and serial port (default: `/dev/ttyUSB0`).
-5. Opens the serial port and writes all six credentials to the device using the embedded shell.
-
-The provisioning looks like this:
-
-```
-? Enter your username <your-username>
-? Enter your password ********
-? WiFi SSID for the embedded proplet MyNetwork
-? WiFi password ***********
-? Serial port (e.g. /dev/ttyUSB0) /dev/ttyUSB0
-
-Embedded proplet provisioned on /dev/ttyUSB0 (client_id: <your-proplet-client-id>). Reboot the device to apply.
-```
-
-After provisioning, power-cycle or reboot the device. It will boot with the new credentials, connect to WiFi, and register with the manager over MQTT.
-
-> **Note:** The `embed` subcommand does **not** append a section to `config.toml`. The embedded proplet stores its credentials in on-device NVS flash and does not read `config.toml`. See [Embedded Proplet](./embedded-proplet) for details on the credential storage mechanism.
-
 ## Postman Collection
 
 This is a [collection](../postman_collection.json) of the API calls that can be used to interact with the Propeller system.
