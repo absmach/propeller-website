@@ -201,3 +201,63 @@ Zephyr processes files in this order:
 3. **Application files**: `prj.conf` overrides earlier settings.
 
 If a setting appears in both `prj.conf` and `esp32s3-devkitc.conf`, the value in `prj.conf` takes precedence. Avoid duplicate definitions to prevent conflicts.
+
+## Dynamic Credential Provisioning
+
+The embedded proplet supports runtime credential updates without reflashing. All six credentials — WiFi SSID, WiFi password, SuperMQ `proplet_id`, `client_key`, `domain_id`, and `channel_id` — are stored in NVS (Non-Volatile Storage) flash and loaded at boot. If no NVS value exists for a field, the compile-time default is used.
+
+### Kconfig requirements
+
+The following options must be enabled in `prj.conf`:
+
+```properties
+CONFIG_FLASH=y
+CONFIG_FLASH_PAGE_LAYOUT=y
+CONFIG_FLASH_MAP=y
+CONFIG_NVS=y
+CONFIG_SETTINGS=y
+CONFIG_SETTINGS_NVS=y
+```
+
+The `storage_partition` required by the Settings subsystem is already defined by the ESP32-S3 board support files at address `0x3b0000` (192 KB). No DTS overlay is needed.
+
+### Credential fields
+
+| Field        | Description                                             |
+|--------------|---------------------------------------------------------|
+| `wifi_ssid`  | SSID of the WiFi network to join                        |
+| `wifi_psk`   | WiFi password                                           |
+| `proplet_id` | SuperMQ client ID (used as MQTT client ID and username) |
+| `client_key` | SuperMQ client secret (used as MQTT password)           |
+| `domain_id`  | SuperMQ domain ID                                       |
+| `channel_id` | SuperMQ channel ID                                      |
+
+### Boot sequence
+
+At startup, `credentials_load()` is called with compile-time defaults:
+
+```c
+static const struct proplet_credentials defaults = {
+    .wifi_ssid  = CONFIG_WIFI_SSID,
+    .wifi_psk   = CONFIG_WIFI_PSK,
+    .proplet_id = CONFIG_PROPLET_ID,
+    .client_key = CONFIG_CLIENT_KEY,
+    .domain_id  = CONFIG_DOMAIN_ID,
+    .channel_id = CONFIG_CHANNEL_ID,
+};
+credentials_load(&creds, &defaults);
+```
+
+The function initialises the Settings subsystem and loads any values previously saved to NVS, overriding the defaults field by field. The final credential struct is then used for WiFi connection and the MQTT client connection.
+
+### MQTT authentication
+
+The embedded proplet authenticates to the MQTT broker using the SuperMQ client credentials:
+
+| MQTT field | Value         |
+|------------|---------------|
+| Client ID  | `proplet_id`  |
+| Username   | `proplet_id`  |
+| Password   | `client_key`  |
+
+If `client_key` is empty, the password field is omitted from the CONNECT packet.
