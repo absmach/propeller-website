@@ -146,6 +146,7 @@ The Embedded Proplet consists of several C modules that handle different respons
 | `mqtt_client.c`   | MQTT protocol, discovery, subscriptions               |
 | `wasm_handler.c`  | WAMR module loading and execution                     |
 | `task_monitor.c`  | Task state tracking and metrics                       |
+| `cJSON.c`         | JSON parsing for MQTT payloads                        |
 
 ### WAMR Integration
 
@@ -251,6 +252,8 @@ In `src/main.c`:
 
 The Embedded Proplet connects to the broker on port `1883` (no TLS by default). It uses the namespace `"embedded"` in all metrics payloads to identify itself to the Manager.
 
+The `PROPLET_ID` defined in `src/main.c` is used as both the MQTT **client ID** and **username** when connecting to the broker. This value must match the SuperMQ client ID registered with the broker, otherwise the connection will be rejected.
+
 ### MQTT Topics
 
 | Direction      | Topic                                                          | Purpose                               |
@@ -283,6 +286,12 @@ The main loop publishes periodic messages:
 - **System metrics** (every 30s): CPU load, heap usage, uptime, thread count
 - **Task metrics** (every 10s): Per-task CPU/memory aggregates for active tasks
 
+The alive message payload:
+
+```json
+{"status": "alive", "proplet_id": "<proplet_id>", "namespace": "embedded"}
+```
+
 ### Disconnect Detection (Will Message)
 
 The Embedded Proplet registers an MQTT will message at connect time. If the proplet disconnects unexpectedly, the broker automatically publishes to the alive topic:
@@ -293,12 +302,50 @@ The Embedded Proplet registers an MQTT will message at connect time. If the prop
 
 This allows the Manager to detect unplanned disconnections without waiting for a missed heartbeat.
 
+### Federated Learning Tasks
+
+A task is treated as a Federated Machine Learning (FML) task when the start command's `env` object contains a `ROUND_ID` field. For FML tasks, the proplet automatically fetches the model and dataset over HTTP before executing the WASM module.
+
+#### Environment Variables
+
+| Variable             | Required | Default                          | Description                              |
+|----------------------|----------|----------------------------------|------------------------------------------|
+| `ROUND_ID`           | Yes      | —                                | Marks the task as FML; identifies the training round |
+| `MODEL_URI`          | No       | —                                | MQTT topic to subscribe for model data (fallback if HTTP fails) |
+| `HYPERPARAMS`        | No       | —                                | Hyperparameter string passed to the WASM module |
+| `COORDINATOR_URL`    | No       | `http://coordinator-http:8080`   | FL coordinator service URL               |
+| `MODEL_REGISTRY_URL` | No       | `http://model-registry:8081`     | Model registry base URL                  |
+| `DATA_STORE_URL`     | No       | `http://local-data-store:8083`   | Dataset store base URL                   |
+
+#### FML Data Fetch Flow
+
+1. **Model**: HTTP GET `<MODEL_REGISTRY_URL>/models/<version>` (version extracted from `MODEL_URI`). If HTTP fails, subscribes to `MODEL_URI` as an MQTT topic and waits for model data to arrive over MQTT.
+2. **Dataset**: HTTP GET `<DATA_STORE_URL>/datasets/<proplet_id>`.
+
+Both model and dataset responses are stored in memory (4 KB limit each). They are accessible inside the WASM module via the `get_model_data()` and `get_dataset_data()` host functions.
+
+Only `http://` URLs are supported for FML data fetching — HTTPS is not available on this platform.
+
 ### WASM Reception
 
 The Embedded Proplet receives WASM modules in two ways:
 
-- **Inline in the start command**: For small modules, the base64-encoded WASM is embedded directly in the `control/manager/start` payload
-- **Via registry pull**: If the start payload contains an `image_url`, the proplet publishes a fetch request to `registry/proplet` and waits for the response on `registry/server`
+- **Inline in the start command**: For small modules, the base64-encoded WASM is embedded directly in the `control/manager/start` payload via the `file` field. Limited to 1024 bytes of base64 (~750 bytes decoded).
+- **Via registry pull**: If the start payload contains an `image_url`, the proplet publishes a fetch request to `registry/proplet` and waits for the response on `registry/server`.
+
+#### Registry Payloads
+
+Fetch request published to `registry/proplet`:
+
+```json
+{"app_name": "<image_url value>"}
+```
+
+Expected response on `registry/server`:
+
+```json
+{"app_name": "<name>", "data": "<base64-encoded WASM>"}
+```
 
 The `wasm_handler` decodes the base64 module and loads it into WAMR. See the [Addition (Embedded Proplet)](/docs/examples/addition-embedded) example for a concrete walkthrough.
 
@@ -306,11 +353,42 @@ The `wasm_handler` decodes the base64 module and loads it into WAMR. See the [Ad
 
 When a task is started from the Manager:
 
-1. **Receive**: The Manager publishes to `m/<domain_id>/c/<channel_id>/control/manager/start` with the task ID, name, base64-encoded WASM module, and input values
+1. **Receive**: The Manager publishes to `m/<domain_id>/c/<channel_id>/control/manager/start` with a JSON payload
 2. **Load**: `wasm_handler` decodes the base64 module, initializes a WAMR runtime instance, and loads the module
 3. **Execute**: The runtime looks up the exported `main` function and calls it with the task inputs as i32 arguments
 4. **Report**: The result is published as a string to `m/<domain_id>/c/<channel_id>/control/proplet/results`
 5. **Monitor**: `task_monitor` records CPU/memory samples and publishes task metrics every 10 seconds
+
+#### Start Command Payload
+
+```json
+{
+  "id": "<task-id>",
+  "name": "<task-name>",
+  "file": "<base64-encoded WASM>",
+  "image_url": "<registry image URL>",
+  "inputs": [1, 2, 3],
+  "env": {
+    "ROUND_ID": "<round-id>"
+  }
+}
+```
+
+`id` and `name` are required. Either `file` (inline WASM) or `image_url` (registry fetch) must be present. See [Inline WASM size limit](#module-size-and-concurrency). `inputs` is optional. `env` is only needed for FML tasks — see [Federated Learning Tasks](#federated-learning-tasks).
+
+#### Stop Command Payload
+
+The Manager publishes to `m/<domain_id>/c/<channel_id>/control/manager/stop` with:
+
+```json
+{
+  "id": "<task-id>",
+  "name": "<task-name>",
+  "state": "<task-state>"
+}
+```
+
+All three fields — `id`, `name`, and `state` — are required. A missing field causes the stop command to be silently ignored.
 
 ## Writing WASM Modules
 
@@ -322,14 +400,14 @@ WAMR on Zephyr has `WAMR_BUILD_LIBC_WASI` disabled (`0` in `CMakeLists.txt`), me
 
 The Embedded Proplet looks up and calls a function named `main` in the loaded module. The signature must accept one i32 argument per input value and return one i32 result:
 
-```wat
+```wasm
 (func (export "main") (param i32 i32) (result i32)
   local.get 0
   local.get 1
   i32.add)
 ```
 
-- **Inputs**: Each element of the task's `inputs` array is passed as an i32 argument to `main`
+- **Inputs**: Each element of the task's `inputs` array is passed as an i32 argument to `main`. Maximum 16 inputs (`MAX_INPUTS` in `mqtt_client.c`); additional inputs are silently truncated
 - **Output**: The i32 return value is published as a string to the results MQTT topic
 - **Encoding**: Modules are base64-encoded in the task payload and decoded on-device before loading
 
@@ -348,6 +426,8 @@ These are primarily used by federated learning tasks that need access to model w
 ### Module Size and Concurrency
 
 Keep modules within the WAMR global heap limit (40 KB by default). Each module instance gets a 16 KB stack and 16 KB heap.
+
+**Inline WASM size limit**: When delivering a module via the `file` field in the start command, the base64-encoded string is capped at `MAX_BASE64_LEN = 1024` bytes (`mqtt_client.c`), which corresponds to approximately 750 bytes of decoded WASM binary. Modules larger than this must be delivered via `image_url` using the registry pull path.
 
 Two separate limits govern concurrent execution:
 - **MAX_WASM_APPS = 10** (`wasm_handler.c`): Maximum WASM app slots that can be loaded and running simultaneously
