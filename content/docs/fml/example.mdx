@@ -263,10 +263,17 @@ Successfully installed requests-2.31.0 python-dotenv-1.0.0
 
 Your output should look like this:
 ```
-Waiting for users service...
-✓ users service is ready
-Waiting for domains service...
-✓ domains service is ready
+============================================================
+SuperMQ Provisioning Script for FL Demo
+============================================================
+Waiting for Users service...
+✓ Users service is ready
+Waiting for Domains service...
+✓ Domains service is ready
+Waiting for Clients service...
+✓ Clients service is ready
+Waiting for Channels service...
+✓ Channels service is ready
 
 === Logging in ===
 ✓ Login successful
@@ -275,38 +282,68 @@ Waiting for domains service...
 ✓ Domain created: 4e484e5b-0498-4453-adf8-a6fa6a37454b
 
 === Creating Clients ===
-✓ Created client 'manager': a1b2c3d4-...
-✓ Created client 'proplet-1': bf7e3581-4dac-472c-bcd9-a83a6ca53197
-✓ Created client 'proplet-2': cf3738c1-07db-41c7-8fc3-234202cf3642
-✓ Created client 'proplet-3': 095d2d54-4017-4da1-b589-0809d64aa517
-✓ Created client 'fl-coordinator': e5f6g7h8-...
-✓ Created client 'proxy': i9j0k1l2-...
+✓ Client created: manager (ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890)
+✓ Client created: proplet-1 (ID: bf7e3581-4dac-472c-bcd9-a83a6ca53197)
+✓ Client created: proplet-2 (ID: cf3738c1-07db-41c7-8fc3-234202cf3642)
+✓ Client created: proplet-3 (ID: 095d2d54-4017-4da1-b589-0809d64aa517)
+✓ Client created: fl-coordinator (ID: e5f6g7h8-1234-5678-abcd-ef9012345678)
+✓ Client created: proxy (ID: i9j0k1l2-3456-7890-abcd-ef1234567890)
 
 === Creating Channel ===
 ✓ Channel created: c1578c6c-598e-4dbe-9a8b-5d2acd623679
 
 === Connecting Clients to Channel ===
-✓ Connected all clients to channel
+✓ Connected 6 clients to channel
 
-=== Updating docker/.env ===
+============================================================
+Provisioning Summary
+============================================================
+Domain ID: 4e484e5b-0498-4453-adf8-a6fa6a37454b
+Channel ID: c1578c6c-598e-4dbe-9a8b-5d2acd623679
+
+Clients:
+  manager:
+    ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+    Key: <secret>
+  proplet-1:
+    ID: bf7e3581-4dac-472c-bcd9-a83a6ca53197
+    Key: <secret>
+  proplet-2:
+    ID: cf3738c1-07db-41c7-8fc3-234202cf3642
+    Key: <secret>
+  proplet-3:
+    ID: 095d2d54-4017-4da1-b589-0809d64aa517
+    Key: <secret>
+  fl-coordinator:
+    ID: e5f6g7h8-1234-5678-abcd-ef9012345678
+    Key: <secret>
+  proxy:
+    ID: i9j0k1l2-3456-7890-abcd-ef1234567890
+    Key: <secret>
+
+✓ Provisioning completed successfully!
+
 ✓ Updated docker/.env with new credentials
+
+Note: Recreate services to apply new credentials (use --force-recreate, not restart):
+  docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env up -d --force-recreate manager coordinator-http proplet proplet-2 proplet-3 proxy
 ```
 
-Note the **proplet-1**, **proplet-2**, and **proplet-3** client IDs. These UUIDs are needed when triggering FL experiments. The script automatically updates `docker/.env` with these values.
+The **proplet-1**, **proplet-2**, and **proplet-3** client IDs shown in the summary are SuperMQ-generated UUIDs — created when the script registers each proplet as a client in your SuperMQ domain. These are what you pass as `participants` when triggering FL experiments. The script automatically writes them to `docker/.env`.
 
 ### Verify Environment Variables Were Set
 
 ```bash
-grep -E "PROPLET.*CLIENT_ID|DOMAIN_ID|CHANNEL_ID" docker/.env | grep -v '=""'
+grep -E "PROPLET.*CLIENT_ID|MANAGER_DOMAIN_ID|MANAGER_CHANNEL_ID" docker/.env | grep -v '=$'
 ```
 
 Your output should look like this:
 ```
-PROPLET_CLIENT_ID="bf7e3581-4dac-472c-bcd9-a83a6ca53197"
-PROPLET_2_CLIENT_ID="cf3738c1-07db-41c7-8fc3-234202cf3642"
-PROPLET_3_CLIENT_ID="095d2d54-4017-4da1-b589-0809d64aa517"
-DOMAIN_ID="4e484e5b-0498-4453-adf8-a6fa6a37454b"
-CHANNEL_ID="c1578c6c-598e-4dbe-9a8b-5d2acd623679"
+MANAGER_DOMAIN_ID=4e484e5b-0498-4453-adf8-a6fa6a37454b
+MANAGER_CHANNEL_ID=c1578c6c-598e-4dbe-9a8b-5d2acd623679
+PROPLET_CLIENT_ID=bf7e3581-4dac-472c-bcd9-a83a6ca53197
+PROPLET_2_CLIENT_ID=cf3738c1-07db-41c7-8fc3-234202cf3642
+PROPLET_3_CLIENT_ID=095d2d54-4017-4da1-b589-0809d64aa517
 ```
 
 ## Step 5: Recreate Services with New Credentials
@@ -576,9 +613,9 @@ Now you're ready to run a federated learning experiment!
 First, set environment variables for the proplet UUIDs:
 
 ```bash
-export PROPLET_CLIENT_ID=$(grep '^PROPLET_CLIENT_ID=' docker/.env | grep -v '=""' | tail -1 | cut -d '=' -f2 | tr -d '"')
-export PROPLET_2_CLIENT_ID=$(grep '^PROPLET_2_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
-export PROPLET_3_CLIENT_ID=$(grep '^PROPLET_3_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
+export PROPLET_CLIENT_ID=$(grep '^PROPLET_CLIENT_ID=' docker/.env | cut -d '=' -f2)
+export PROPLET_2_CLIENT_ID=$(grep '^PROPLET_2_CLIENT_ID=' docker/.env | cut -d '=' -f2)
+export PROPLET_3_CLIENT_ID=$(grep '^PROPLET_3_CLIENT_ID=' docker/.env | cut -d '=' -f2)
 ```
 
 Verify they're set correctly:

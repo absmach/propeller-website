@@ -72,9 +72,9 @@ An external trigger sends an HTTP POST request to the Manager's `/fl/experiments
 
 ```bash
 # Export CLIENT_IDs from docker/.env (SuperMQ client IDs, NOT instance IDs)
-export PROPLET_CLIENT_ID=$(grep '^PROPLET_CLIENT_ID=' docker/.env | grep -v '=""' | tail -1 | cut -d '=' -f2 | tr -d '"')
-export PROPLET_2_CLIENT_ID=$(grep '^PROPLET_2_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
-export PROPLET_3_CLIENT_ID=$(grep '^PROPLET_3_CLIENT_ID=' docker/.env | cut -d '=' -f2 | tr -d '"')
+export PROPLET_CLIENT_ID=$(grep '^PROPLET_CLIENT_ID=' docker/.env | cut -d '=' -f2)
+export PROPLET_2_CLIENT_ID=$(grep '^PROPLET_2_CLIENT_ID=' docker/.env | cut -d '=' -f2)
+export PROPLET_3_CLIENT_ID=$(grep '^PROPLET_3_CLIENT_ID=' docker/.env | cut -d '=' -f2)
 
 curl -X POST http://localhost:7070/fl/experiments \
   -H "Content-Type: application/json" \
