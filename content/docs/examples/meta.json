@@ -10,10 +10,6 @@
     "http-server.mdx",
     "tee.mdx",
     "wasi-http.mdx",
-    "hal-test.mdx",
-    "---Federated Learning---",
-    "federated-learning.mdx",
-    "fedprox.mdx",
-    "byzantine-robust.mdx"
+    "hal-test.mdx"
   ]
 }
