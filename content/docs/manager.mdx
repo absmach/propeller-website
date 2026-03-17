@@ -64,23 +64,23 @@ The Manager is configured through environment variables. These are the most comm
 
 #### Core Settings
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `MANAGER_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
+| Variable            | Description                                  | Default |
+| ------------------- | -------------------------------------------- | ------- |
+| `MANAGER_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info`  |
 
 #### MQTT Connection
 
 The Manager communicates with proplets over MQTT using the [SuperMQ](https://github.com/absmach/supermq) message broker. SuperMQ provides secure, multi-tenant messaging with built-in authentication and authorization—ensuring that only authorized components can publish and subscribe to Propeller's control channels.
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `MANAGER_MQTT_ADDRESS` | MQTT broker URL | `tcp://localhost:1883` |
-| `MANAGER_MQTT_QOS` | Quality of Service level (0, 1, or 2) | `2` |
-| `MANAGER_MQTT_TIMEOUT` | Connection and operation timeout | `30s` |
-| `MANAGER_DOMAIN_ID` | SuperMQ domain identifier | From `config.toml` |
-| `MANAGER_CHANNEL_ID` | SuperMQ channel identifier | From `config.toml` |
-| `MANAGER_CLIENT_ID` | MQTT client ID for authentication | From `config.toml` |
-| `MANAGER_CLIENT_KEY` | MQTT client key for authentication | From `config.toml` |
+| Variable               | Description                           | Default                |
+| ---------------------- | ------------------------------------- | ---------------------- |
+| `MANAGER_MQTT_ADDRESS` | MQTT broker URL                       | `tcp://localhost:1883` |
+| `MANAGER_MQTT_QOS`     | Quality of Service level (0, 1, or 2) | `2`                    |
+| `MANAGER_MQTT_TIMEOUT` | Connection and operation timeout      | `30s`                  |
+| `MANAGER_DOMAIN_ID`    | SuperMQ domain identifier             | From `config.toml`     |
+| `MANAGER_CHANNEL_ID`   | SuperMQ channel identifier            | From `config.toml`     |
+| `MANAGER_CLIENT_ID`    | MQTT client ID for authentication     | From `config.toml`     |
+| `MANAGER_CLIENT_KEY`   | MQTT client key for authentication    | From `config.toml`     |
 
 **QoS Levels:**
 - `0` (At most once): Fire and forget—fastest but messages may be lost
@@ -132,11 +132,11 @@ channel_id = "9856d353-88d3-4eb6-82bd-117eadf69c74"
 
 Each section contains:
 
-| Field | Purpose |
-| ----- | ------- |
-| `domain_id` | SuperMQ domain for multi-tenant isolation |
-| `client_id` | Unique identifier for MQTT authentication |
-| `client_key` | Secret key for MQTT authentication |
+| Field        | Purpose                                          |
+| ------------ | ------------------------------------------------ |
+| `domain_id`  | SuperMQ domain for multi-tenant isolation        |
+| `client_id`  | Unique identifier for MQTT authentication        |
+| `client_key` | Secret key for MQTT authentication               |
 | `channel_id` | Shared channel for Manager-Proplet communication |
 
 The Manager, Proplets, and Proxy all share the same `domain_id` and `channel_id` but have unique `client_id`/`client_key` pairs. This allows them to communicate securely on a shared channel while maintaining distinct identities.
@@ -147,19 +147,19 @@ When starting Docker Compose, the `docker/.env` file references these values, wh
 
 The Manager exposes a REST API over HTTP for client interactions. This provides a familiar, language-agnostic interface—any HTTP client (curl, SDKs, web applications) can create tasks, query proplet status, and manage workflows without understanding MQTT internals.
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `MANAGER_HTTP_HOST` | Listen address (empty = all interfaces) | `localhost` |
-| `MANAGER_HTTP_PORT` | Listen port | `7070` |
-| `MANAGER_HTTP_SERVER_CERT` | TLS certificate file path | `""` |
-| `MANAGER_HTTP_SERVER_KEY` | TLS private key file path | `""` |
-| `MANAGER_HTTP_SERVER_CA_CERTS` | CA certificate for verifying client certs (mTLS) | `""` |
-| `MANAGER_HTTP_CLIENT_CA_CERTS` | Client CA certificate for mTLS | `""` |
-| `MANAGER_HTTP_SERVER_READ_TIMEOUT` | Maximum time to read entire request | `15s` |
-| `MANAGER_HTTP_SERVER_WRITE_TIMEOUT` | Maximum time to write response | `15s` |
-| `MANAGER_HTTP_SERVER_READ_HEADER_TIMEOUT` | Maximum time to read request headers | `5s` |
-| `MANAGER_HTTP_SERVER_IDLE_TIMEOUT` | Keep-alive connection timeout | `60s` |
-| `MANAGER_HTTP_SERVER_MAX_HEADER_BYTES` | Maximum request header size | `1048576` (1 MB) |
+| Variable                                  | Description                                      | Default          |
+| ----------------------------------------- | ------------------------------------------------ | ---------------- |
+| `MANAGER_HTTP_HOST`                       | Listen address (empty = all interfaces)          | `localhost`      |
+| `MANAGER_HTTP_PORT`                       | Listen port                                      | `7070`           |
+| `MANAGER_HTTP_SERVER_CERT`                | TLS certificate file path                        | `""`             |
+| `MANAGER_HTTP_SERVER_KEY`                 | TLS private key file path                        | `""`             |
+| `MANAGER_HTTP_SERVER_CA_CERTS`            | CA certificate for verifying client certs (mTLS) | `""`             |
+| `MANAGER_HTTP_CLIENT_CA_CERTS`            | Client CA certificate for mTLS                   | `""`             |
+| `MANAGER_HTTP_SERVER_READ_TIMEOUT`        | Maximum time to read entire request              | `15s`            |
+| `MANAGER_HTTP_SERVER_WRITE_TIMEOUT`       | Maximum time to write response                   | `15s`            |
+| `MANAGER_HTTP_SERVER_READ_HEADER_TIMEOUT` | Maximum time to read request headers             | `5s`             |
+| `MANAGER_HTTP_SERVER_IDLE_TIMEOUT`        | Keep-alive connection timeout                    | `60s`            |
+| `MANAGER_HTTP_SERVER_MAX_HEADER_BYTES`    | Maximum request header size                      | `1048576` (1 MB) |
 
 **Enabling HTTPS:** To enable TLS, provide both certificate and key files:
 
@@ -193,12 +193,12 @@ The Manager persists task definitions, proplet registrations, job configurations
 
 Select your storage backend with `MANAGER_STORAGE_TYPE`:
 
-| Backend | Default | Best For | Trade-offs |
-| ------- | ------- | -------- | ---------- |
-| `memory` | ✓ | Development, testing, CI pipelines | Zero setup; all state lost on restart |
-| `sqlite` | | Single-node production, edge gateways | File-based persistence; no external dependencies; limited concurrent writes |
-| `postgres` | | Multi-node production, enterprise deployments | Full SQL capabilities, ACID transactions, replication; requires PostgreSQL server |
-| `badger` | | High-throughput edge, embedded systems | Fast key-value store; no SQL queries; good for high write volumes |
+| Backend    | Default | Best For                                      | Trade-offs                                                                        |
+| ---------- | ------- | --------------------------------------------- | --------------------------------------------------------------------------------- |
+| `memory`   | ✓       | Development, testing, CI pipelines            | Zero setup; all state lost on restart                                             |
+| `sqlite`   |         | Single-node production, edge gateways         | File-based persistence; no external dependencies; limited concurrent writes       |
+| `postgres` |         | Multi-node production, enterprise deployments | Full SQL capabilities, ACID transactions, replication; requires PostgreSQL server |
+| `badger`   |         | High-throughput edge, embedded systems        | Fast key-value store; no SQL queries; good for high write volumes                 |
 
 **Default: `memory`** — The Manager defaults to in-memory storage so you can start immediately without database setup. This is ideal for:
 - Local development and experimentation
@@ -259,10 +259,10 @@ The Manager provides built-in observability through Prometheus metrics and OpenT
 
 **Prometheus Metrics** are always enabled at `/metrics`. OpenTelemetry tracing requires configuration.
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `MANAGER_OTEL_URL` | OpenTelemetry collector URL (OTLP/HTTP) | `""` (tracing disabled) |
-| `MANAGER_TRACE_RATIO` | Fraction of requests to trace (0.0–1.0) | `0` |
+| Variable              | Description                             | Default                 |
+| --------------------- | --------------------------------------- | ----------------------- |
+| `MANAGER_OTEL_URL`    | OpenTelemetry collector URL (OTLP/HTTP) | `""` (tracing disabled) |
+| `MANAGER_TRACE_RATIO` | Fraction of requests to trace (0.0–1.0) | `0`                     |
 
 ##### Prometheus Metrics
 
@@ -270,11 +270,11 @@ The Manager exposes Prometheus-compatible metrics at `http://localhost:7070/metr
 
 **Available metrics include:**
 
-| Metric | Type | Description |
-| ------ | ---- | ----------- |
-| `manager_api_request_count` | Counter | Total API requests by method and status |
-| `manager_api_request_latency_seconds` | Histogram | Request latency distribution |
-| Task state counters | Gauge | Number of tasks in each state |
+| Metric                                | Type      | Description                             |
+| ------------------------------------- | --------- | --------------------------------------- |
+| `manager_api_request_count`           | Counter   | Total API requests by method and status |
+| `manager_api_request_latency_seconds` | Histogram | Request latency distribution            |
+| Task state counters                   | Gauge     | Number of tasks in each state           |
 
 **Scrape configuration for Prometheus:**
 
@@ -327,8 +327,8 @@ This means even with tracing disabled, you still get logging and metrics for eve
 
 Propeller supports federated machine learning workflows where proplets train local models and contribute updates to a central coordinator. This keeps training data on edge devices while still producing a globally optimized model.
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
+| Variable          | Description                         | Default            |
+| ----------------- | ----------------------------------- | ------------------ |
 | `COORDINATOR_URL` | External FL Coordinator service URL | `""` (FL disabled) |
 
 The Manager acts as a proxy between proplets and an external FL Coordinator service. The coordinator handles aggregation algorithms (FedAvg, etc.) while the Manager handles task distribution and result collection. For a complete overview of the architecture and training round lifecycle, see the [Federated Learning](/docs/federated-learning) documentation.
@@ -445,10 +445,10 @@ For detailed proplet configuration and capabilities, see the [Proplet](/docs/pro
 
 The Manager subscribes to three proplet-related MQTT topics:
 
-| Topic | Purpose |
-| ----- | ------- |
-| `control/proplet/create` | New proplet registration |
-| `control/proplet/alive` | Heartbeat signals |
+| Topic                     | Purpose                      |
+| ------------------------- | ---------------------------- |
+| `control/proplet/create`  | New proplet registration     |
+| `control/proplet/alive`   | Heartbeat signals            |
 | `control/proplet/metrics` | Resource utilization reports |
 
 **Proplet Registration** — When a proplet starts, it publishes a discovery message:
@@ -713,10 +713,10 @@ func (wc *WorkflowCoordinator) OnTaskCompletion(ctx context.Context, taskID stri
 
 The `run_if` field controls when a task should execute based on dependency outcomes:
 
-| Value | Manager Behavior |
-| ----- | ---------------- |
+| Value               | Manager Behavior                                      |
+| ------------------- | ----------------------------------------------------- |
 | `success` (default) | Start only if ALL dependencies completed successfully |
-| `failure` | Start only if ANY dependency failed |
+| `failure`           | Start only if ANY dependency failed                   |
 
 ```go
 // From manager/workflow.go
