@@ -590,9 +590,15 @@ paths:
                   type: string
                 proplet_id:
                   type: string
-                weights:
+                base_model_uri:
+                  type: string
+                  description: URI of the base model used for training
+                num_samples:
+                  type: integer
+                  description: Number of samples used in local training
+                update:
                   type: object
-                  description: Model weights update
+                  description: Model weight updates from local training
                 metrics:
                   type: object
                   description: Training metrics
@@ -617,7 +623,7 @@ paths:
       requestBody:
         description: CBOR-encoded model update payload
         content:
-          application/octet-stream:
+          application/cbor:
             schema:
               type: string
               format: binary
