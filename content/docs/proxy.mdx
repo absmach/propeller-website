@@ -56,7 +56,7 @@ The Proplet never talks to the registry directly. It only speaks MQTT.
 
 The following sequence diagram illustrates this complete module delivery flow:
 
-![Proxy Module Delivery Flow](./images/proxy/proxy-module-delivery-flow.svg)
+![Proxy Module Delivery Flow](./images/proxy/module-delivery-flow.svg)
 
 ## Running the Proxy
 
@@ -104,10 +104,9 @@ The Proxy is configured entirely through environment variables. No config files 
 
 These control logging and instance identification:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PROXY_LOG_LEVEL` | Log verbosity: `debug`, `info`, `warn`, or `error` | `info` |
-| `PROXY_INSTANCE_ID` | Unique identifier for this Proxy (useful when running multiple) | — |
+| Variable          | Description                                        | Default   |
+| ----------------- | -------------------------------------------------- | --------- |
+| `PROXY_LOG_LEVEL` | Log verbosity: `debug`, `info`, `warn`, or `error` | `info`    |
 
 **Why `info` level?** The `info` level logs module fetch requests, chunk delivery progress, and completion events—enough to monitor normal operation without flooding logs. Use `debug` when troubleshooting registry authentication or chunk assembly issues; it logs every HTTP request and MQTT publish.
 
@@ -115,15 +114,15 @@ These control logging and instance identification:
 
 The Proxy needs to connect to the same MQTT broker (SuperMQ) as your Manager and Proplets:
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `PROXY_MQTT_ADDRESS` | Full broker URL including protocol and port | `tcp://localhost:1883` | Yes |
-| `PROXY_MQTT_TIMEOUT` | How long to wait for broker responses | `30s` | No |
-| `PROXY_MQTT_QOS` | Delivery guarantee (2 = exactly once, recommended) | `2` | No |
-| `PROXY_DOMAIN_ID` | Your SuperMQ domain ID | — | Yes |
-| `PROXY_CHANNEL_ID` | Channel for registry communication | — | Yes |
-| `PROXY_CLIENT_ID` | Unique client ID for MQTT connection | — | Yes |
-| `PROXY_CLIENT_KEY` | Authentication secret for the broker | — | Yes |
+| Variable             | Description                                        | Default                | Required   |
+| -------------------- | -------------------------------------------------- | ---------------------- | ---------- |
+| `PROXY_MQTT_ADDRESS` | Full broker URL including protocol and port        | `tcp://localhost:1883` | Yes        |
+| `PROXY_MQTT_TIMEOUT` | How long to wait for broker responses              | `30s`                  | No         |
+| `PROXY_MQTT_QOS`     | Delivery guarantee (2 = exactly once, recommended) | `2`                    | No         |
+| `PROXY_DOMAIN_ID`    | Your SuperMQ domain ID                             | —                      | Yes        |
+| `PROXY_CHANNEL_ID`   | Channel for registry communication                 | —                      | Yes        |
+| `PROXY_CLIENT_ID`    | Unique client ID for MQTT connection               | —                      | Yes        |
+| `PROXY_CLIENT_KEY`   | Authentication secret for the broker               | —                      | Yes        |
 
 Get these values from your SuperMQ setup. They should match what you used when provisioning the Propeller channel.
 
@@ -135,14 +134,14 @@ Get these values from your SuperMQ setup. They should match what you used when p
 
 Configure where the Proxy fetches modules from:
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `PROXY_REGISTRY_URL` | Base URL of your OCI registry | — | Yes |
-| `PROXY_AUTHENTICATE` | Whether the registry requires authentication | `false` | No |
-| `PROXY_REGISTRY_USERNAME` | Username for registry login | — | If auth enabled |
-| `PROXY_REGISTRY_PASSWORD` | Password for registry login | — | If auth enabled |
-| `PROXY_REGISTRY_TOKEN` | Alternative: access token instead of username/password | — | If auth enabled |
-| `PROXY_CHUNK_SIZE` | Size of each chunk in bytes (tune based on network) | `512000` | No |
+| Variable                  | Description                                            | Default   | Required        |
+| ------------------------- | ------------------------------------------------------ | --------- | --------------- |
+| `PROXY_REGISTRY_URL`      | Base URL of your OCI registry                          | —         | Yes             |
+| `PROXY_AUTHENTICATE`      | Whether the registry requires authentication           | `false`   | No              |
+| `PROXY_REGISTRY_USERNAME` | Username for registry login                            | —         | If auth enabled |
+| `PROXY_REGISTRY_PASSWORD` | Password for registry login                            | —         | If auth enabled |
+| `PROXY_REGISTRY_TOKEN`    | Alternative: access token instead of username/password | —         | If auth enabled |
+| `PROXY_CHUNK_SIZE`        | Size of each chunk in bytes (tune based on network)    | `512000`  | No              |
 
 **Why 512 KB chunks?** This balances transfer efficiency against MQTT broker limits and memory usage. Smaller chunks (64-128 KB) work better on constrained networks or embedded proplets with limited RAM, but increase overhead from more MQTT publishes. Larger chunks (1-2 MB) reduce overhead but may exceed broker message limits or cause memory pressure on proplets reassembling multiple modules simultaneously. The 512 KB default works well for most deployments; tune based on your network latency and proplet memory constraints.
 
@@ -205,16 +204,18 @@ During development, you probably don't want to push every iteration to Docker Hu
 docker run -d -p 5000:5000 --name registry registry:3.0.0
 ```
 
-### Push Your Module
+### Build and Push the Addition Module
 
-Use `wasm-to-oci` to push WASM files as OCI artifacts:
+Use the `addition` example from the propeller repository to test the full flow. First, build the WASM binary:
 
 ```bash
-# Install wasm-to-oci if you haven't
-go install github.com/nicholasjng/wasm-to-oci@latest
+GOOS=wasip1 GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasip1 examples/addition/addition.go
+```
 
-# Push your module
-wasm-to-oci push ./build/my-module.wasm localhost:5000/dev/my-module.wasm
+Then push it to your local registry using `wasm-to-oci`:
+
+```bash
+wasm-to-oci push ./build/addition.wasm localhost:5000/addition.wasm
 ```
 
 ### Configure the Proxy
@@ -224,7 +225,17 @@ export PROXY_REGISTRY_URL="localhost:5000"
 export PROXY_AUTHENTICATE="false"
 ```
 
-Now tasks can reference `localhost:5000/dev/my-module.wasm` and the whole flow works locally.
+Now tasks can reference `localhost:5000/addition.wasm` and the whole flow works locally:
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "add",
+    "inputs": [10, 20],
+    "image_url": "localhost:5000/addition.wasm"
+  }'
+```
 
 ## Under the Hood
 
@@ -240,25 +251,25 @@ The Proxy runs two goroutines that communicate via channels:
 
 The diagram below shows the internal architecture of the Proxy, illustrating how these two streams interact:
 
-![Proxy Architecture](./images/proxy/proxy-architecture.svg)
+![Proxy Architecture](./images/proxy/architecture.svg)
 
 ### MQTT Topics Used
 
-| Topic Pattern | Direction | Purpose |
-|--------------|-----------|---------|
-| `m/{domain}/c/{channel}/registry/proplet` | Subscribe | Receives module requests from Proplets |
-| `m/{domain}/c/{channel}/registry/server` | Publish | Sends chunks back to Proplets |
+| Topic Pattern                             | Direction   | Purpose                                |
+| ----------------------------------------- | ----------- | -------------------------------------- |
+| `m/{domain}/c/{channel}/registry/proplet` | Subscribe   | Receives module requests from Proplets |
+| `m/{domain}/c/{channel}/registry/server`  | Publish     | Sends chunks back to Proplets          |
 
 ### Chunk Format
 
 Each chunk is a JSON message with:
 
-```go
-type ChunkPayload struct {
-    AppName     string   // e.g., "docker.io/your-org/module.wasm"
-    ChunkIdx    int      // 0, 1, 2, ...
-    TotalChunks int      // Total number of chunks
-    Data        []byte   // The actual bytes (base64 encoded in JSON)
+```json
+{
+  "app_name": "docker.io/your-org/module.wasm",
+  "chunk_idx": 0,
+  "total_chunks": 4,
+  "data": "<base64-encoded bytes>"
 }
 ```
 
@@ -266,4 +277,4 @@ The Proplet knows to wait for chunks 0 through TotalChunks-1, then concatenates 
 
 The following diagram shows the complete chunk transfer process, from binary splitting through MQTT delivery to Proplet reassembly:
 
-![Chunk Transfer Process](./images/proxy/proxy-chunk-transfer.svg)
+![Chunk Transfer Process](./images/proxy/chunk-transfer.svg)
