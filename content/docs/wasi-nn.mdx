@@ -7,7 +7,7 @@ description: Run machine learning inference in WebAssembly using WASI-NN with Pr
 
 For a quick start tutorial with commands and expected outputs, see the [WASI NN Example](/docs/examples/wasi-nn).
 
-![WASI-NN on Propeller Architecture](./images/wasi-nn/wasi-nn-proplet.svg)
+![WASI-NN on Propeller Architecture](./images/wasi-nn/proplet.svg)
 
 **How it works:**
 
@@ -35,11 +35,11 @@ This enables portable ML inference across different environments without modifyi
 
 Propeller's Wasmtime runtime supports these WASI-NN backends:
 
-| Backend | Model Format | Best For |
-| ------- | ------------ | -------- |
-| **OpenVINO** | `.xml` + `.bin` (IR format) | Intel hardware, server inference |
-| **ONNX Runtime** | `.onnx` | Cross-platform compatibility |
-| **WinML** | `.onnx` | Windows deployments |
+| Backend          | Model Format                | Best For                         |
+| ---------------- | --------------------------- | -------------------------------- |
+| **OpenVINO**     | `.xml` + `.bin` (IR format) | Intel hardware, server inference |
+| **ONNX Runtime** | `.onnx`                     | Cross-platform compatibility     |
+| **WinML**        | `.onnx`                     | Windows deployments              |
 
 ## Building a WASI-NN Workload
 
@@ -112,6 +112,7 @@ wasmtime run -S nn --dir=fixture target/wasm32-wasip1/release/wasi-nn-example.wa
 ```
 
 Expected output:
+
 ```
 Read graph XML, first 50 characters: <?xml version="1.0" ?>
 <net batch="1" name="...
@@ -161,9 +162,9 @@ curl -X POST "http://localhost:7070/tasks" \
 }'
 ```
 
-| Flag | Purpose |
-| ---- | ------- |
-| `-S nn` | Enables wasi-nn support in wasmtime |
+| Flag                                   | Purpose                                  |
+| -------------------------------------- | ---------------------------------------- |
+| `-S nn`                                | Enables wasi-nn support in wasmtime      |
 | `--dir=/home/proplet/fixture::fixture` | Maps container path to WASM sandbox path |
 
 The `--dir` syntax is `host_path::guest_path`. The WASM module sees files at `fixture/` while the actual files are at `/home/proplet/fixture` in the container.
@@ -313,7 +314,7 @@ make stop-supermq && make start-supermq
 The proplet container needs OpenVINO libraries. The official proplet image includes OpenVINO. If running locally, ensure `LD_LIBRARY_PATH` includes the OpenVINO lib directory:
 
 ```bash
-export LD_LIBRARY_PATH=/opt/intel/openvino_2024/runtime/lib/intel64:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/opt/intel/openvino_2025/runtime/lib/intel64:$LD_LIBRARY_PATH
 ```
 
 ### Model Loading Failures
@@ -327,7 +328,7 @@ export LD_LIBRARY_PATH=/opt/intel/openvino_2024/runtime/lib/intel64:$LD_LIBRARY_
    ```rust
    // OpenVINO requires .xml and .bin files
    wasi_nn::GRAPH_ENCODING_OPENVINO
-   
+
    // ONNX requires .onnx files
    wasi_nn::GRAPH_ENCODING_ONNX
    ```
@@ -335,6 +336,7 @@ export LD_LIBRARY_PATH=/opt/intel/openvino_2024/runtime/lib/intel64:$LD_LIBRARY_
 ### Tensor Dimension Mismatch
 
 Ensure input tensor dimensions match model expectations:
+
 ```rust
 let tensor = wasi_nn::Tensor {
     dimensions: &[1, 3, 224, 224],  // Must match model input shape

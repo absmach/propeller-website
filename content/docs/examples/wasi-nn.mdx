@@ -540,7 +540,7 @@ Your output should look like this:
 **Understanding the response fields:**
 - `id` — Unique task identifier (UUID) used for all subsequent operations
 - `name: "_start"` — The WASM function to invoke (must be `_start` for the entry point)
-- `state: 0` — Task state: 0=created, 1=scheduled, 2=running, 3=completed, 4=failed
+- `state: 0` — Task state: 0=pending, 1=scheduled, 2=running, 3=completed, 4=failed
 - `cli_args` — Arguments passed to the wasmtime runtime
 - `created_at` — Timestamp when the task was created
 
@@ -578,7 +578,7 @@ Your output should look like this:
 
 **Understanding the response:**
 - `file_size: 145636` — The base64-encoded WASM file size (larger than the raw binary). The manager stores the WASM file and will distribute it to the proplet when the task starts.
-- `state: 0` — Still in "created" state; upload doesn't change the state.
+- `state: 0` — Still in "pending" state; upload doesn't change the state.
 
 ## Step 9: Start the Inference Task
 
@@ -635,13 +635,13 @@ Your output should look like this:
 
 **Understanding the response:**
 
-| Field | Value | Meaning |
-|-------|-------|---------|
-| `state` | `3` | Task completed successfully (0=created, 1=scheduled, 2=running, 3=completed, 4=failed) |
-| `proplet_id` | UUID | The proplet that executed the task |
-| `start_time` | ISO 8601 timestamp | When execution began |
-| `finish_time` | ISO 8601 timestamp | When execution completed |
-| `results` | stdout from WASM | The inference output |
+| Field        | Value              | Meaning                                                               |
+| ------------ | ------------------ | --------------------------------------------------------------------- |
+| `state`      | `3`                | Task completed successfully (0=pending, 1=scheduled, 2=running, 3=completed, 4=failed) |
+| `proplet_id` | UUID               | The proplet that executed the task                                    |
+| `start_time` | ISO 8601 timestamp | When execution began                                                  |
+| `finish_time`| ISO 8601 timestamp | When execution completed                                              |
+| `results`    | stdout from WASM   | The inference output                                                  |
 
 **Understanding the inference results:**
 
@@ -691,17 +691,17 @@ Your output should look like this:
 
 **Log analysis:**
 
-| Log Entry | Meaning |
-|-----------|---------|
-| "Received task" | Proplet received task assignment via MQTT |
-| "Task WASM received" | Binary transfer completed |
+| Log Entry                       | Meaning                                             |
+| ------------------------------- | --------------------------------------------------- |
+| "Received task"                 | Proplet received task assignment via MQTT           |
+| "Task WASM received"            | Binary transfer completed                           |
 | "Starting wasmtime runtime app" | Wasmtime is initializing with the 109,225-byte WASM |
-| "Configuring WASI-NN" | OpenVINO backend being set up |
-| "Mapping directory" | Host directory mapped to guest filesystem |
-| "Executing WASM function" | The `_start` entry point is being invoked |
-| "WASM execution completed" | Inference finished in ~420ms |
-| "Task completed successfully" | Result captured from stdout |
-| "Sending task result" | 421-byte result string sent back to manager |
+| "Configuring WASI-NN"           | OpenVINO backend being set up                       |
+| "Mapping directory"             | Host directory mapped to guest filesystem           |
+| "Executing WASM function"       | The `_start` entry point is being invoked           |
+| "WASM execution completed"      | Inference finished in ~420ms                        |
+| "Task completed successfully"   | Result captured from stdout                         |
+| "Sending task result"           | 421-byte result string sent back to manager         |
 
 ---
 
