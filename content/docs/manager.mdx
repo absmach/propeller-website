@@ -60,7 +60,6 @@ The Manager is configured through environment variables. These are the most comm
 | Variable | Description | Default |
 | -------- | ----------- | ------- |
 | `MANAGER_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
-| `MANAGER_INSTANCE_ID` | Unique identifier for this manager instance | Auto-generated UUID |
 
 #### MQTT Connection
 
@@ -473,14 +472,19 @@ A proplet is considered alive if it sent a heartbeat within the last 10 seconds:
 // From pkg/proplet/proplet.go
 func (p *Proplet) SetAlive() {
     if len(p.AliveHistory) > 0 {
-        p.Alive = time.Since(p.AliveHistory[len(p.AliveHistory)-1]) <= aliveThreshold
+        lastAlive := p.AliveHistory[len(p.AliveHistory)-1]
+        if time.Since(lastAlive) <= aliveTimeout {
+            p.Alive = true
+            return
+        }
     }
+    p.Alive = false
 }
 ```
 
 The Manager recalculates liveness on every `GetProplet` and `ListProplets` call. This ensures scheduling decisions use fresh state.
 
-**Dead proplets are excluded from scheduling** — The round-robin scheduler skips any proplet where `Alive == false`. If ALL proplets are dead, task start commands fail with `ErrDeadProplets`.
+**Dead proplets are excluded from scheduling** — The round-robin scheduler skips any proplet where `Alive == false`. If ALL proplets are dead, task start commands fail with `ErrDeadProplers`.
 
 ### Listing Proplets
 
@@ -498,7 +502,7 @@ Your output should look like this:
       "name": "crimson-falcon",
       "alive": true,
       "task_count": 2,
-      "alive_history": ["2026-03-01T12:00:00Z", "2026-03-01T12:00:10Z"]
+      "alive_at": ["2026-03-01T12:00:00Z", "2026-03-01T12:00:10Z"]
     }
   ],
   "total": 1,
@@ -514,7 +518,7 @@ Proplets with active tasks cannot be deleted:
 ```go
 // From manager/service.go
 if p.TaskCount > 0 {
-    return fmt.Errorf("proplet %s has %d active tasks", propletID, p.TaskCount)
+    return fmt.Errorf("%w: proplet %s has %d active tasks", pkgerrors.ErrConflict, propletID, p.TaskCount)
 }
 ```
 
@@ -582,7 +586,7 @@ When a task completes, the Manager checks if it belongs to a job. For sequential
 ```go
 // From manager/service.go
 if t.State == task.Failed {
-    svc.logger.Info("task failed, stopping remaining job tasks", "job_id", t.JobID)
+    svc.logger.InfoContext(ctx, "task failed, stopping remaining job tasks", "job_id", t.JobID, "task_id", taskID)
     svc.stopJobTasks(ctx, jobTasks)
 }
 ```
@@ -665,8 +669,11 @@ When any task completes, the Manager calls `OnTaskCompletion`:
 // From manager/workflow.go
 func (wc *WorkflowCoordinator) OnTaskCompletion(ctx context.Context, taskID string) error {
     t, err := wc.service.GetTask(ctx, taskID)
+    if err != nil {
+        return fmt.Errorf("failed to get completed task: %w", err)
+    }
     if t.WorkflowID == "" {
-        return nil  // Not part of a workflow
+        return nil
     }
     return wc.CheckAndStartReadyTasks(ctx, t.WorkflowID)
 }
@@ -689,23 +696,36 @@ The `run_if` field controls when a task should execute based on dependency outco
 ```go
 // From manager/workflow.go
 func (wc *WorkflowCoordinator) EvaluateConditionalExecution(ctx context.Context, t task.Task, parentStates map[string]task.State) bool {
+    if len(t.DependsOn) == 0 {
+        return true
+    }
+
+    runIf := t.RunIf
+    if runIf == "" {
+        runIf = task.RunIfSuccess
+    }
+
     switch runIf {
     case task.RunIfSuccess:
-        // All parents must be Completed
         for _, depID := range t.DependsOn {
-            if state != task.Completed {
+            state, exists := parentStates[depID]
+            if !exists || state != task.Completed {
                 return false
             }
         }
         return true
 
     case task.RunIfFailure:
-        // At least one parent must be Failed
         for _, depID := range t.DependsOn {
-            if state == task.Failed {
+            state, exists := parentStates[depID]
+            if exists && state == task.Failed {
                 return true
             }
         }
+        return false
+
+    default:
+        wc.logger.WarnContext(ctx, "invalid run_if value", "task_id", t.ID, "run_if", runIf)
         return false
     }
 }
@@ -729,38 +749,7 @@ The Manager handles two types of scheduling: **one-time proplet selection** when
 
 ### Proplet Selection (Round-Robin)
 
-When a task starts without a specified `proplet_id`, the Manager's scheduler selects one:
-
-```go
-// From pkg/scheduler/roundrobin.go
-func (r *roundRobin) SelectProplet(t task.Task, proplets []proplet.Proplet) (proplet.Proplet, error) {
-    if len(proplets) == 0 {
-        return proplet.Proplet{}, ErrNoProplet
-    }
-
-    // Count alive proplets
-    alive := 0
-    for i := range proplets {
-        if proplets[i].Alive {
-            alive += 1
-        }
-    }
-    if alive == 0 {
-        return proplet.Proplet{}, ErrDeadProplers
-    }
-
-    // Round-robin selection
-    r.LastProplet = (r.LastProplet + 1) % len(proplets)
-    p := proplets[r.LastProplet]
-
-    // Skip dead proplets
-    if !p.Alive {
-        return r.SelectProplet(t, proplets)
-    }
-
-    return p, nil
-}
-```
+When a task starts without a specified `proplet_id`, the Manager's scheduler selects one using a round-robin algorithm implemented in `pkg/scheduler/roundrobin.go`.
 
 **Key behaviors:**
 - Cycles through proplets in order, wrapping around
