@@ -11,7 +11,7 @@ Propeller schedules and executes tasks across distributed edge devices. When tas
 
 A [DAG (Directed Acyclic Graph)](https://www.datacamp.com/blog/what-is-a-dag) defines which tasks must complete before others can start:
 
-![Basic DAG](./images/dag/dag-basic-dag.svg)
+![Basic DAG](./images/dag/basic-dag.svg)
 
 - **Tasks** are the individual steps in your workflow
 - **Dependencies** specify which tasks must finish first
@@ -19,12 +19,12 @@ A [DAG (Directed Acyclic Graph)](https://www.datacamp.com/blog/what-is-a-dag) de
 
 Tasks without dependencies on each other run in parallel.
 
-| Benefit | Description |
-|---------|-------------|
-| **Correct order** | Tasks wait for their dependencies to complete |
-| **Parallel execution** | Independent tasks run simultaneously |
-| **Error isolation** | Failures affect only downstream tasks |
-| **Clear structure** | The graph shows the entire workflow |
+| Benefit                | Description                                   |
+| ---------------------- | --------------------------------------------- |
+| **Correct order**      | Tasks wait for their dependencies to complete |
+| **Parallel execution** | Independent tasks run simultaneously          |
+| **Error isolation**    | Failures affect only downstream tasks         |
+| **Clear structure**    | The graph shows the entire workflow           |
 
 ### Architecture
 
@@ -32,15 +32,15 @@ Tasks without dependencies on each other run in parallel.
 
 ### Components
 
-| Component | Description |
-|-----------|-------------|
-| **Manager** | Central coordinator that receives workflow definitions and orchestrates execution |
-| **Jobs** | Groups of related tasks with a shared execution mode (parallel or sequential) |
-| **Workflows** | DAG-based task definitions with explicit dependencies between tasks |
-| **Standalone Tasks** | Individual tasks executed independently without belonging to a job or workflow |
-| **Scheduling** | Determines task ordering: priority, cron schedules, or round-robin distribution |
-| **Tasks** | The atomic unit of work—a WebAssembly module executed on a proplet |
-| **Proplets** | Edge devices that receive and execute tasks assigned by the Manager |
+| Component            | Description                                                                       |
+| -------------------- | --------------------------------------------------------------------------------- |
+| **Manager**          | Central coordinator that receives workflow definitions and orchestrates execution |
+| **Jobs**             | Groups of related tasks with a shared execution mode (parallel or sequential)     |
+| **Workflows**        | DAG-based task definitions with explicit dependencies between tasks               |
+| **Standalone Tasks** | Individual tasks executed independently without belonging to a job or workflow    |
+| **Scheduling**       | Determines task ordering: priority, cron schedules, or round-robin distribution   |
+| **Tasks**            | The atomic unit of work—a WebAssembly module executed on a proplet                |
+| **Proplets**         | Edge devices that receive and execute tasks assigned by the Manager               |
 
 ## Jobs
 
@@ -91,10 +91,10 @@ Your output should look like this:
 
 ### Execution Modes
 
-| Mode | Behavior |
-| ---- | -------- |
-| `parallel` | All tasks start simultaneously on available proplets |
-| `sequential` | Tasks run one at a time in order; first failure stops the job (fail-fast) |
+| Mode           | Behavior                                                                   |
+| -------------- | -------------------------------------------------------------------------- |
+| `parallel`     | All tasks start simultaneously on available proplets                       |
+| `sequential`   | Tasks run one at a time in order; first failure stops the job (fail-fast)  |
 | `configurable` | Mode is read from the `JOB_EXECUTION_MODE` environment variable at runtime |
 
 ### Starting a Job
@@ -178,12 +178,12 @@ Jobs cannot be updated or deleted once created. To modify a job, create a new on
 
 This **immutable design** provides several benefits:
 
-| Benefit | Description |
-|---------|-------------|
-| **Auditability** | Every job version is preserved for tracing exactly what ran and when |
-| **Reproducibility** | Re-running a job ID always references the same definition |
-| **Concurrency safety** | No race conditions between execution and configuration changes |
-| **Debugging** | Failed jobs retain their original configuration for post-mortem analysis |
+| Benefit                | Description                                                              |
+| ---------------------- | ------------------------------------------------------------------------ |
+| **Auditability**       | Every job version is preserved for tracing exactly what ran and when     |
+| **Reproducibility**    | Re-running a job ID always references the same definition                |
+| **Concurrency safety** | No race conditions between execution and configuration changes           |
+| **Debugging**          | Failed jobs retain their original configuration for post-mortem analysis |
 
 ## Workflows
 
@@ -193,7 +193,7 @@ Workflows provide DAG-based task orchestration with dependencies and conditional
 
 Workflows execute tasks based on dependency relationships and conditional logic. The following diagram shows a typical workflow with success and failure branches:
 
-![DAG Run-If Success/Failure Branching](./images/dag/dag-run-if-success-failure-branching.svg)
+![DAG Run-If Success/Failure Branching](./images/dag/run-if-success-failure-branching.svg)
 
 **Execution flow:**
 1. **Payment Task** executes first
@@ -207,7 +207,7 @@ Only one downstream task executes—never both. This pattern is ideal for notifi
 
 The following diagram shows how `depends_on` chains tasks together:
 
-![Task Dependencies](./images/dag/dag-dependency.svg)
+![Task Dependencies](./images/dag/dependency.svg)
 
 **Execution flow:**
 - **Task A** has no dependencies and runs first
@@ -225,7 +225,7 @@ DAG workflows support two common parallel execution patterns for distributing an
 
 A single parent task triggers multiple child tasks. All children start simultaneously when the parent completes. This pattern maximizes parallelism for independent work.
 
-![Fan-Out and Fan-In](./images/dag/dag-fanout-fanin.svg)
+![Fan-Out and Fan-In](./images/dag/fanout-fanin.svg)
 
 **Example (image processing pipeline):**
 - **Ingest** task runs first—loads the source image
@@ -290,12 +290,12 @@ curl -X POST "http://localhost:7070/workflows" \
 
 **Request fields:**
 
-| Field | Description |
-|-------|-------------|
-| `id` | Explicit task identifier used by `depends_on` references. Required for tasks that others depend on. |
+| Field        | Description                                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`         | Explicit task identifier used by `depends_on` references. Required for tasks that others depend on.                                                     |
 | `depends_on` | Array of task IDs that must complete before this task starts. `fetch-a` and `fetch-b` have no dependencies (root tasks), while `merge` depends on both. |
-| `run_if` | Conditional execution—`merge` and `report` run on success; `alert` runs only if `merge` fails. |
-| `image_url` | WASM module location. Multiple tasks can share the same image with different `env` values. |
+| `run_if`     | Conditional execution—`merge` and `report` run on success; `alert` runs only if `merge` fails.                                                          |
+| `image_url`  | WASM module location. Multiple tasks can share the same image with different `env` values.                                                              |
 
 Your output should look like this:
 
@@ -313,20 +313,20 @@ Your output should look like this:
 
 **Response fields:**
 
-| Field | Description |
-|-------|-------------|
+| Field         | Description                                                                                                                                        |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `workflow_id` | All tasks share the same auto-generated workflow ID, linking them as a single workflow. Use this to identify all tasks belonging to this workflow. |
-| `depends_on` | Normalized to empty array `[]` for root tasks. |
-| `run_if` | Defaults to `success` for tasks without explicit conditions. |
+| `depends_on`  | Normalized to empty array `[]` for root tasks.                                                                                                     |
+| `run_if`      | Defaults to `success` for tasks without explicit conditions.                                                                                       |
 
 ### Task and Dependency Fields
 
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `id` | string | Task identifier. If omitted, auto-generated as a UUID. Specify explicitly when other tasks need to reference it in `depends_on`. |
-| `depends_on` | array of string | Task IDs that must complete before this task starts |
-| `run_if` | string | Condition for execution: `success` (default) or `failure` |
-| `workflow_id` | string (auto) | ID of the workflow this task belongs to |
+| Field         | Type            | Description                                                                                                                      |
+| ------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `id`          | string          | Task identifier. If omitted, auto-generated as a UUID. Specify explicitly when other tasks need to reference it in `depends_on`. |
+| `depends_on`  | array of string | Task IDs that must complete before this task starts                                                                              |
+| `run_if`      | string          | Condition for execution: `success` (default) or `failure`                                                                        |
+| `workflow_id` | string (auto)   | ID of the workflow this task belongs to                                                                                          |
 
 The `depends_on` field references task IDs that must complete before this task runs. The manager validates:
 - All referenced task IDs exist in the workflow
@@ -345,7 +345,7 @@ When tasks depend on each other, downstream tasks often need access to results f
 
 Propeller passes task results through the workflow coordinator. Each task receives the outputs from the tasks listed in its `depends_on` array—and only those outputs. This scoped data passing keeps workflows efficient and predictable.
 
-![Data Passing Between Tasks](./images/dag/dag-data-passing-between-tasks.svg)
+![Data Passing Between Tasks](./images/dag/data-passing-between-tasks.svg)
 
 **Diagram explanation:**
 - **Task A** produces results and completes
@@ -360,7 +360,7 @@ Conditional execution lets you build workflows that respond to task outcomes. Co
 - **Success handlers**: Send notifications, trigger deployments, or start downstream processing only when upstream tasks succeed
 - **Failure handlers**: Send alerts, run cleanup routines, or log diagnostics when tasks fail
 
-![Conditional Branching](./images/dag/dag-conditional-branching.svg)
+![Conditional Branching](./images/dag/conditional-branching.svg)
 
 **Diagram explanation:**
 - **Parent Task** completes with either success or failure
@@ -369,10 +369,10 @@ Conditional execution lets you build workflows that respond to task outcomes. Co
 - When conditions aren't met, tasks are marked **Skipped** (terminal state)
 - Skipped tasks don't trigger their downstream dependencies
 
-| Value | Behavior |
-| ----- | -------- |
+| Value                 | Behavior                                                      |
+| --------------------- | ------------------------------------------------------------- |
 | `success` _(default)_ | Task runs only if **all** dependencies completed successfully |
-| `failure` | Task runs only if **any** dependency failed |
+| `failure`             | Task runs only if **any** dependency failed                   |
 
 ### Starting a Workflow
 
@@ -392,13 +392,13 @@ For a complete working example with real WASM modules and actual API responses, 
 
 ## Workflow vs Job Comparison
 
-| Aspect | Workflow | Job |
-|--------|----------|-----|
-| **Endpoint** | [`POST /workflows`](/docs/api/workflows/post) | [`POST /jobs`](/docs/api/jobs/post) |
-| **Execution order** | Defined by `depends_on` arrays | Controlled by `execution_mode` |
-| **Dependencies** | Explicit task-to-task | None—mode determines order |
-| **Use case** | Complex DAGs with fan-out/fan-in | Simple parallel or sequential batches |
-| **Start command** | [`POST /tasks/{task_id}/start`](/docs/api/tasks/task_id/start/post) (root task) | [`POST /jobs/{job_id}/start`](/docs/api/jobs/job_id/start/post) |
+| Aspect              | Workflow                                                                        | Job                                                             |
+| ------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **Endpoint**        | [`POST /workflows`](/docs/api/workflows/post)                                   | [`POST /jobs`](/docs/api/jobs/post)                             |
+| **Execution order** | Defined by `depends_on` arrays                                                  | Controlled by `execution_mode`                                  |
+| **Dependencies**    | Explicit task-to-task                                                           | None—mode determines order                                      |
+| **Use case**        | Complex DAGs with fan-out/fan-in                                                | Simple parallel or sequential batches                           |
+| **Start command**   | [`POST /tasks/{task_id}/start`](/docs/api/tasks/task_id/start/post) (root task) | [`POST /jobs/{job_id}/start`](/docs/api/jobs/job_id/start/post) |
 
 ## DAG Validation
 
@@ -428,7 +428,7 @@ The coordinator detects and rejects circular dependencies:
 Error response:
 ```json
 {
-  "error": "circular dependency detected: task-a -> task-b -> task-c -> task-a"
+  "error": "DAG validation failed: circular dependency detected: cycle detected involving tasks task-a and task-b"
 }
 ```
 
@@ -447,7 +447,7 @@ All referenced task IDs must exist:
 Error response:
 ```json
 {
-  "error": "dependency 'nonexistent-task' does not exist"
+  "error": "dependency validation failed: dependency task not found: task process depends on nonexistent-task which does not exist"
 }
 ```
 
@@ -469,7 +469,7 @@ Priority scheduling controls task dispatch order based on priority values. When 
 
 Each task has a `priority` field (0–100). When the Manager has multiple pending tasks, it dispatches the highest-priority task first. This ensures urgent work gets processed before background tasks, even if background tasks were created earlier.
 
-![Priority Within Level](./images/dag/dag-priority-within-level.svg)
+![Priority Within Level](./images/dag/priority-within-level.svg)
 
 #### Setting Task Priority
 
@@ -485,11 +485,11 @@ curl -X POST "http://localhost:7070/tasks" \
 
 #### Priority Levels
 
-| Priority | Range | Description |
-| -------- | ----- | ----------- |
-| Low | 0–30 | Background tasks, batch processing |
-| Normal | 31–70 | Default priority (50) |
-| High | 71–100 | Urgent tasks, real-time processing |
+| Priority | Range  | Description                        |
+| -------- | ------ | ---------------------------------- |
+| Low      | 0–30   | Background tasks, batch processing |
+| Normal   | 31–70  | Default priority (50)              |
+| High     | 71–100 | Urgent tasks, real-time processing |
 
 #### Priority vs Proplet Selection
 
@@ -556,14 +556,14 @@ curl -X POST "http://localhost:7070/tasks" \
 
 ### Common Cron Patterns
 
-| Pattern | Description |
-| ------- | ----------- |
-| `0 * * * *` | Every hour at minute 0 |
-| `0 0 * * *` | Daily at midnight |
-| `0 0 * * 0` | Weekly on Sunday at midnight |
-| `0 0 1 * *` | Monthly on the 1st at midnight |
-| `*/15 * * * *` | Every 15 minutes |
-| `0 9-17 * * 1-5` | Every hour 9am-5pm, Mon-Fri |
+| Pattern          | Description                    |
+| ---------------- | ------------------------------ |
+| `0 * * * *`      | Every hour at minute 0         |
+| `0 0 * * *`      | Daily at midnight              |
+| `0 0 * * 0`      | Weekly on Sunday at midnight   |
+| `0 0 1 * *`      | Monthly on the 1st at midnight |
+| `*/15 * * * *`   | Every 15 minutes               |
+| `0 9-17 * * 1-5` | Every hour 9am-5pm, Mon-Fri    |
 
 ### Timezone Support
 
@@ -638,17 +638,17 @@ The response returns the full updated task. Key changes:
 
 Tasks move through these states during execution:
 
-| Value | Name | Description |
-| ----- | ---- | ----------- |
-| `0` | `Pending` | Task created, not yet started |
-| `1` | `Scheduled` | Task assigned to a proplet |
-| `2` | `Running` | Task is executing on a proplet |
-| `3` | `Completed` | Task finished successfully |
-| `4` | `Failed` | Task encountered an error |
-| `5` | `Skipped` | Task skipped (e.g., `run_if` condition not met) |
-| `6` | `Interrupted` | Task was stopped externally |
+| Value | Name          | Description                                     |
+| ----- | ------------- | ----------------------------------------------- |
+| `0`   | `Pending`     | Task created, not yet started                   |
+| `1`   | `Scheduled`   | Task assigned to a proplet                      |
+| `2`   | `Running`     | Task is executing on a proplet                  |
+| `3`   | `Completed`   | Task finished successfully                      |
+| `4`   | `Failed`      | Task encountered an error                       |
+| `5`   | `Skipped`     | Task skipped (e.g., `run_if` condition not met) |
+| `6`   | `Interrupted` | Task was stopped externally                     |
 
-![Task State Transitions](./images/dag/dag-state-transitions-in-workflows.svg)
+![Task State Transitions](./images/dag/state-transitions-in-workflows.svg)
 
 ### Interrupted Tasks
 
