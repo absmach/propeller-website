@@ -623,7 +623,7 @@ paths:
       requestBody:
         description: CBOR-encoded model update payload
         content:
-          application/cbor:
+          application/octet-stream:
             schema:
               type: string
               format: binary
