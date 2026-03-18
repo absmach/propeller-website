@@ -14,6 +14,7 @@
     "---Features---",
     "task-scheduling.mdx",
     "monitoring.mdx",
+    "wasi-nn.mdx",
     "tee.mdx",
     "reference.mdx",
     "---Resources---",
