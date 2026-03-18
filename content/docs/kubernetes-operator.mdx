@@ -24,25 +24,25 @@ The operator connects to a SuperMQ MQTT broker on startup using the manager's cr
 
 The operator runs five controllers concurrently. Each controller owns one Custom Resource kind and drives it through a phase-based state machine.
 
-| Controller                | Custom Resource | Responsibility                                                                                                                                        |
-|---------------------------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `PropletReconciler`       | `Proplet`       | Creates and reconciles Kubernetes Deployments for in-cluster workers; monitors external devices via MQTT heartbeats                                   |
-| `TaskReconciler`          | `Task`          | Schedules a WASM workload on the selected proplet; creates a Kubernetes Job for k8s proplets or publishes an MQTT message for external proplets       |
-| `PropellerJobReconciler`  | `PropellerJob`  | Groups a set of Tasks into a single batch; creates child Task resources and aggregates their outcomes                                                 |
-| `FederatedJobReconciler`  | `FederatedJob`  | Orchestrates a multi-round federated learning experiment by creating and advancing `TrainingRound` resources                                          |
-| `TrainingRoundReconciler` | `TrainingRound` | Creates per-participant Task resources for one training round, collects model updates via MQTT, and aggregates them once k-of-n participants complete |
+| Controller                  | Custom Resource   | Responsibility                                                                                                                                          |
+| --------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PropletReconciler`         | `Proplet`         | Creates and reconciles Kubernetes Deployments for in-cluster workers; monitors external devices via MQTT heartbeats                                     |
+| `TaskReconciler`            | `Task`            | Schedules a WASM workload on the selected proplet; creates a Kubernetes Job for k8s proplets or publishes an MQTT message for external proplets         |
+| `PropellerJobReconciler`    | `PropellerJob`    | Groups a set of Tasks into a single batch; creates child Task resources and aggregates their outcomes                                                   |
+| `FederatedJobReconciler`    | `FederatedJob`    | Orchestrates a multi-round federated learning experiment by creating and advancing `TrainingRound` resources                                            |
+| `TrainingRoundReconciler`   | `TrainingRound`   | Creates per-participant Task resources for one training round, collects model updates via MQTT, and aggregates them once k-of-n participants complete   |
 
 ### Custom Resource Definitions
 
 The operator installs five CRDs into the cluster:
 
-| CRD             | API Version                                        | Description                                                  |
-|-----------------|----------------------------------------------------|--------------------------------------------------------------|
-| `Task`          | `propeller.propeller.abstractmachines.fr/v1`       | A single WASM workload to execute on a proplet               |
-| `Proplet`       | `propeller.propeller.abstractmachines.fr/v1`       | A worker node, either a Kubernetes pod or an external device |
-| `PropellerJob`  | `propeller.propeller.abstractmachines.fr/v1`       | A named batch of Tasks executed as a group                   |
-| `FederatedJob`  | `propeller.propeller.abstractmachines.fr/v1alpha1` | A federated learning experiment spanning multiple proplets   |
-| `TrainingRound` | `propeller.propeller.abstractmachines.fr/v1alpha1` | One round within a FederatedJob                              |
+| CRD               | API Version                                          | Description                                                    |
+| ----------------- | ---------------------------------------------------- | -------------------------------------------------------------- |
+| `Task`            | `propeller.propeller.abstractmachines.fr/v1`         | A single WASM workload to execute on a proplet                 |
+| `Proplet`         | `propeller.propeller.abstractmachines.fr/v1`         | A worker node, either a Kubernetes pod or an external device   |
+| `PropellerJob`    | `propeller.propeller.abstractmachines.fr/v1`         | A named batch of Tasks executed as a group                     |
+| `FederatedJob`    | `propeller.propeller.abstractmachines.fr/v1alpha1`   | A federated learning experiment spanning multiple proplets     |
+| `TrainingRound`   | `propeller.propeller.abstractmachines.fr/v1alpha1`   | One round within a FederatedJob                                |
 
 ### MQTT Communication
 
@@ -54,14 +54,14 @@ m/{domain_id}/c/{channel_id}/{sub-topic}
 
 The operator subscribes to the wildcard `m/{domain_id}/c/{channel_id}/#` and dispatches incoming messages to the appropriate handler by matching the topic suffix.
 
-| Sub-topic                 | Direction          | Purpose                                                        |
-|---------------------------|--------------------|----------------------------------------------------------------|
-| `control/proplet/alive`   | proplet → operator | Heartbeat published by every proplet every 10 seconds          |
-| `control/proplet/create`  | proplet → operator | Discovery message sent once on proplet startup                 |
-| `control/proplet/status`  | proplet → operator | Intermediate task phase updates (running, failed, interrupted) |
-| `control/proplet/results` | proplet → operator | Task result payload after WASM execution completes             |
-| `control/manager/start`   | operator → proplet | Task execution instruction including the full task spec        |
-| `control/manager/stop`    | operator → proplet | Instruction to stop a running task                             |
+| Sub-topic                   | Direction            | Purpose                                                          |
+| --------------------------- | -------------------- | ---------------------------------------------------------------- |
+| `control/proplet/alive`     | proplet → operator   | Heartbeat published by every proplet every 10 seconds            |
+| `control/proplet/create`    | proplet → operator   | Discovery message sent once on proplet startup                   |
+| `control/proplet/status`    | proplet → operator   | Intermediate task phase updates (running, failed, interrupted)   |
+| `control/proplet/results`   | proplet → operator   | Task result payload after WASM execution completes               |
+| `control/manager/start`     | operator → proplet   | Task execution instruction including the full task spec          |
+| `control/manager/stop`      | operator → proplet   | Instruction to stop a running task                               |
 
 ![MQTT Communication Flow](images/kubernetes-operator/propeller-k8s-operator-mqtt-communication.svg)
 
@@ -92,45 +92,45 @@ A `Proplet` resource represents one worker node. The `spec.type` field selects b
 
 ### Proplet Conditions
 
-| Condition   | Meaning                                                        |
-|-------------|----------------------------------------------------------------|
-| `Ready`     | Proplet can accept tasks                                       |
-| `Connected` | MQTT heartbeat is current (external) or pod is available (k8s) |
-| `Healthy`   | Proplet is processing tasks without errors                     |
+| Condition     | Meaning                                                          |
+| ------------- | ---------------------------------------------------------------- |
+| `Ready`       | Proplet can accept tasks                                         |
+| `Connected`   | MQTT heartbeat is current (external) or pod is available (k8s)   |
+| `Healthy`     | Proplet is processing tasks without errors                       |
 
 ### Proplet Spec Reference
 
-| Field                          | Type                                   | Required  | Default | Description                                                                                   |
-|--------------------------------|----------------------------------------|-----------|---------|-----------------------------------------------------------------------------------------------|
-| `type`                         | `k8s` \| `external`                    | Yes       | —       | Worker type                                                                                   |
-| `k8s.image`                    | string                                 | Yes (k8s) | —       | Container image for the proplet pod                                                           |
-| `k8s.logLevel`                 | `debug` \| `info` \| `warn` \| `error` | No        | `info`  | Log verbosity                                                                                 |
-| `k8s.replicas`                 | int32                                  | No        | `1`     | Number of pod replicas (0–100)                                                                |
-| `external.deviceType`          | string                                 | No        | —       | Device category label used for task matching (e.g. `raspberry-pi-4`)                          |
-| `external.capabilities`        | []string                               | No        | —       | Capability strings the device advertises (e.g. `wasm`, `gpu`)                                 |
-| `resources`                    | ResourceList                           | No        | —       | Kubernetes CPU and memory requests/limits                                                     |
-| `connectionConfig.mqttAddress` | string                                 | Yes       | —       | MQTT broker URL (e.g. `tcp://mqtt:1883`)                                                      |
-| `connectionConfig.domainId`    | string                                 | Yes       | —       | SuperMQ domain ID                                                                             |
-| `connectionConfig.channelId`   | string                                 | Yes       | —       | SuperMQ channel ID                                                                            |
-| `connectionConfig.clientId`    | string                                 | Yes       | —       | SuperMQ client credential ID; must match `proplet_id` in alive messages for external proplets |
-| `connectionConfig.clientKey`   | string                                 | Yes       | —       | SuperMQ client secret                                                                         |
-| `connectionConfig.mqttQos`     | uint8                                  | No        | `0`     | MQTT QoS level (0–2)                                                                          |
-| `connectionConfig.mqttTimeout` | duration                               | No        | `30s`   | Broker operation timeout                                                                      |
+| Field                            | Type                                     | Required    | Default   | Description                                                                                     |             |        |               |
+| -------------------------------- | ---------------------------------------- | ----------- | --------- | ----------------------------------------------------------------------------------------------- | ----------- | ------ | ------------- |
+| `type`                           | `k8s` \                                  | `external`  | Yes       | —                                                                                               | Worker type |        |               |
+| `k8s.image`                      | string                                   | Yes (k8s)   | —         | Container image for the proplet pod                                                             |             |        |               |
+| `k8s.logLevel`                   | `debug` \                                | `info` \    | `warn` \  | `error`                                                                                         | No          | `info` | Log verbosity |
+| `k8s.replicas`                   | int32                                    | No          | `1`       | Number of pod replicas (0–100)                                                                  |             |        |               |
+| `external.deviceType`            | string                                   | No          | —         | Device category label used for task matching (e.g. `raspberry-pi-4`)                            |             |        |               |
+| `external.capabilities`          | []string                                 | No          | —         | Capability strings the device advertises (e.g. `wasm`, `gpu`)                                   |             |        |               |
+| `resources`                      | ResourceList                             | No          | —         | Kubernetes CPU and memory requests/limits                                                       |             |        |               |
+| `connectionConfig.mqttAddress`   | string                                   | Yes         | —         | MQTT broker URL (e.g. `tcp://mqtt:1883`)                                                        |             |        |               |
+| `connectionConfig.domainId`      | string                                   | Yes         | —         | SuperMQ domain ID                                                                               |             |        |               |
+| `connectionConfig.channelId`     | string                                   | Yes         | —         | SuperMQ channel ID                                                                              |             |        |               |
+| `connectionConfig.clientId`      | string                                   | Yes         | —         | SuperMQ client credential ID; must match `proplet_id` in alive messages for external proplets   |             |        |               |
+| `connectionConfig.clientKey`     | string                                   | Yes         | —         | SuperMQ client secret                                                                           |             |        |               |
+| `connectionConfig.mqttQos`       | uint8                                    | No          | `0`       | MQTT QoS level (0–2)                                                                            |             |        |               |
+| `connectionConfig.mqttTimeout`   | duration                                 | No          | `30s`     | Broker operation timeout                                                                        |             |        |               |
 
 ### Proplet Status Reference
 
-| Field                         | Description                                                                |
-|-------------------------------|----------------------------------------------------------------------------|
-| `phase`                       | `Initializing`, `Running`, or `Offline`                                    |
-| `conditions[Ready]`           | `True` when the proplet is ready to accept tasks                           |
-| `conditions[Connected]`       | `True` when MQTT heartbeat is current (external) or pod is available (k8s) |
-| `conditions[Healthy]`         | `True` when the proplet is operating without errors                        |
-| `lastSeen`                    | Timestamp of the most recent alive heartbeat                               |
-| `aliveHistory`                | Recent heartbeat timestamps                                                |
-| `taskCount`                   | Total tasks executed since registration                                    |
-| `availableResources`          | CPU and memory reported as available                                       |
-| `k8sStatus.readyReplicas`     | Ready pod replicas (k8s type only)                                         |
-| `k8sStatus.availableReplicas` | Available pod replicas (k8s type only)                                     |
+| Field                           | Description                                                                  |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| `phase`                         | `Initializing`, `Running`, or `Offline`                                      |
+| `conditions[Ready]`             | `True` when the proplet is ready to accept tasks                             |
+| `conditions[Connected]`         | `True` when MQTT heartbeat is current (external) or pod is available (k8s)   |
+| `conditions[Healthy]`           | `True` when the proplet is operating without errors                          |
+| `lastSeen`                      | Timestamp of the most recent alive heartbeat                                 |
+| `aliveHistory`                  | Recent heartbeat timestamps                                                  |
+| `taskCount`                     | Total tasks executed since registration                                      |
+| `availableResources`            | CPU and memory reported as available                                         |
+| `k8sStatus.readyReplicas`       | Ready pod replicas (k8s type only)                                           |
+| `k8sStatus.availableReplicas`   | Available pod replicas (k8s type only)                                       |
 
 
 ## Task
@@ -145,15 +145,15 @@ A `Task` resource defines a single WASM workload. The `TaskReconciler` drives it
 
 Valid state transitions are enforced by the operator. An external proplet reports status changes via `control/proplet/status` MQTT messages; the operator validates each proposed transition before applying it.
 
-| From          | Allowed next states                        |
-|---------------|--------------------------------------------|
-| `pending`     | `scheduled`, `failed`, `skipped`           |
-| `scheduled`   | `running`, `failed`, `skipped`             |
-| `running`     | `completed`, `failed`, `interrupted`       |
-| `completed`   | `pending` (for restart or recurring tasks) |
-| `failed`      | `pending` (for retry)                      |
-| `interrupted` | `pending` (for resume)                     |
-| `skipped`     | — (terminal)                               |
+| From            | Allowed next states                          |
+| --------------- | -------------------------------------------- |
+| `pending`       | `scheduled`, `failed`, `skipped`             |
+| `scheduled`     | `running`, `failed`, `skipped`               |
+| `running`       | `completed`, `failed`, `interrupted`         |
+| `completed`     | `pending` (for restart or recurring tasks)   |
+| `failed`        | `pending` (for retry)                        |
+| `interrupted`   | `pending` (for resume)                       |
+| `skipped`       | — (terminal)                                 |
 
 ### Execution Paths
 
@@ -193,61 +193,62 @@ If no proplet satisfies the filter, the task remains in `pending` and is requeue
 
 ### Task Spec Reference
 
-| Field                               | Type                         | Required | Default    | Description                                                               |
-|-------------------------------------|------------------------------|----------|------------|---------------------------------------------------------------------------|
-| `name`                              | string                       | Yes      | —          | Task name (max 253 chars)                                                 |
-| `functionName`                      | string                       | Yes      | —          | Exported WASM function to invoke                                          |
-| `kind`                              | `standard` \| `federated`    | No       | `standard` | Task kind                                                                 |
-| `file`                              | string                       | No       | —          | Base64-encoded WASM binary                                                |
-| `imageUrl`                          | string                       | No       | —          | OCI image reference containing the WASM module; required for k8s proplets |
-| `cliArgs`                           | []string                     | No       | —          | Command-line arguments passed to the WASM runtime                         |
-| `inputs`                            | []uint64                     | No       | —          | Numeric inputs passed to the function                                     |
-| `env`                               | map[string]string            | No       | —          | Environment variables available in the module                             |
-| `propletSelector.propletId`         | string                       | No       | —          | Target a specific Proplet by its Kubernetes resource name                 |
-| `propletSelector.matchLabels`       | map[string]string            | No       | —          | Target Proplets matching all labels                                       |
-| `propletSelector.matchDeviceTypes`  | []string                     | No       | —          | Target Proplets with a matching device type                               |
-| `propletSelector.matchCapabilities` | []string                     | No       | —          | Target Proplets advertising all listed capabilities                       |
-| `preferredPropletType`              | `k8s` \| `external` \| `any` | No       | `any`      | Constrain proplet type                                                    |
-| `resourceRequirements.cpu`          | string                       | No       | —          | Minimum CPU the proplet must have available                               |
-| `resourceRequirements.memory`       | string                       | No       | —          | Minimum memory the proplet must have available                            |
-| `daemon`                            | bool                         | No       | `false`    | Run indefinitely; sets Kubernetes RestartPolicy to Always                 |
-| `restartPolicy`                     | Kubernetes RestartPolicy     | No       | —          | Override pod restart policy for k8s tasks                                 |
-| `encrypted`                         | bool                         | No       | `false`    | Signal that the WASM binary is encrypted                                  |
-| `kbsResourcePath`                   | string                       | No       | —          | Key Broker Service path for decrypting the module                         |
-| `dependsOn`                         | []string                     | No       | —          | Task IDs that must complete before this task is scheduled                 |
-| `runIf`                             | `success` \| `failure`       | No       | —          | Conditional execution within a workflow                                   |
-| `workflowId`                        | string                       | No       | —          | Groups tasks into a workflow                                              |
-| `jobId`                             | string                       | No       | —          | Associates this task with a PropellerJob                                  |
-| `schedule`                          | string                       | No       | —          | Cron expression for recurring execution                                   |
-| `isRecurring`                       | bool                         | No       | `false`    | Enable recurring execution via `schedule`                                 |
-| `timezone`                          | string                       | No       | `UTC`      | Timezone for cron evaluation                                              |
-| `priority`                          | int                          | No       | `50`       | Scheduling priority (0–100; higher = more urgent)                         |
-| `monitoringProfile.enabled`         | bool                         | No       | `false`    | Enable metrics collection during execution                                |
-| `monitoringProfile.intervalMs`      | int                          | No       | —          | Collection interval in milliseconds                                       |
-| `monitoringProfile.collectCpu`      | bool                         | No       | —          | Collect CPU usage                                                         |
-| `monitoringProfile.collectMemory`   | bool                         | No       | —          | Collect memory usage                                                      |
-| `monitoringProfile.collectDiskIo`   | bool                         | No       | —          | Collect disk I/O                                                          |
-| `monitoringProfile.collectThreads`  | bool                         | No       | —          | Collect thread count                                                      |
-| `monitoringProfile.collectFds`      | bool                         | No       | —          | Collect file descriptor count                                             |
-| `monitoringProfile.exportToMqtt`    | bool                         | No       | —          | Stream metrics to MQTT                                                    |
-| `monitoringProfile.retainHistory`   | bool                         | No       | —          | Retain metrics history after task completes                               |
+| Field                                      | Type                           | Required     | Default      | Description                                                                 |                                         |                        |
+| ------------------------------------------ | ------------------------------ | ------------ | ------------ | --------------------------------------------------------------------------- | --------------------------------------- | ---------------------- |
+| `name`                                     | string                         | Yes          | —            | Task name (max 253 chars)                                                   |                                         |                        |
+| `functionName`                             | string                         | Yes          | —            | Exported WASM function to invoke                                            |                                         |                        |
+| `kind`                                     | `standard` \                   | `federated`  | No           | `standard`                                                                  | Task kind                               |                        |
+| `file`                                     | string                         | No           | —            | Base64-encoded WASM binary                                                  |                                         |                        |
+| `imageUrl`                                 | string                         | No           | —            | OCI image reference containing the WASM module; required for k8s proplets   |                                         |                        |
+| `cliArgs`                                  | []string                       | No           | —            | Command-line arguments passed to the WASM runtime                           |                                         |                        |
+| `inputs`                                   | []uint64                       | No           | —            | Numeric inputs passed to the function                                       |                                         |                        |
+| `env`                                      | map[string]string              | No           | —            | Environment variables available in the module                               |                                         |                        |
+| `propletSelector.propletId`                | string                         | No           | —            | Target a specific Proplet by its Kubernetes resource name                   |                                         |                        |
+| `propletSelector.matchLabels`              | map[string]string              | No           | —            | Target Proplets matching all labels                                         |                                         |                        |
+| `propletSelector.matchDeviceTypes`         | []string                       | No           | —            | Target Proplets with a matching device type                                 |                                         |                        |
+| `propletSelector.matchCapabilities`        | []string                       | No           | —            | Target Proplets advertising all listed capabilities                         |                                         |                        |
+| `preferredPropletType`                     | `k8s` \                        | `external` \ | `any`        | No                                                                          | `any`                                   | Constrain proplet type |
+| `resourceRequirements.cpu`                 | string                         | No           | —            | Minimum CPU the proplet must have available                                 |                                         |                        |
+| `resourceRequirements.memory`              | string                         | No           | —            | Minimum memory the proplet must have available                              |                                         |                        |
+| `daemon`                                   | bool                           | No           | `false`      | Run indefinitely; sets Kubernetes RestartPolicy to Always                   |                                         |                        |
+| `restartPolicy`                            | Kubernetes RestartPolicy       | No           | —            | Override pod restart policy for k8s tasks                                   |                                         |                        |
+| `encrypted`                                | bool                           | No           | `false`      | Signal that the WASM binary is encrypted                                    |                                         |                        |
+| `kbsResourcePath`                          | string                         | No           | —            | Key Broker Service path for decrypting the module                           |                                         |                        |
+| `dependsOn`                                | []string                       | No           | —            | Task IDs that must complete before this task is scheduled                   |                                         |                        |
+| `runIf`                                    | `success` \                    | `failure`    | No           | —                                                                           | Conditional execution within a workflow |                        |
+| `workflowId`                               | string                         | No           | —            | Groups tasks into a workflow                                                |                                         |                        |
+| `jobId`                                    | string                         | No           | —            | Associates this task with a PropellerJob                                    |                                         |                        |
+| `schedule`                                 | string                         | No           | —            | Cron expression for recurring execution                                     |                                         |                        |
+| `isRecurring`                              | bool                           | No           | `false`      | Enable recurring execution via `schedule`                                   |                                         |                        |
+| `timezone`                                 | string                         | No           | `UTC`        | Timezone for cron evaluation                                                |                                         |                        |
+| `priority`                                 | int                            | No           | `50`         | Scheduling priority (0–100; higher = more urgent)                           |                                         |                        |
+| `monitoringProfile.enabled`                | bool                           | No           | `false`      | Enable metrics collection during execution                                  |                                         |                        |
+| `monitoringProfile.interval`               | duration                       | No           | —            | Metrics collection interval (e.g. `10s`, `1m`)                              |                                         |                        |
+| `monitoringProfile.collectCpu`             | bool                           | No           | —            | Collect CPU usage                                                           |                                         |                        |
+| `monitoringProfile.collectMemory`          | bool                           | No           | —            | Collect memory usage                                                        |                                         |                        |
+| `monitoringProfile.collectDiskIo`          | bool                           | No           | —            | Collect disk I/O                                                            |                                         |                        |
+| `monitoringProfile.collectThreads`         | bool                           | No           | —            | Collect thread count                                                        |                                         |                        |
+| `monitoringProfile.collectFileDescriptors` | bool                           | No           | —            | Collect file descriptor count                                               |                                         |                        |
+| `monitoringProfile.historySize`            | int                            | No           | —            | Number of history entries to retain                                         |                                         |                        |
+| `monitoringProfile.exportToMqtt`           | bool                           | No           | —            | Stream metrics to MQTT                                                      |                                         |                        |
+| `monitoringProfile.retainHistory`          | bool                           | No           | —            | Retain metrics history after task completes                                 |                                         |                        |
 
 ### Task Status Reference
 
-| Field                   | Description                                                                           |
-|-------------------------|---------------------------------------------------------------------------------------|
-| `phase`                 | `pending`, `scheduled`, `running`, `completed`, `failed`, `skipped`, or `interrupted` |
-| `assignedProplet`       | Name of the Proplet executing this task                                               |
-| `createdAt`             | When the Task was first processed                                                     |
-| `startedAt`             | When execution began                                                                  |
-| `finishedAt`            | When execution ended                                                                  |
-| `updatedAt`             | Last status update timestamp                                                          |
-| `nextRun`               | Next scheduled execution time (recurring tasks)                                       |
-| `results`               | Return value from the WASM function                                                   |
-| `error`                 | Error message when `phase` is `failed`                                                |
-| `conditions[Scheduled]` | `True` when a proplet has been assigned                                               |
-| `conditions[Started]`   | `True` when execution began                                                           |
-| `conditions[Completed]` | `True` when execution finished successfully                                           |
+| Field                     | Description                                                                             |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| `phase`                   | `pending`, `scheduled`, `running`, `completed`, `failed`, `skipped`, or `interrupted`   |
+| `assignedProplet`         | Name of the Proplet executing this task                                                 |
+| `createdAt`               | When the Task was first processed                                                       |
+| `startedAt`               | When execution began                                                                    |
+| `finishedAt`              | When execution ended                                                                    |
+| `updatedAt`               | Last status update timestamp                                                            |
+| `nextRun`                 | Next scheduled execution time (recurring tasks)                                         |
+| `results`                 | Return value from the WASM function                                                     |
+| `error`                   | Error message when `phase` is `failed`                                                  |
+| `conditions[Scheduled]`   | `True` when a proplet has been assigned                                                 |
+| `conditions[Started]`     | `True` when execution began                                                             |
+| `conditions[Completed]`   | `True` when execution finished successfully                                             |
 
 
 ## PropellerJob
@@ -262,25 +263,25 @@ A `PropellerJob` groups multiple Tasks into a single managed batch. The `Propell
 
 ### PropellerJob Spec Reference
 
-| Field           | Type                                         | Required | Default        | Description                                 |
-|-----------------|----------------------------------------------|----------|----------------|---------------------------------------------|
-| `name`          | string                                       | Yes      | —              | Job name                                    |
-| `executionMode` | `parallel` \| `sequential` \| `configurable` | No       | `configurable` | How tasks within the job are executed       |
-| `tasks`         | []TaskSpec                                   | No       | —              | Inline task definitions to create           |
-| `taskRefs`      | []string                                     | No       | —              | Names of existing Task resources to include |
+| Field             | Type                                           | Required       | Default          | Description                                   |                |                                       |
+| ----------------- | ---------------------------------------------- | -------------- | ---------------- | --------------------------------------------- | -------------- | ------------------------------------- |
+| `name`            | string                                         | Yes            | —                | Job name                                      |                |                                       |
+| `executionMode`   | `parallel` \                                   | `sequential` \ | `configurable`   | No                                            | `configurable` | How tasks within the job are executed |
+| `tasks`           | []TaskSpec                                     | No             | —                | Inline task definitions to create             |                |                                       |
+| `taskRefs`        | []string                                       | No             | —                | Names of existing Task resources to include   |                |                                       |
 
 ### PropellerJob Status Reference
 
-| Field            | Description                                    |
-|------------------|------------------------------------------------|
-| `phase`          | `Pending`, `Running`, `Completed`, or `Failed` |
-| `startTime`      | When the job began                             |
-| `finishTime`     | When the job completed                         |
-| `taskCount`      | Total number of tasks                          |
-| `completedCount` | Tasks in `completed` phase                     |
-| `failedCount`    | Tasks in `failed` phase                        |
-| `skippedCount`   | Tasks in `skipped` phase                       |
-| `conditions`     | Kubernetes condition array for detailed state  |
+| Field              | Description                                      |
+| ------------------ | ------------------------------------------------ |
+| `phase`            | `Pending`, `Running`, `Completed`, or `Failed`   |
+| `startTime`        | When the job began                               |
+| `finishTime`       | When the job completed                           |
+| `taskCount`        | Total number of tasks                            |
+| `completedCount`   | Tasks in `completed` phase                       |
+| `failedCount`      | Tasks in `failed` phase                          |
+| `skippedCount`     | Tasks in `skipped` phase                         |
+| `conditions`       | Kubernetes condition array for detailed state    |
 
 
 ## FederatedJob
@@ -295,30 +296,30 @@ A `FederatedJob` coordinates a multi-round federated learning experiment across 
 
 ### FederatedJob Spec Reference
 
-| Field                  | Type              | Required | Description                                                       |
-|------------------------|-------------------|----------|-------------------------------------------------------------------|
-| `experimentId`         | string            | No       | Identifier for this federated learning experiment                 |
-| `modelRef`             | string            | No       | Reference to the initial global model                             |
-| `taskWasmImage`        | string            | Yes      | OCI image containing the WASM training task                       |
-| `participants`         | []ParticipantSpec | Yes      | List of proplet IDs that participate in each round                |
-| `hyperparams`          | object            | No       | Arbitrary hyperparameter values passed to each participant        |
-| `kOfN`                 | int               | Yes      | Minimum number of participant updates required before aggregation |
-| `timeoutSeconds`       | int               | No       | Maximum seconds per round before failing                          |
-| `rounds.total`         | int               | Yes      | Total number of training rounds                                   |
-| `rounds.strategy`      | string            | No       | Round execution strategy                                          |
-| `aggregator.algorithm` | string            | No       | Aggregation algorithm (`fedavg`, `concat`)                        |
-| `aggregator.config`    | object            | No       | Algorithm-specific configuration                                  |
+| Field                    | Type                | Required   | Description                                                         |
+| ------------------------ | ------------------- | ---------- | ------------------------------------------------------------------- |
+| `experimentId`           | string              | No         | Identifier for this federated learning experiment                   |
+| `modelRef`               | string              | No         | Reference to the initial global model                               |
+| `taskWasmImage`          | string              | Yes        | OCI image containing the WASM training task                         |
+| `participants`           | []ParticipantSpec   | Yes        | List of proplet IDs that participate in each round                  |
+| `hyperparams`            | object              | No         | Arbitrary hyperparameter values passed to each participant          |
+| `kOfN`                   | int                 | Yes        | Minimum number of participant updates required before aggregation   |
+| `timeoutSeconds`         | int                 | No         | Maximum seconds per round before failing                            |
+| `rounds.total`           | int                 | Yes        | Total number of training rounds                                     |
+| `rounds.strategy`        | string              | No         | Round execution strategy                                            |
+| `aggregator.algorithm`   | string              | No         | Aggregation algorithm (`fedavg`, `concat`)                          |
+| `aggregator.config`      | object              | No         | Algorithm-specific configuration                                    |
 
 ### FederatedJob Status Reference
 
-| Field                | Description                                      |
-|----------------------|--------------------------------------------------|
-| `phase`              | `Pending`, `Running`, `Completed`, or `Failed`   |
-| `currentRound`       | Index of the round currently executing           |
-| `completedRounds`    | Number of rounds that have completed aggregation |
-| `aggregatedModelRef` | Reference to the final aggregated model          |
-| `participants`       | Per-participant status across all rounds         |
-| `conditions`         | Kubernetes condition array                       |
+| Field                  | Description                                        |
+| ---------------------- | -------------------------------------------------- |
+| `phase`                | `Pending`, `Running`, `Completed`, or `Failed`     |
+| `currentRound`         | Index of the round currently executing             |
+| `completedRounds`      | Number of rounds that have completed aggregation   |
+| `aggregatedModelRef`   | Reference to the final aggregated model            |
+| `participants`         | Per-participant status across all rounds           |
+| `conditions`           | Kubernetes condition array                         |
 
 
 ## TrainingRound
@@ -333,28 +334,28 @@ A `TrainingRound` represents a single round within a `FederatedJob`. The `Traini
 
 ### TrainingRound Spec Reference
 
-| Field             | Type                 | Description                                        |
-|-------------------|----------------------|----------------------------------------------------|
-| `roundId`         | string               | Round identifier                                   |
-| `federatedJobRef` | LocalObjectReference | Parent FederatedJob                                |
-| `modelRef`        | string               | Global model reference for this round              |
-| `taskWasmImage`   | string               | OCI image containing the participant training task |
-| `participants`    | []string             | Proplet IDs to include in this round               |
-| `hyperparams`     | object               | Hyperparameter values forwarded to tasks           |
-| `kOfN`            | int                  | Minimum updates needed before aggregation          |
-| `timeoutSeconds`  | int                  | Round timeout in seconds                           |
+| Field               | Type                   | Description                                          |
+| ------------------- | ---------------------- | ---------------------------------------------------- |
+| `roundId`           | string                 | Round identifier                                     |
+| `federatedJobRef`   | LocalObjectReference   | Parent FederatedJob                                  |
+| `modelRef`          | string                 | Global model reference for this round                |
+| `taskWasmImage`     | string                 | OCI image containing the participant training task   |
+| `participants`      | []string               | Proplet IDs to include in this round                 |
+| `hyperparams`       | object                 | Hyperparameter values forwarded to tasks             |
+| `kOfN`              | int                    | Minimum updates needed before aggregation            |
+| `timeoutSeconds`    | int                    | Round timeout in seconds                             |
 
 ### TrainingRound Status Reference
 
-| Field                  | Description                                                         |
-|------------------------|---------------------------------------------------------------------|
-| `phase`                | `Pending`, `Running`, `Aggregating`, `Completed`, or `Failed`       |
-| `startTime`, `endTime` | Round timing                                                        |
-| `updatesReceived`      | Number of participant updates collected so far                      |
-| `updatesRequired`      | The k-of-n threshold                                                |
-| `participants`         | Per-participant status (propletId, taskRef, status, updateReceived) |
-| `aggregatedModelRef`   | Reference to the round's aggregated result                          |
-| `conditions`           | Kubernetes condition array                                          |
+| Field                    | Description                                                           |
+| ------------------------ | --------------------------------------------------------------------- |
+| `phase`                  | `Pending`, `Running`, `Aggregating`, `Completed`, or `Failed`         |
+| `startTime`, `endTime`   | Round timing                                                          |
+| `updatesReceived`        | Number of participant updates collected so far                        |
+| `updatesRequired`        | The k-of-n threshold                                                  |
+| `participants`           | Per-participant status (propletId, taskRef, status, updateReceived)   |
+| `aggregatedModelRef`     | Reference to the round's aggregated result                            |
+| `conditions`             | Kubernetes condition array                                            |
 
 
 ## Scheduler
@@ -373,12 +374,12 @@ The default implementation is **round-robin**: the proplet immediately after the
 
 Errors returned by the scheduler:
 
-| Error                      | Meaning                                          |
-|----------------------------|--------------------------------------------------|
-| `ErrNoProplet`             | No proplets exist in the namespace               |
-| `ErrDeadProplets`          | All proplets are Offline or Initializing         |
-| `ErrNoCandidates`          | No proplets satisfy the task's selector criteria |
-| `ErrInsufficientResources` | No proplet has sufficient CPU or memory          |
+| Error                        | Meaning                                            |
+| ---------------------------- | -------------------------------------------------- |
+| `ErrNoProplet`               | No proplets exist in the namespace                 |
+| `ErrDeadProplers`            | All proplets are Offline or Initializing           |
+| `ErrNoCandidates`            | No proplets satisfy the task's selector criteria   |
+| `ErrInsufficientResources`   | No proplet has sufficient CPU or memory            |
 
 
 ## Configuration
@@ -387,38 +388,38 @@ The operator is configured entirely through command-line flags. There is no conf
 
 ### MQTT Flags
 
-| Flag             | Default | Description                                           |
-|------------------|---------|-------------------------------------------------------|
-| `--mqtt-address` | —       | MQTT broker URL (required, e.g. `tcp://mqtt:1883`)    |
-| `--domain-id`    | —       | SuperMQ domain ID (required)                          |
-| `--channel-id`   | —       | SuperMQ channel ID (required)                         |
-| `--client-id`    | —       | Manager client ID for MQTT authentication (required)  |
-| `--client-key`   | —       | Manager client key for MQTT authentication (required) |
-| `--mqtt-qos`     | `0`     | MQTT QoS level (0–2)                                  |
-| `--mqtt-timeout` | `30s`   | Broker operation timeout                              |
+| Flag               | Default   | Description                                             |
+| ------------------ | --------- | ------------------------------------------------------- |
+| `--mqtt-address`   | —         | MQTT broker URL (required, e.g. `tcp://mqtt:1883`)      |
+| `--domain-id`      | —         | SuperMQ domain ID (required)                            |
+| `--channel-id`     | —         | SuperMQ channel ID (required)                           |
+| `--client-id`      | —         | Manager client ID for MQTT authentication (required)    |
+| `--client-key`     | —         | Manager client key for MQTT authentication (required)   |
+| `--mqtt-qos`       | `0`       | MQTT QoS level (0–2)                                    |
+| `--mqtt-timeout`   | `30s`     | Broker operation timeout                                |
 
 ### Proplet Monitoring Flags
 
-| Flag                    | Default | Description                                                   |
-|-------------------------|---------|---------------------------------------------------------------|
-| `--liveliness-interval` | `10s`   | How often to check proplet heartbeat timestamps               |
-| `--last-seen-threshold` | `30s`   | How long without a heartbeat before marking a proplet Offline |
+| Flag                      | Default   | Description                                                     |
+| ------------------------- | --------- | --------------------------------------------------------------- |
+| `--liveliness-interval`   | `10s`     | How often to check proplet heartbeat timestamps                 |
+| `--last-seen-threshold`   | `30s`     | How long without a heartbeat before marking a proplet Offline   |
 
 ### Kubernetes Manager Flags
 
-| Flag                          | Default   | Description                                              |
-|-------------------------------|-----------|----------------------------------------------------------|
-| `--health-probe-bind-address` | `:8081`   | Address for `/healthz` and `/readyz` endpoints           |
-| `--metrics-bind-address`      | `0`       | Address for Prometheus metrics (`0` disables)            |
-| `--metrics-secure`            | `true`    | Serve metrics over HTTPS                                 |
-| `--metrics-cert-path`         | —         | Directory containing the metrics TLS certificate         |
-| `--metrics-cert-name`         | `tls.crt` | Metrics certificate filename                             |
-| `--metrics-cert-key`          | `tls.key` | Metrics key filename                                     |
-| `--leader-elect`              | `false`   | Enable leader election for high-availability deployments |
-| `--enable-http2`              | `false`   | Enable HTTP/2 (disabled by default for security)         |
-| `--webhook-cert-path`         | —         | Directory containing the webhook TLS certificate         |
-| `--webhook-cert-name`         | `tls.crt` | Webhook certificate filename                             |
-| `--webhook-cert-key`          | `tls.key` | Webhook key filename                                     |
+| Flag                            | Default     | Description                                                |
+| ------------------------------- | ----------- | ---------------------------------------------------------- |
+| `--health-probe-bind-address`   | `:8081`     | Address for `/healthz` and `/readyz` endpoints             |
+| `--metrics-bind-address`        | `0`         | Address for Prometheus metrics (`0` disables)              |
+| `--metrics-secure`              | `true`      | Serve metrics over HTTPS                                   |
+| `--metrics-cert-path`           | —           | Directory containing the metrics TLS certificate           |
+| `--metrics-cert-name`           | `tls.crt`   | Metrics certificate filename                               |
+| `--metrics-cert-key`            | `tls.key`   | Metrics key filename                                       |
+| `--leader-elect`                | `false`     | Enable leader election for high-availability deployments   |
+| `--enable-http2`                | `false`     | Enable HTTP/2 (disabled by default for security)           |
+| `--webhook-cert-path`           | —           | Directory containing the webhook TLS certificate           |
+| `--webhook-cert-name`           | `tls.crt`   | Webhook certificate filename                               |
+| `--webhook-cert-key`            | `tls.key`   | Webhook key filename                                       |
 
 
 ## Deployment
@@ -470,16 +471,16 @@ The operator uses the current `kubectl` context for cluster access.
 
 The operator requires a `ClusterRole` with the following permissions:
 
-| API Group                                 | Resources                                                               | Verbs                                           |
-|-------------------------------------------|-------------------------------------------------------------------------|-------------------------------------------------|
-| `""` (core)                               | `configmaps`                                                            | create, delete, get, list, patch, update        |
-| `""` (core)                               | `pods`                                                                  | get, list                                       |
-| `""` (core)                               | `secrets`                                                               | get                                             |
-| `apps`                                    | `deployments`                                                           | create, delete, get, list, patch, update, watch |
-| `batch`                                   | `jobs`                                                                  | create, delete, get, list, patch, update, watch |
-| `propeller.propeller.abstractmachines.fr` | `tasks`, `proplets`, `propellerjobs`, `federatedjobs`, `trainingrounds` | create, delete, get, list, patch, update, watch |
-| `propeller.propeller.abstractmachines.fr` | `*/status`                                                              | get, patch, update                              |
-| `propeller.propeller.abstractmachines.fr` | `*/finalizers`                                                          | update                                          |
+| API Group                                   | Resources                                                                 | Verbs                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------- |
+| `""` (core)                                 | `configmaps`                                                              | create, delete, get, list, patch, update          |
+| `""` (core)                                 | `pods`                                                                    | get, list                                         |
+| `""` (core)                                 | `secrets`                                                                 | get                                               |
+| `apps`                                      | `deployments`                                                             | create, delete, get, list, patch, update, watch   |
+| `batch`                                     | `jobs`                                                                    | create, delete, get, list, patch, update, watch   |
+| `propeller.propeller.abstractmachines.fr`   | `tasks`, `proplets`, `propellerjobs`, `federatedjobs`, `trainingrounds`   | create, delete, get, list, patch, update, watch   |
+| `propeller.propeller.abstractmachines.fr`   | `*/status`                                                                | get, patch, update                                |
+| `propeller.propeller.abstractmachines.fr`   | `*/finalizers`                                                            | update                                            |
 
 ### Container Security
 
@@ -495,10 +496,10 @@ Resource defaults: 10m CPU / 64Mi memory requests; 500m CPU / 128Mi limits.
 
 ### Health Probes
 
-| Endpoint       | Purpose                                                             |
-|----------------|---------------------------------------------------------------------|
-| `GET /healthz` | Liveness probe — confirms the process is alive                      |
-| `GET /readyz`  | Readiness probe — confirms the controller manager is ready to serve |
+| Endpoint         | Purpose                                                               |
+| ---------------- | --------------------------------------------------------------------- |
+| `GET /healthz`   | Liveness probe — confirms the process is alive                        |
+| `GET /readyz`    | Readiness probe — confirms the controller manager is ready to serve   |
 
 Both endpoints are served on `--health-probe-bind-address` (default `:8081`).
 
@@ -524,12 +525,12 @@ make cleanup-test-e2e # tears down the Kind cluster
 
 The operator sets Kubernetes owner references on all resources it creates:
 
-| Parent               | Owned resources                           |
-|----------------------|-------------------------------------------|
-| `PropellerJob`       | `Task` CRs created from inline task specs |
-| `FederatedJob`       | `TrainingRound` CRs                       |
-| `TrainingRound`      | `Task` CRs (one per participant)          |
-| `Proplet` (k8s type) | `Deployment`                              |
-| `Task` (k8s proplet) | `Job`, `ConfigMap`                        |
+| Parent                 | Owned resources                             |
+| ---------------------- | ------------------------------------------- |
+| `PropellerJob`         | `Task` CRs created from inline task specs   |
+| `FederatedJob`         | `TrainingRound` CRs                         |
+| `TrainingRound`        | `Task` CRs (one per participant)            |
+| `Proplet` (k8s type)   | `Deployment`                                |
+| `Task` (k8s proplet)   | `Job`, `ConfigMap`                          |
 
 When a parent resource is deleted, Kubernetes garbage-collects all owned children automatically. For Proplet and Task resources, the operator also adds a finalizer to ensure it can clean up resources before the object is removed from the API server.
