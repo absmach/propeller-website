@@ -304,13 +304,13 @@ After completion, your output should look like this:
 
 **Key fields in this example:**
 
-| Field | Value | Meaning |
-|-------|-------|---------|
-| `state` | `3` | All three tasks completed successfully |
-| `results` | `30`, `20`, `300` | Output from each `main(a, b)` call |
-| `proplet_id` | `ec182939-...` | The single proplet that ran all tasks |
+| Field        | Value                                                           | Meaning                                                      |
+| ------------ | --------------------------------------------------------------- | ------------------------------------------------------------ |
+| `state`      | `3`                                                             | All three tasks completed successfully                       |
+| `results`    | `30`, `20`, `300`                                               | Output from each `main(a, b)` call                           |
+| `proplet_id` | `ec182939-...`                                                  | The single proplet that ran all tasks                        |
 | `start_time` | `15:22:08.180` (task-001), `.333` (task-002), `.371` (task-003) | Task 2 and 3 started ~150ms after Task 1, confirming fan-out |
-| `depends_on` | `["task-001"]` | Only present on task-002 and task-003 |
+| `depends_on` | `["task-001"]`                                                  | Only present on task-002 and task-003                        |
 
 For conditional execution with `run_if` and DAG validation rules, see [Task Scheduling](/docs/task-scheduling#run_if-values).
 
@@ -521,13 +521,13 @@ After completion, your output should look like this:
 
 **Key fields in this example:**
 
-| Field | Value | Meaning |
-|-------|-------|---------|
-| `state` | `3` | All three tasks completed successfully |
-| `results` | `150`, `100`, `500` | Output from each `main(a, b)` call |
-| `proplet_id` | `ec182939-...` | The single proplet that ran all tasks |
+| Field        | Value                          | Meaning                                          |
+| ------------ | ------------------------------ | ------------------------------------------------ |
+| `state`      | `3`                            | All three tasks completed successfully           |
+| `results`    | `150`, `100`, `500`            | Output from each `main(a, b)` call               |
+| `proplet_id` | `ec182939-...`                 | The single proplet that ran all tasks            |
 | `start_time` | `17:06:17.452`, `.468`, `.485` | All tasks started within 33ms—parallel execution |
-| `job_id` | `981a9c91-...` | All tasks share the same job ID |
+| `job_id`     | `981a9c91-...`                 | All tasks share the same job ID                  |
 
 ### Sequential Job
 
@@ -613,10 +613,10 @@ After completion:
 
 ### Execution Mode Comparison
 
-| Mode | Behavior | Start Times (this example) |
-|------|----------|---------------------------|
-| `parallel` | All tasks start simultaneously | `.452`, `.468`, `.485` (33ms spread) |
-| `sequential` | Tasks start one after another | `.099`, `.120`, `.153` (staggered) |
+| Mode         | Behavior                       | Start Times (this example)           |
+| ------------ | ------------------------------ | ------------------------------------ |
+| `parallel`   | All tasks start simultaneously | `.452`, `.468`, `.485` (33ms spread) |
+| `sequential` | Tasks start one after another  | `.099`, `.120`, `.153` (staggered)   |
 
 With fast-executing tasks, the timing difference is subtle. For long-running tasks, sequential mode ensures each task completes before the next starts (fail-fast behavior).
 

@@ -91,10 +91,10 @@ Your output should look like this:
 
 ### Execution Modes
 
-| Mode           | Behavior                                                                   |
-| -------------- | -------------------------------------------------------------------------- |
-| `parallel`     | All tasks start simultaneously on available proplets                       |
-| `sequential`   | Tasks run one at a time in order; first failure stops the job (fail-fast)  |
+| Mode           | Behavior                                                                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `parallel`     | All tasks start simultaneously on available proplets                                                                                  |
+| `sequential`   | Tasks run one at a time in order; first failure stops the job (fail-fast)                                                             |
 | `configurable` | Uses DAG-based topological sort: starts tasks with no dependencies first, then starts dependent tasks as their prerequisites complete |
 
 ### Starting a Job
