@@ -432,11 +432,16 @@ Your output should look like this:
 
 ```json
 {
-  "status": "pass"
+  "status": "pass",
+  "version": "0.0.0",
+  "commit": "ffffffff",
+  "description": "manager service",
+  "build_time": "1970-01-01_00:00:00",
+  "instance_id": "47c7fcf5-2d9a-41e6-8e0c-97303736019e"
 }
 ```
 
-`"status": "pass"` indicates the manager is healthy and ready to accept requests on port 7070.
+`"status": "pass"` indicates the manager is healthy and ready to accept requests on port 7070. The `instance_id` is a UUID assigned to this manager instance on startup.
 
 ### Verify Proplet Registration
 
@@ -450,18 +455,30 @@ Your output should look like this:
 
 ```json
 {
+  "offset": 0,
+  "limit": 10,
+  "total": 1,
   "proplets": [
     {
       "id": "c81fa4d7-8049-4c70-b432-51797aea8878",
-      "alive": true
+      "name": "proplet-0",
+      "task_count": 0,
+      "alive": true,
+      "alive_at": ["2026-03-02T07:55:00.000000000Z"],
+      "metadata": {}
     }
   ]
 }
 ```
 
 **Understanding the response:**
+- `offset`, `limit`, `total` — Pagination fields for the proplet list
 - `id` — The proplet's UUID, matching the `PROPLET_CLIENT_ID` in docker/.env
+- `name` — The proplet's human-readable name
+- `task_count` — The number of tasks currently assigned to this proplet
 - `alive: true` — The proplet is connected and sending heartbeats
+- `alive_at` — Timestamps of recent heartbeats received from the proplet
+- `metadata` — System information reported by the proplet (OS, CPU arch, runtime, etc.)
 
 **If the proplets array is empty**, wait 10-15 seconds and try again. The proplet needs time to establish the MQTT connection and complete registration. If it remains empty, check proplet logs: `docker logs propeller-proplet`.
 
@@ -540,7 +557,7 @@ Your output should look like this:
 **Understanding the response fields:**
 - `id` — Unique task identifier (UUID) used for all subsequent operations
 - `name: "_start"` — The WASM function to invoke (must be `_start` for the entry point)
-- `state: 0` — Task state: 0=pending, 1=scheduled, 2=running, 3=completed, 4=failed
+- `state: 0` — Task state: 0=pending, 1=scheduled, 2=running, 3=completed, 4=failed, 5=skipped, 6=interrupted
 - `cli_args` — Arguments passed to the wasmtime runtime
 - `created_at` — Timestamp when the task was created
 
@@ -635,13 +652,13 @@ Your output should look like this:
 
 **Understanding the response:**
 
-| Field        | Value              | Meaning                                                               |
-| ------------ | ------------------ | --------------------------------------------------------------------- |
-| `state`      | `3`                | Task completed successfully (0=pending, 1=scheduled, 2=running, 3=completed, 4=failed) |
-| `proplet_id` | UUID               | The proplet that executed the task                                    |
-| `start_time` | ISO 8601 timestamp | When execution began                                                  |
-| `finish_time`| ISO 8601 timestamp | When execution completed                                              |
-| `results`    | stdout from WASM   | The inference output                                                  |
+| Field         | Value              | Meaning                                                                                                           |
+| ------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `state`       | `3`                | Task completed successfully (0=pending, 1=scheduled, 2=running, 3=completed, 4=failed, 5=skipped, 6=interrupted) |
+| `proplet_id`  | UUID               | The proplet that executed the task                                                                                |
+| `start_time`  | ISO 8601 timestamp | When execution began                                                                                              |
+| `finish_time` | ISO 8601 timestamp | When execution completed                                                                                          |
+| `results`     | stdout from WASM   | The inference output                                                                                              |
 
 **Understanding the inference results:**
 
