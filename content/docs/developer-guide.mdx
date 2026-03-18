@@ -19,7 +19,7 @@ git remote add upstream https://github.com/absmach/propeller.git
 
 To build Propeller, you will need the following:
 
-- [A Go compiler (Go 1.25.5)](https://go.dev/doc/install)
+- [A Go compiler (Go 1.25.8)](https://go.dev/doc/install)
 - [Rust](https://rustup.rs/) (required for `make proplet` and `make all`)
 - [Make](https://www.gnu.org/software/make/manual/make.html)
 - [Docker](https://docs.docker.com/) (required for `make start-supermq` and Docker image builds)
@@ -27,7 +27,7 @@ To build Propeller, you will need the following:
 - [TinyGo](https://tinygo.org/getting-started/install/) (required for Wasm example builds)
 - [Mockery](https://vektra.github.io/mockery/latest/installation/) (required for `make test` and `make test-all`)
 
-TinyGo supports Go versions 1.19 through 1.23, but the project's `go.mod` requires Go 1.25.5. This creates a compatibility issue for building WASM examples.
+TinyGo supports Go versions 1.19 through 1.23, but the project's `go.mod` requires Go 1.25.8. This creates a compatibility issue for building WASM examples.
 
 **Workaround**: Install Go 1.23.5 separately and it will be used automatically:
 
@@ -36,7 +36,7 @@ go install golang.org/dl/go1.23.5@latest
 ~/go/bin/go1.23.5 download
 ```
 
-The Makefile has been updated to use Go 1.23.5 for WASM builds instead of 1.25.5. This allows `make addition`, `make compute`, and other WASM examples to compile successfully while the rest of the project uses Go 1.25.5.
+The Makefile has been updated to use Go 1.23.5 for WASM builds instead of 1.25.8. This allows `make addition`, `make compute`, and other WASM examples to compile successfully while the rest of the project uses Go 1.25.8.
 
 ### Downloading Pre-built Binaries
 
@@ -619,7 +619,7 @@ A Postman collection for the Propeller API is available at [`public/postman_coll
 requires go version 1.19 through 1.23, got go1.25
 ```
 
-**Solution**: The project uses Go 1.25.5 but TinyGo only supports Go 1.19-1.23. Install Go 1.23.5:
+**Solution**: The project uses Go 1.25.8 but TinyGo only supports Go 1.19-1.23. Install Go 1.23.5:
 
 ```bash
 go install golang.org/dl/go1.23.5@latest
@@ -669,7 +669,7 @@ The `.mockery.yaml` configuration file has been updated for mockery v3 compatibi
 
 ```bash
 tinygo version  # Should be 0.34.0 or later
-go version      # Should be 1.25.5 (Go 1.23.5 will be used for WASM builds)
+go version      # Should be 1.25.8 (Go 1.23.5 will be used for WASM builds)
 wasmtime --version  # Should be 42.0.1 or later
 ```
 
