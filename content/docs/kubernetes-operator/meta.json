@@ -1,8 +1,4 @@
 {
   "title": "Kubernetes Operator",
-  "pages": [
-    "kubernetes-operator.mdx",
-    "---Examples---",
-    "example.mdx"
-  ]
+  "pages": ["kubernetes-operator.mdx", "---Examples---", "example.mdx"]
 }
