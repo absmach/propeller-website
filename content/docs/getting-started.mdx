@@ -9,7 +9,7 @@ This guide walks you through installing Propeller and running your first WASM wo
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| [Go](https://go.dev/doc/install) | 1.25.5+ | Building Propeller binaries |
+| [Go](https://go.dev/doc/install) | 1.25.8+ | Building Propeller binaries |
 | [Rust](https://rustup.rs/) | Latest | Building the proplet runtime |
 | [Docker](https://docs.docker.com/) | 20.10+ | Running SuperMQ services |
 | [Make](https://www.gnu.org/software/make/) | 3.81+ | Build automation |
@@ -389,7 +389,7 @@ propeller-cli tasks start 97946bd0-26b1-4d14-aca5-1c2b4f1d0447
 curl "http://localhost:7070/tasks/<task_id>" | jq
 ```
 
-The task `state` will change from `0` (pending) to `2` (completed) with the result in the `output` field.
+The task `state` will change from `0` (pending) to `3` (completed) with the result in the `results` field.
 
 ### Stop a Task
 

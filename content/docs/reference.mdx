@@ -124,7 +124,7 @@ propeller-cli provision [--file-name <path>]
 | `kbs_resource_path` | string | KBS resource path used to fetch the decryption key for an encrypted task. |
 | `proplet_id` | string (UUID) | Pin execution to a specific proplet, bypassing the scheduler. |
 | `depends_on` | array of string | IDs of tasks that must complete before this task starts (workflow DAG). |
-| `run_if` | string | Condition for execution: `success`, `failure`, or `always`. |
+| `run_if` | string | Condition for execution: `success` (default) or `failure`. |
 | `workflow_id` | string (UUID) | ID of the workflow this task belongs to. |
 | `job_id` | string (UUID) | ID of the job this task belongs to. |
 | `results` | any | Output stored after the task completes successfully. |
@@ -172,7 +172,7 @@ propeller-cli provision [--file-name <path>]
 | ---- | ----------- |
 | `parallel` | All tasks in the job start simultaneously. |
 | `sequential` | Tasks start one at a time in order. A task failure stops the job (fail-fast). |
-| `configurable` | Execution mode is read from the `JOB_EXECUTION_MODE` environment variable at runtime. |
+| `configurable` | Uses DAG-based topological sort: starts tasks with no dependencies first, then starts dependent tasks as their prerequisites complete. |
 
 ---
 
@@ -184,4 +184,4 @@ propeller-cli provision [--file-name <path>]
 | `name` | string | Human-readable proplet name. |
 | `task_count` | integer | Number of tasks currently running on this proplet. |
 | `alive` | boolean | `true` if the most recent heartbeat was received within the last 10 seconds. |
-| `alive_history` | array | Last 10 heartbeat timestamps recorded by the Manager. |
+| `alive_at` | array | Last 10 heartbeat timestamps recorded by the Manager. |
