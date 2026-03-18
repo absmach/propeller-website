@@ -1,63 +1,46 @@
 ---
 title: Getting Started
-description: Installation and setup guide for Propeller WebAssembly orchestrator
+description: Quick start guide to deploy your first WebAssembly workload on Propeller
 ---
 
-Before proceeding, install the following prerequisites:
+This guide walks you through installing Propeller and running your first WASM workload in under 15 minutes.
 
-- [A Go compiler (Go 1.25 or later)](https://go.dev/doc/install)
-- [Rust](https://rustup.rs/)
-- [Make](https://www.gnu.org/software/make/manual/make.html)
-- [Docker](https://docs.docker.com/)
-- [Wasmtime](https://wasmtime.dev/)
-- [TinyGo](https://tinygo.org/getting-started/install/)
-- [Mosquitto Tools](https://mosquitto.org/)
+## Prerequisites
+
+| Tool                                       | Version   | Purpose                      |
+| ------------------------------------------ | --------- | ---------------------------- |
+| [Go](https://go.dev/doc/install)           | 1.25.8+   | Building Propeller binaries  |
+| [Rust](https://rustup.rs/)                 | Latest    | Building the proplet runtime |
+| [Docker](https://docs.docker.com/)         | 20.10+    | Running SuperMQ services     |
+| [Make](https://www.gnu.org/software/make/) | 3.81+     | Build automation             |
+| [Mosquitto Tools](https://mosquitto.org/)  | Latest    | MQTT CLI utilities           |
+
+These are only needed if you plan to build WASM modules locally:
+- [TinyGo](https://tinygo.org/getting-started/install/) (0.34.0+) - Compile Go to WASM
+- [Wasmtime](https://wasmtime.dev/) - Local WASM testing
 
 > **Note:** `rustup` will install the Rust toolchain and `cargo`. You will also use it to add WebAssembly targets.
 
-## Clone the repository
+## Quick Start
 
-Clone the repository:
+### Step 1: Clone and Build
 
 ```bash
 git clone https://github.com/absmach/propeller.git
 cd propeller
-```
-
-## Build and Install the Artifacts
-
-To install the Magistrala CLI, follow the [instructions](https://docs.magistrala.abstractmachines.fr/getting-started/#step-2-install-the-cli).
-
-This step compiles all Propeller components (manager, proplet, CLI, proxy, and example WASM modules).
-Run the following:
-
-```bash
 make all -j $(nproc)
 make install
 ```
 
-### If `make install` fails
-
-You likely don’t have your Go binary path (`$GOBIN`) configured.
-Set it up like this:
-
-```bash
-export GOBIN=$HOME/go/bin
-export PATH=$PATH:$GOBIN
-```
-
-Run `make install` again afterward.
-
-### What the build process does
+#### What the build process does
 
 During the build, you will see output similar to:
 
 ```bash
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X 'github.com/absmach/supermq.BuildTime=2026-02-11T17:56:17Z' -X 'github.com/absmach/supermq.Version=v0.3.0' -X 'github.com/absmach/supermq.Commit=ba232f34ea720509ce3d4347149929d0cd99a89a'" -o build/manager cmd/manager/main.go
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X 'github.com/absmach/supermq.BuildTime=2026-02-11T17:56:18Z' -X 'github.com/absmach/supermq.Version=v0.3.0' -X 'github.com/absmach/supermq.Commit=ba232f34ea720509ce3d4347149929d0cd99a89a'" -o build/cli cmd/cli/main.go
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X 'github.com/absmach/supermq.BuildTime=2026-02-11T17:56:19Z' -X 'github.com/absmach/supermq.Version=v0.3.0' -X 'github.com/absmach/supermq.Commit=ba232f34ea720509ce3d4347149929d0cd99a89a'" -o build/proxy cmd/proxy/main.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X 'github.com/absmach/supermq.BuildTime=...' -X 'github.com/absmach/supermq.Version=v0.3.0'" -o build/manager cmd/manager/main.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "..." -o build/cli cmd/cli/main.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "..." -o build/proxy cmd/proxy/main.go
 cd proplet && cargo build --release && cp target/release/proplet ../build
-   Compiling proplet v0.1.0 (/home/rodneyosodo/code/absmach/propeller/proplet)
     Finished `release` profile [optimized] target(s) in 15.36s
 GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasip1 examples/addition/addition.go
 GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/compute.wasm -target wasip1 examples/compute/compute.go
@@ -65,57 +48,26 @@ GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/hello-world.wasm -
 ```
 
 This means:
-
 - All Go binaries were built and placed into `build/`
 - All example WASM modules were built using TinyGo into `build/`
 
-### Installing the artifacts
+`make install` copies the compiled binaries into your `$GOBIN` directory so you can run them directly from your terminal.
 
-`make install` copies the compiled binaries into your `$GOBIN` directory so you can run them directly from your terminal:
+#### If `make install` fails
 
-```bash
-cp build/cli /home/rodneyosodo/go/bin/propeller-cli; cp build/manager /home/rodneyosodo/go/bin/propeller-manager; cp build/proplet /home/rodneyosodo/go/bin/propeller-proplet; cp build/proxy /home/rodneyosodo/go/bin/propeller-proxy;
-```
-
-Once installed, you can run the commands simply as:
+You likely don't have your Go binary path (`$GOBIN`) configured. Set it up like this:
 
 ```bash
-propeller-manager
-propeller-proplet
-propeller-cli
-propeller-proxy
+export GOBIN=$HOME/go/bin
+export PATH=$PATH:$GOBIN
+make install
 ```
 
-## Run SuperMQ and Propeller
+See the [Developer Guide](./developer-guide#troubleshooting) for other common build problems.
 
-Propeller needs to talk to a running SuperMQ instance.
-To get everything working, follow these steps in order:
+### Step 2: Start SuperMQ
 
-1. **Start SuperMQ** – so the CLI has something to talk to.
-2. **Provision SuperMQ** with `propeller-cli provision` – this creates the domain, clients, channels, and writes a `config.toml` file with all the IDs and keys.
-3. **Copy `config.toml`** into `docker/` so the Propeller containers can mount it.
-4. **Start Propeller** with `make start-propeller` – starts manager, proplet, and proxy with the provisioned credentials.
-5. **Health check** – verify the manager is up and the proplet has registered.
-
-You can run the services in two ways:
-
-- **Option 1 (recommended):** everything via **Docker**
-- **Option 2:** run the **Propeller binaries directly** on your machine
-
-Pick one option and follow it from start to finish.
-
-## Option 1: Run everything with Docker (recommended)
-
-In this mode, Docker runs:
-
-- SuperMQ core services (auth, users, clients, domains, channels, adapters, etc.) via `docker/compose.yaml`
-- Propeller services: **manager**, **proplet**, and **proxy** via `docker/compose.propeller.yaml`
-
-The two compose files are kept separate so that SuperMQ can be started and provisioned before the Propeller services are launched.
-
-### 1. Start SuperMQ
-
-From the root of the `propeller` repo:
+SuperMQ provides the messaging infrastructure for Propeller. From the root of the `propeller` repo:
 
 ```bash
 cd propeller
@@ -148,41 +100,25 @@ The output will look something like:
  ✔ Volume supermq_supermq-broker-volume         Created                             0.0s
  ✔ Volume supermq_supermq-domains-db-volume     Created                             0.0s
  ✔ Container supermq-spicedb-db                 Started                             1.9s
- ✔ Container supermq-clients-db                 Started                             1.3s
- ✔ Container supermq-channels-db                Started                             2.0s
- ✔ Container supermq-jaeger                     Started                             1.5s
- ✔ Container supermq-domains-redis              Started                             1.3s
- ✔ Container supermq-channels-redis             Started                             1.3s
- ✔ Container supermq-domains-db                 Started                             1.9s
- ✔ Container supermq-users-db                   Started                             1.8s
- ✔ Container supermq-clients-redis              Started                             1.3s
- ✔ Container supermq-auth-db                    Started                             1.4s
- ✔ Container supermq-rabbitmq                   Started                             1.3s
- ✔ Container supermq-nats                       Started                             1.3s
- ✔ Container supermq-auth-redis                 Started                             1.3s
- ✔ Container supermq-groups-db                  Started                             2.1s
  ... more
 ```
 
-Only SuperMQ services start at this point. The Propeller services (manager, proplet, proxy) are not started yet. Wait ~30–60 seconds for SuperMQ's internal services to stabilise before proceeding.
+Only SuperMQ services start at this point. Wait ~30–60 seconds for SuperMQ's internal services to stabilise before proceeding. Verify with:
+
+```bash
+docker ps | grep supermq
+```
 
 Logs from `docker logs supermq-users` look like this once SuperMQ is ready:
 
 ```bash
-2026/03/11 12:26:28 The binary was build using Nats as the events store
-{"time":"2026-03-11T12:26:29.440604341Z","level":"INFO","msg":"Token service client successfully connected to auth gRPC server without TLS"}
-{"time":"2026-03-11T12:26:29.630497981Z","level":"INFO","msg":"AuthN successfully set up jwks authentication on http://auth:9001/keys/.well-known/jwks.json"}
-{"time":"2026-03-11T12:26:29.755397522Z","level":"INFO","msg":"AuthZ successfully connected to auth gRPC server without TLS"}
-{"time":"2026-03-11T12:26:29.755538739Z","level":"INFO","msg":"Policy client successfully connected to spicedb gRPC server"}
-{"time":"2026-03-11T12:26:30.292218327Z","level":"INFO","msg":"users service http server listening at users:9002 without TLS"}
-{"time":"2026-03-11T12:26:30.300372209Z","level":"INFO","msg":"users service gRPC server listening at users:7002 without TLS"}
+{"time":"...","level":"INFO","msg":"users service http server listening at users:9002 without TLS"}
+{"time":"...","level":"INFO","msg":"users service gRPC server listening at users:7002 without TLS"}
 ```
 
-### 2. Provision SuperMQ with `propeller-cli`
+### Step 3: Provision Propeller
 
-Now we create everything Propeller needs **inside** SuperMQ and generate the config file.
-
-Run:
+Now we create everything Propeller needs **inside** SuperMQ and generate the config file:
 
 ```bash
 propeller-cli provision
@@ -204,7 +140,7 @@ The process will look something like this:
 
 [![asciicast](https://asciinema.org/a/8oYuONLQkvuJ3jdjYdVH97qxH.svg)](https://asciinema.org/a/8oYuONLQkvuJ3jdjYdVH97qxH)
 
-If it succeeds, you'll see:
+On success:
 
 ```bash
 Successfully created config.toml file
@@ -234,15 +170,15 @@ client_key = "991c4d03-2f2c-4ba5-97a6-45bead85457e"
 channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
 ```
 
-### 3. Copy `config.toml` into the `docker/` directory
+### Step 4: Configure and Start Propeller
 
-The Propeller compose file mounts `config.toml` from the `docker/` directory. Copy it there:
+Copy the configuration to the Docker directory (the Propeller compose file mounts `config.toml` from there):
 
 ```bash
 cp config.toml docker/config.toml
 ```
 
-### 4. Start Propeller
+Enable the config mount in `docker/compose.yaml` by uncommenting the volumes for manager, proplet, and proxy services. Then start Propeller:
 
 ```bash
 make start-propeller
@@ -256,45 +192,53 @@ docker compose -f docker/compose.propeller.yaml --env-file docker/.env up -d
 
 The three Propeller containers start, read `config.toml` from their mount paths, and connect to SuperMQ over the shared `supermq-base-net` network.
 
-Logs from `docker logs propeller-manager` look like this:
+### Step 5: Verify Deployment
+
+Check each service is running:
 
 ```bash
-{"time":"2026-03-11T12:27:33.357939305Z","level":"INFO","msg":"MQTT connection established"}
-{"time":"2026-03-11T12:27:33.403309894Z","level":"WARN","msg":"COORDINATOR_URL not configured - FL features will not be available"}
-{"time":"2026-03-11T12:27:33.46779898Z","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"64.275789ms"}
-{"time":"2026-03-11T12:27:33.469816287Z","level":"INFO","msg":"cron scheduler started","check_interval":60000000000}
-{"time":"2026-03-11T12:27:33.469895969Z","level":"INFO","msg":"manager service http server listening at manager:7070 without TLS"}
-{"time":"2026-03-11T12:27:34.249707574Z","level":"WARN","msg":"Failed to handle MQTT message: proplet not found"}
-{"time":"2026-03-11T12:27:35.31169476Z","level":"WARN","msg":"Failed to handle MQTT message: proplet not found"}
-{"time":"2026-03-11T12:27:35.327183283Z","level":"INFO","msg":"successfully created proplet"}
+# Manager logs
+docker logs propeller-manager | tail -5
 ```
 
-Logs from `docker logs propeller-proplet` look like this:
+Expected:
+```json
+{"time":"...","level":"INFO","msg":"MQTT connection established"}
+{"time":"...","level":"WARN","msg":"COORDINATOR_URL not configured - FL features will not be available"}
+{"time":"...","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"64ms"}
+{"time":"...","level":"INFO","msg":"cron scheduler started","check_interval":60000000000}
+{"time":"...","level":"INFO","msg":"manager service http server listening at manager:7070 without TLS"}
+```
 
 ```bash
-2026-03-11T12:27:34.223571Z  INFO Starting Proplet (Rust) - Instance ID: 533c7fdd-2c0f-467b-8166-cf0c783851b0
-2026-03-11T12:27:34.223648Z  INFO MQTT client created (TLS: false)
-2026-03-11T12:27:34.224921Z  INFO Starting MQTT event loop
-2026-03-11T12:27:34.225280Z  INFO Using external Wasm runtime: wasmtime
-2026-03-11T12:27:34.313708Z  INFO Starting PropletService
-2026-03-11T12:27:34.314392Z  INFO Published discovery message
-2026-03-11T12:27:34.314570Z  INFO Subscribed to topic: m/bacde037-edee-46f0-b7f4-92d3e7b9f4db/c/08716892-f8b3-44a7-854a-7fe74d872059/control/manager/start
-2026-03-11T12:27:34.314813Z  INFO Subscribed to topic: m/bacde037-edee-46f0-b7f4-92d3e7b9f4db/c/08716892-f8b3-44a7-854a-7fe74d872059/control/manager/stop
-2026-03-11T12:27:34.315008Z  INFO Subscribed to topic: m/bacde037-edee-46f0-b7f4-92d3e7b9f4db/c/08716892-f8b3-44a7-854a-7fe74d872059/registry/server
+# Proplet logs
+docker logs propeller-proplet | tail -5
 ```
 
-Logs from `docker logs propeller-proxy` look like this:
+Expected:
+```
+INFO Starting Proplet (Rust) - Instance ID: ...
+INFO MQTT client created (TLS: false)
+INFO Published discovery message
+INFO Subscribed to topic: .../control/manager/start
+INFO Subscribed to topic: .../control/manager/stop
+```
 
 ```bash
-{"time":"2026-03-11T12:27:33.497514333Z","level":"INFO","msg":"successfully initialized MQTT and HTTP config"}
-{"time":"2026-03-11T12:27:33.49805019Z","level":"INFO","msg":"MQTT connection established"}
-{"time":"2026-03-11T12:27:33.499155557Z","level":"INFO","msg":"starting proxy service"}
-{"time":"2026-03-11T12:27:33.527468921Z","level":"INFO","msg":"successfully subscribed to topic"}
+# Proxy logs
+docker logs propeller-proxy | tail -3
 ```
 
-### 5. Health check
+Expected:
+```json
+{"level":"INFO","msg":"MQTT connection established"}
+{"level":"INFO","msg":"starting proxy service"}
+{"level":"INFO","msg":"successfully subscribed to topic"}
+```
 
-Verify the manager is up:
+#### Health check
+
+Verify the manager API is up:
 
 ```bash
 curl http://localhost:7070/health
@@ -306,174 +250,13 @@ Verify the proplet has registered:
 curl http://localhost:7070/proplets
 ```
 
-## Option 2: Run Propeller binaries directly (without Docker)
+## Deploy Your First Workload
 
-In this mode:
-
-- SuperMQ may still run in Docker (via `make start-supermq`), **but**
-- You run the Propeller processes (`propeller-manager`, `propeller-proplet`, `propeller-proxy`) directly on your host.
-
-The provisioning step is **the same** as in Option 1:
-
-1. Start SuperMQ (Docker or however you like)
-2. Run `propeller-cli provision` to generate `config.toml`
-
-Make sure `config.toml` is in the directory where you will start the binaries, or set env vars to point them at the correct file.
-
-You can stop the propeller service containers (`propeller-manager`, `propeller-proplet`, `propeller-proxy`) with:
+### List Available Proplets
 
 ```bash
-docker stop propeller-manager propeller-proxy propeller-proplet
+curl http://localhost:7070/proplets | jq
 ```
-
-### 1. Start the manager
-
-```bash
-propeller-manager
-```
-
-If everything is configured correctly, you’ll see logs similar to:
-
-```json
-{"time":"2026-02-13T12:12:38.938209887+03:00","level":"INFO","msg":"MQTT connection established"}
-{"time":"2026-02-13T12:12:38.938257698+03:00","level":"WARN","msg":"COORDINATOR_URL not configured - FL features will not be available"}
-{"time":"2026-02-13T12:12:38.964151961+03:00","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"25.777171ms"}
-{"time":"2026-02-13T12:12:38.964414628+03:00","level":"INFO","msg":"cron scheduler started","check_interval":60000000000}
-{"time":"2026-02-13T12:12:38.964522773+03:00","level":"INFO","msg":"manager service http server listening at localhost:7070 without TLS"}
-```
-
-The manager exposes an HTTP API on `localhost:7070`.
-
-### 2. Start the proplet
-
-In another terminal:
-
-```bash
-propeller-proplet
-```
-
-Example logs:
-
-```bash
-2026-02-13T09:13:11.246621Z  INFO Starting Proplet (Rust) - Client ID: 67b2bcb2-9c56-4c57-b163-085d6ec2c313
-2026-02-13T09:13:11.249067Z  INFO MQTT client created (TLS: false)
-2026-02-13T09:13:11.249145Z  INFO Using Wasmtime runtime
-2026-02-13T09:13:11.249230Z  INFO Starting MQTT event loop
-2026-02-13T09:13:11.739449Z  INFO Starting PropletService
-2026-02-13T09:13:11.739491Z  INFO Published discovery message
-2026-02-13T09:13:11.739499Z  INFO Subscribed to topic: m/50505f8b-3138-4333-ab96-7b09e11aaa33/c/655f9309-7239-4239-8832-b15fd08ee293/control/manager/start
-2026-02-13T09:13:11.739507Z  INFO Subscribed to topic: m/50505f8b-3138-4333-ab96-7b09e11aaa33/c/655f9309-7239-4239-8832-b15fd08ee293/control/manager/stop
-2026-02-13T09:13:11.739517Z  INFO Subscribed to topic: m/50505f8b-3138-4333-ab96-7b09e11aaa33/c/655f9309-7239-4239-8832-b15fd08ee293/registry/server
-```
-
-A proplet will automatically register itself with the manager.
-
-### 3. Start the proxy
-
-The proxy needs to know which OCI registry to pull WebAssembly images from.
-Set a few environment variables, then start it:
-
-```bash
-export PROXY_REGISTRY_URL="docker.io"
-export PROXY_AUTHENTICATE="TRUE"
-export PROXY_REGISTRY_USERNAME=""   # set if your registry requires auth
-export PROXY_REGISTRY_PASSWORD=""   # set if your registry requires auth
-
-propeller-proxy
-```
-
-Example logs:
-
-```json
-{"time":"2026-02-13T12:14:14.683354969+03:00","level":"INFO","msg":"MQTT connection established"}
-{"time":"2026-02-13T12:14:14.683506536+03:00","level":"INFO","msg":"successfully initialized MQTT and HTTP config"}
-{"time":"2026-02-13T12:14:14.683571649+03:00","level":"INFO","msg":"starting proxy service"}
-{"time":"2026-02-13T12:14:14.705055456+03:00","level":"INFO","msg":"successfully subscribed to topic"}
-```
-
-## Adding More Proplets to an Existing Deployment
-
-Once your initial deployment is running, you can add more proplets without re-provisioning from scratch. The `add-proplets` subcommand reads your existing `config.toml`, creates new SuperMQ clients, connects them to the same channel, and appends their credentials to the file.
-
-### Software proplets
-
-Run:
-
-```bash
-propeller-cli provision add-proplets
-```
-
-The command asks for your SuperMQ username and password (to authenticate), then for the number of new proplets to create. It connects each new client to the existing channel and appends a numbered `[propletN]` section to `config.toml`.
-
-For example, if you already have one proplet (`[proplet]`) and add two more, the file becomes:
-
-```toml
-# SuperMQ Configuration
-
-[manager]
-domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
-client_id = "f2fe9a33-144a-4346-a5d6-38e2eb07815e"
-client_key = "ef7da52b-c01f-4b62-9502-6723d639405b"
-channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
-
-[proplet]
-domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
-client_id = "fa407362-9c5f-41b8-9a09-9d0c0b039287"
-client_key = "991c4d03-2f2c-4ba5-97a6-45bead85457e"
-channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
-
-[proplet2]
-domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
-client_id = "b3c12d45-89ef-4f10-a123-7c5d8e9f0a12"
-client_key = "22ab3ef0-9c1d-48f2-b6a5-cd5f1234567e"
-channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
-
-[proplet3]
-domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
-client_id = "d7e89f01-2345-6789-abcd-ef0123456789"
-client_key = "33cd4fg1-0d2e-59g3-c7b6-de6g2345678f"
-channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
-
-[proxy]
-...
-```
-
-> **Note:** New sections are always numbered from where the existing count left off. If you later run `add-proplets` again to add two more, the new sections will be `[proplet4]` and `[proplet5]`.
-
-Each new software proplet process needs to know which section of `config.toml` to read. Set the `PROPLET_CONFIG_SECTION` environment variable before starting it:
-
-```bash
-PROPLET_CONFIG_SECTION=proplet2 propeller-proplet
-PROPLET_CONFIG_SECTION=proplet3 propeller-proplet
-```
-
-Or in `docker/compose.yaml`, add an `environment` entry per proplet service:
-
-```yaml
-environment:
-  PROPLET_CONFIG_SECTION: proplet2
-```
-
-After copying the updated `config.toml` into `docker/`, restart the stack:
-
-```bash
-make stop-supermq
-make start-supermq
-```
-
-## Postman Collection
-
-This is a [collection](../postman_collection.json) of the API calls that can be used to interact with the Propeller system.
-
-## Deploy First Workload
-
-### List Proplets
-
-```bash
-curl -X GET "http://localhost:7070/proplets"
-```
-
-This will output a response like the following:
 
 ```json
 {
@@ -489,14 +272,7 @@ This will output a response like the following:
       "alive_at": [
         "2026-02-13T09:36:33.477959042Z",
         "2026-02-13T09:36:43.476291799Z",
-        "2026-02-13T09:36:53.478319036Z",
-        "2026-02-13T09:37:03.475588195Z",
-        "2026-02-13T09:37:13.477524673Z",
-        "2026-02-13T09:37:23.475479404Z",
-        "2026-02-13T09:37:33.479902052Z",
-        "2026-02-13T09:37:43.476417402Z",
-        "2026-02-13T09:37:53.475723197Z",
-        "2026-02-13T09:38:03.476886244Z"
+        "2026-02-13T09:36:53.478319036Z"
       ],
       "metadata": {
         "description": "Proplet running in Docker",
@@ -516,15 +292,13 @@ This will output a response like the following:
 }
 ```
 
-### Create task
+### Create a Task
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
--H "Content-Type: application/json" \
--d '{"name": "add", "inputs": [10, 20]}'
+  -H "Content-Type: application/json" \
+  -d '{"name": "add", "inputs": [10, 20]}'
 ```
-
-This will output a response like the following:
 
 ```json
 {
@@ -545,184 +319,246 @@ This will output a response like the following:
 }
 ```
 
-You can use the CLI to create a task as follows:
+You can also use the CLI:
 
 ```bash
 # propeller-cli tasks create <name>
 propeller-cli tasks create demo
 ```
 
-This will output a response like the following:
-
-```json
-{
-  "created_at": "2026-02-13T09:39:13.141470378Z",
-  "finish_time": "0001-01-01T00:00:00Z",
-  "id": "c3464004-d1cd-4b56-a99e-efb3ff6856c0",
-  "kind": "standard",
-  "name": "demo",
-  "start_time": "0001-01-01T00:00:00Z",
-  "updated_at": "0001-01-01T00:00:00Z"
-}
-```
-
-### Get a task
+### Get a Task
 
 ```bash
 curl -X GET "http://localhost:7070/tasks/2226e867-1f9f-4ff2-b8e7-f0ea46830664"
 ```
 
-This will output a response like the following:
-
-```json
-{
-  "id": "2226e867-1f9f-4ff2-b8e7-f0ea46830664",
-  "name": "add",
-  "kind": "standard",
-  "state": 0,
-  "cli_args": null,
-  "inputs": [10, 20],
-  "daemon": false,
-  "encrypted": false,
-  "start_time": "0001-01-01T00:00:00Z",
-  "finish_time": "0001-01-01T00:00:00Z",
-  "created_at": "2026-02-13T09:38:50.765084043Z",
-  "updated_at": "0001-01-01T00:00:00Z",
-  "next_run": "0001-01-01T00:00:00Z",
-  "priority": 50
-}
-```
-
-You can use the CLI to get a task as follows:
+CLI equivalent:
 
 ```bash
 # propeller-cli tasks view <id>
 propeller-cli tasks view 2226e867-1f9f-4ff2-b8e7-f0ea46830664
 ```
 
-This will output a response like the following:
+### Upload a WASM Module
 
-```json
-{
-  "created_at": "2026-02-13T09:38:50.765084043Z",
-  "finish_time": "0001-01-01T00:00:00Z",
-  "id": "2226e867-1f9f-4ff2-b8e7-f0ea46830664",
-  "kind": "standard",
-  "name": "add",
-  "start_time": "0001-01-01T00:00:00Z",
-  "updated_at": "0001-01-01T00:00:00Z"
-}
-```
+There are two ways to upload a WASM file:
 
-### Upload Wasm File
-
-There are different ways to upload a Wasm file to Propeller.
-
-- Uplaod a Wasm file to `/tasks/<id>/upload` endpoint
-- Update task with base64 encoded Wasm file using `/tasks/<id>` endpoint
-
-### Upload Wasm File
+**Option A — Upload via file:**
 
 ```bash
 curl -X PUT "http://localhost:7070/tasks/97946bd0-26b1-4d14-aca5-1c2b4f1d0447/upload" \
--F 'file=@<propeller_path>/build/addition.wasm'
+  -F 'file=@build/addition.wasm'
 ```
 
-```json
-{
-  "id": "97946bd0-26b1-4d14-aca5-1c2b4f1d0447",
-  "name": "add",
-  "kind": "standard",
-  "state": 0,
-  "file": "...<truncated>...",
-  "cli_args": null,
-  "inputs": [10, 20],
-  "daemon": false,
-  "encrypted": false,
-  "start_time": "0001-01-01T00:00:00Z",
-  "finish_time": "0001-01-01T00:00:00Z",
-  "created_at": "2026-02-13T09:44:35.46121762Z",
-  "updated_at": "2026-02-13T09:45:16.75999115Z",
-  "next_run": "0001-01-01T00:00:00Z",
-  "priority": 50
-}
-```
-
-### Update task with base64 encoded Wasm file
+**Option B — Upload via base64-encoded WASM in the task body:**
 
 ```bash
 curl --location --request PUT 'http://localhost:7070/tasks/2226e867-1f9f-4ff2-b8e7-f0ea46830664' \
---header 'Content-Type: application/json' \
---data '{
+  --header 'Content-Type: application/json' \
+  --data '{
     "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL"
 }'
 ```
 
-The response will echo the request body back:
-
-```json
-{
-  "id": "2226e867-1f9f-4ff2-b8e7-f0ea46830664",
-  "name": "add",
-  "kind": "standard",
-  "state": 0,
-  "file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL",
-  "cli_args": null,
-  "inputs": [10, 20],
-  "daemon": false,
-  "encrypted": false,
-  "start_time": "0001-01-01T00:00:00Z",
-  "finish_time": "0001-01-01T00:00:00Z",
-  "created_at": "2026-02-13T09:38:50.765084043Z",
-  "updated_at": "2026-02-13T09:42:41.863629845Z",
-  "next_run": "0001-01-01T00:00:00Z",
-  "priority": 50
-}
-```
+CLI equivalent:
 
 ```bash
 propeller-cli tasks update 2226e867-1f9f-4ff2-b8e7-f0ea46830664 '{"file": "AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL"}'
 ```
 
-### Start a task
+### Start the Task
 
 ```bash
 curl -X POST "http://localhost:7070/tasks/97946bd0-26b1-4d14-aca5-1c2b4f1d0447/start"
 ```
 
-This will output a response like the following:
-
 ```json
 { "started": true }
 ```
 
-You can use the CLI to start a task as follows:
+CLI equivalent:
 
 ```bash
 # propeller-cli tasks start <id>
-propeller-cli tasks start 2ccb6b7c-3ce8-4c27-be19-01172954d593
+propeller-cli tasks start 97946bd0-26b1-4d14-aca5-1c2b4f1d0447
 ```
 
-This will output a response like the following:
+### Check Results
 
 ```bash
-ok
+curl "http://localhost:7070/tasks/<task_id>" | jq
 ```
 
-### Stop a task
+The task `state` will change from `0` (pending) to `3` (completed) with the result in the `results` field.
+
+### Stop a Task
 
 ```bash
-curl -X POST "http://localhost:7070/tasks/e9858e56-a1dd-4e5a-9288-130f7be783ed/stop"
+curl -X POST "http://localhost:7070/tasks/<task_id>/stop"
 ```
 
 ### Creating Tasks from OCI Registry Images
 
-For WebAssembly modules stored in an OCI registry, you can specify the image URL during task creation. The proxy will automatically retrieve the WASM file from the registry when the task starts, eliminating the need for manual file uploads.
+For WASM modules stored in an OCI registry, specify the image URL during task creation. The proxy automatically retrieves the WASM file from the registry when the task starts, eliminating manual uploads:
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
--H "Content-Type: application/json" \
--d '{"name": "add", "inputs": [10, 20], "image_url": "docker.io/mrstevenyaga/add.wasm"}'
+  -H "Content-Type: application/json" \
+  -d '{"name": "add", "inputs": [10, 20], "image_url": "docker.io/mrstevenyaga/add.wasm"}'
 ```
 
-The proxy will handle pulling the image from the specified OCI registry during task execution, streamlining the deployment process.
+## Alternative: Run Without Docker
+
+You can run Propeller binaries directly on your host (useful for development or debugging). SuperMQ still runs in Docker via `make start-supermq`, but the Propeller processes run locally.
+
+The provisioning step is the same: run `propeller-cli provision` to generate `config.toml`, then ensure it is in the directory where you start the binaries.
+
+Stop the Docker-based Propeller services first if they are running:
+
+```bash
+docker stop propeller-manager propeller-proxy propeller-proplet
+```
+
+Then start each service in a separate terminal:
+
+```bash
+# Terminal 1
+propeller-manager
+
+# Terminal 2
+propeller-proplet
+
+# Terminal 3 — set registry env vars before starting proxy
+export PROXY_REGISTRY_URL="docker.io"
+export PROXY_AUTHENTICATE="TRUE"
+export PROXY_REGISTRY_USERNAME=""   # set if your registry requires auth
+export PROXY_REGISTRY_PASSWORD=""   # set if your registry requires auth
+propeller-proxy
+```
+
+Docker is recommended for production; local binaries are easier for debugging.
+
+## Adding More Proplets to an Existing Deployment
+
+Once your initial deployment is running, you can add more proplets without re-provisioning from scratch. The `add-proplets` subcommand reads your existing `config.toml`, creates new SuperMQ clients, connects them to the same channel, and appends their credentials to the file.
+
+```bash
+propeller-cli provision add-proplets
+```
+
+The command asks for your SuperMQ username and password, then for the number of new proplets to create. For example, if you already have one proplet (`[proplet]`) and add two more, the file becomes:
+
+```toml
+[manager]
+domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
+client_id = "f2fe9a33-144a-4346-a5d6-38e2eb07815e"
+client_key = "ef7da52b-c01f-4b62-9502-6723d639405b"
+channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
+
+[proplet]
+...
+
+[proplet2]
+domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
+client_id = "b3c12d45-89ef-4f10-a123-7c5d8e9f0a12"
+client_key = "22ab3ef0-9c1d-48f2-b6a5-cd5f1234567e"
+channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
+
+[proplet3]
+domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
+client_id = "d7e89f01-2345-6789-abcd-ef0123456789"
+client_key = "33cd4fg1-0d2e-59g3-c7b6-de6g2345678f"
+channel_id = "8c6e1e6c-fc89-43b4-b00b-884a690c7419"
+
+[proxy]
+...
+```
+
+> **Note:** New sections are always numbered from where the existing count left off.
+
+Each new proplet process needs to know which section of `config.toml` to read. Set the `PROPLET_CONFIG_SECTION` environment variable before starting it:
+
+```bash
+PROPLET_CONFIG_SECTION=proplet2 propeller-proplet
+PROPLET_CONFIG_SECTION=proplet3 propeller-proplet
+```
+
+Or in `docker/compose.yaml`, add an `environment` entry per proplet service:
+
+```yaml
+environment:
+  PROPLET_CONFIG_SECTION: proplet2
+```
+
+After copying the updated `config.toml` into `docker/`, restart only the Propeller services:
+
+```bash
+make stop-propeller
+make start-propeller
+```
+
+## Postman Collection
+
+A [Postman collection](../postman_collection.json) of all API calls is available for interacting with the Propeller system.
+
+## What's Next?
+
+| Goal                        | Documentation                          |
+| --------------------------- | -------------------------------------- |
+| Build from source           | [Developer Guide](./developer-guide)   |
+| Understand the architecture | [Architecture](./architecture)         |
+| See working examples        | [Examples](./examples)                 |
+| Run on embedded devices     | [Embedded Proplet](./embedded-proplet) |
+| Use the REST API            | [API Reference](./api)                 |
+| Monitor deployments         | [Monitoring](./monitoring)             |
+| Enable secure enclaves      | [TEE](./tee)                           |
+
+## Troubleshooting
+
+### `make install` fails with permission denied
+
+Your `$GOBIN` path isn't configured:
+
+```bash
+export GOBIN=$HOME/go/bin
+export PATH=$PATH:$GOBIN
+make install
+```
+
+### `propeller-cli provision` fails
+
+Ensure SuperMQ is fully started:
+
+```bash
+docker logs supermq-users | tail -10
+```
+
+Look for: `users service http server listening at users:9002`
+
+### Services can't find config.toml
+
+The config must be mounted into Docker containers. Verify:
+
+```bash
+ls docker/config.toml
+```
+
+If missing, copy it: `cp config.toml docker/config.toml`
+
+### WASM execution fails
+
+Check proplet logs for runtime errors:
+
+```bash
+docker logs propeller-proplet | grep -i error
+```
+
+For detailed troubleshooting, see the [Developer Guide](./developer-guide#troubleshooting).
+
+## Stopping Propeller
+
+```bash
+make stop-supermq
+```
+
+This stops all SuperMQ and Propeller containers while preserving data volumes.

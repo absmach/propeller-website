@@ -54,9 +54,9 @@ The Manager is the central orchestrator written in Go, responsible for managing 
 
 Currently, the system supports **1 manager : multiple proplets**. In the future, the system will be expanded to support **multiple managers : multiple proplets** for high availability.
 
-### Kubernets Operator
+### Kubernetes Operator
 
-The Propeller Kubernetes Operator provides a way to deploy and manage Propeller on Kubernetes clusters. It handles the orchestration of tasks across proplets, scheduling, and resource management. The Operator is responsible for:
+The [Propeller Kubernetes Operator](https://github.com/absmach/propeller-k8s-operator) provides a way to deploy and manage Propeller on Kubernetes clusters. It handles the orchestration of tasks across proplets, scheduling, and resource management. The Operator is responsible for:
 
 **Deployment and Management:**
 
@@ -199,6 +199,7 @@ Tasks progress through the following states:
 4. **Completed**: Task finished successfully
 5. **Failed**: Task execution failed
 6. **Skipped**: Task skipped due to conditional workflow logic
+7. **Interrupted**: Task interrupted during execution
 
 ### Task Types
 
@@ -226,6 +227,8 @@ Tasks progress through the following states:
 4. **Task Execution**: The proplet receives the task, fetches the WebAssembly module (from OCI registry or embedded binary), and executes it.
 5. **Status Reporting**: The proplet sends periodic status updates and final results back to the Manager.
 6. **Task Completion**: The Manager updates the task status, stores the results, and triggers any dependent workflow tasks.
+
+**Task Interruption**: Tasks can be interrupted at any point in their lifecycle by calling the `/tasks/{id}/stop` REST API endpoint. When interrupted, a task transitions to the **Interrupted** state, and the Manager signals the proplet to stop execution immediately. See the [Manager API](manager.mdx) for details on the stop endpoint.
 
 ## Jobs
 
@@ -325,25 +328,26 @@ Federated learning tasks are driven by environment variables passed with the tas
 
 ## Scheduling
 
-The Manager supports pluggable scheduling algorithms:
+The Manager uses two complementary scheduling mechanisms:
 
-### Round Robin Scheduler
+### Round Robin (Proplet Selection)
 
-- Distributes tasks evenly across available proplets
-- Maintains circular queue of proplets
-- Simple and fair distribution
+- Selects which proplet receives each task
+- Cycles evenly across all alive proplets
+- Skips proplets that are dead (no recent heartbeat)
 
-### Priority Scheduler
+### Priority Ordering (Task Dispatch Order)
 
-- Sorts tasks by priority (higher values first)
-- Falls back to creation time for equal priorities
-- Supports priority range 0-100 (default: 50)
+- When multiple tasks are pending, higher-priority tasks are dispatched first
+- Priority range: 0–100 (default: 50)
+- Ties broken by task creation time (earlier tasks run first)
+
+Priority ordering determines the sequence in which pending tasks enter the scheduler; Round Robin determines which proplet handles each task.
 
 ### Scheduling Constraints
 
 - Only schedules to "alive" proplets (heartbeat received within liveliness threshold window)
 - Tracks task count per proplet for load balancing
-- Considers proplet capabilities and task requirements
 
 ## Storage Backends
 
