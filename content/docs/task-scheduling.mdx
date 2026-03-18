@@ -95,7 +95,7 @@ Your output should look like this:
 | -------------- | -------------------------------------------------------------------------- |
 | `parallel`     | All tasks start simultaneously on available proplets                       |
 | `sequential`   | Tasks run one at a time in order; first failure stops the job (fail-fast)  |
-| `configurable` | Mode is read from the `JOB_EXECUTION_MODE` environment variable at runtime |
+| `configurable` | Uses DAG-based topological sort: starts tasks with no dependencies first, then starts dependent tasks as their prerequisites complete |
 
 ### Starting a Job
 
@@ -302,8 +302,8 @@ Your output should look like this:
 ```json
 {
   "tasks": [
-    {"id": "fetch-a", "name": "fetch-source-a", "workflow_id": "...", "depends_on": [], "run_if": "success", "state": 0},
-    {"id": "fetch-b", "name": "fetch-source-b", "workflow_id": "...", "depends_on": [], "run_if": "success", "state": 0},
+    {"id": "fetch-a", "name": "fetch-source-a", "workflow_id": "...", "state": 0},
+    {"id": "fetch-b", "name": "fetch-source-b", "workflow_id": "...", "state": 0},
     {"id": "merge", "name": "merge-data", "workflow_id": "...", "depends_on": ["fetch-a", "fetch-b"], "run_if": "success", "state": 0},
     {"id": "report", "name": "generate-report", "workflow_id": "...", "depends_on": ["merge"], "run_if": "success", "state": 0},
     {"id": "alert", "name": "send-alert", "workflow_id": "...", "depends_on": ["merge"], "run_if": "failure", "state": 0}
@@ -316,8 +316,8 @@ Your output should look like this:
 | Field         | Description                                                                                                                                        |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `workflow_id` | All tasks share the same auto-generated workflow ID, linking them as a single workflow. Use this to identify all tasks belonging to this workflow. |
-| `depends_on`  | Normalized to empty array `[]` for root tasks.                                                                                                     |
-| `run_if`      | Defaults to `success` for tasks without explicit conditions.                                                                                       |
+| `depends_on`  | Omitted from the response for root tasks (field is absent when empty).                                                                             |
+| `run_if`      | Omitted from the response when not explicitly set; defaults to `success` behavior at runtime.                                                      |
 
 ### Task and Dependency Fields
 
@@ -603,10 +603,10 @@ curl -X POST "http://localhost:7070/tasks/task-abc123/stop"
 Your output should look like this:
 
 ```json
-{}
+{"stopped": true}
 ```
 
-The empty response indicates the task was successfully stopped. The task's `state` changes to `6` (Interrupted).
+The response indicates the task was successfully stopped. The task's `state` changes to `6` (Interrupted).
 
 Alternatively, update the task to disable recurrence while keeping the task definition:
 
