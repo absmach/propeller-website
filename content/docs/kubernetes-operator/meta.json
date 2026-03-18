@@ -1,0 +1,8 @@
+{
+  "title": "Kubernetes Operator",
+  "pages": [
+    "kubernetes-operator.mdx",
+    "---Examples---",
+    "example.mdx"
+  ]
+}
