@@ -1,0 +1,196 @@
+---
+title: Platform Test
+description: Platform Test example
+---
+
+This is a simple example using the [Elastic HAL](https://github.com/elasticproject-eu/wasmhal) `elastic:platform` interface. It validates that the proplet runtime correctly exposes platform information and attestation capabilities to WASM modules via the `elastic:platform/platform` interface. The module calls `get-platform-info` to retrieve the platform type, version, and attestation support, then calls `attestation` with a 32-byte report-data blob to obtain attestation evidence.
+
+To run this example, we need to set the `PROPLET_EXTERNAL_WASM_RUNTIME` environment variable to `""` so that the proplet runtime uses the default WASM runtime. We also need to set the `PROPLET_HAL_ENABLED` environment variable to `true` to enable the HAL.
+
+```bash
+export PROPLET_EXTERNAL_WASM_RUNTIME=""
+export PROPLET_HAL_ENABLED=true
+```
+
+## Source Code
+
+The source code is available in the [examples/platform-test](https://github.com/absmach/propeller/blob/main/examples/platform-test/src/main.rs) directory.
+
+<CodeFromSource
+  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/platform-test/src/main.rs"
+  lang="rust"
+/>
+
+## Create Task
+
+To create a task for this example, we need to build the example to wasm and then create a task with the wasm file.
+
+```bash
+cd propeller
+make platform-test
+```
+
+Your output should look like this:
+
+```bash
+cd examples/platform-test && cargo build --release
+    Finished `release` profile [optimized] target(s) in 0.01s
+cp examples/platform-test/target/wasm32-wasip1/release/platform-test.wasm build/platform-test.wasm
+```
+
+Now we can create a task with the wasm file:
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{"name": "platform-test"}'
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "platform-test",
+  "kind": "standard",
+  "state": 0,
+  "cli_args": null,
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-19T10:00:00.000000000Z",
+  "updated_at": "0001-01-01T00:00:00Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+## Upload Wasm
+
+Now we need to upload the wasm file:
+
+```bash
+curl -X PUT "http://localhost:7070/tasks/a1b2c3d4-e5f6-7890-abcd-ef1234567890/upload" \
+-F "file=@$(pwd)/build/platform-test.wasm"
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "platform-test",
+  "kind": "standard",
+  "state": 0,
+  "file": "...<redacted>...",
+  "cli_args": null,
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-19T10:00:00.000000000Z",
+  "updated_at": "2026-03-19T10:01:00.000000000Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+## Start Task
+
+Now we can start the task:
+
+```bash
+curl -X POST "http://localhost:7070/tasks/a1b2c3d4-e5f6-7890-abcd-ef1234567890/start"
+```
+
+Your output should look like this:
+
+```json
+{ "started": true }
+```
+
+The results of the task will be something like this.
+
+```bash
+curl -X GET "http://localhost:7070/tasks/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "platform-test",
+  "kind": "standard",
+  "state": 3,
+  "file": "...<redacted>...",
+  "cli_args": null,
+  "daemon": false,
+  "encrypted": false,
+  "proplet_id": "83a56492-5a89-4852-beee-a3ba95eca876",
+  "results": "",
+  "start_time": "2026-03-19T10:02:00.000000000Z",
+  "finish_time": "2026-03-19T10:02:00.200000000Z",
+  "created_at": "2026-03-19T10:00:00.000000000Z",
+  "updated_at": "2026-03-19T10:02:00.200000000Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+The logs from proplet would be something like this.
+
+```bash
+2026-03-19T10:02:00.100000Z  INFO Starting Wasmtime runtime app: task_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890, function=platform-test, daemon=false, wasm_size=73560, is_component=false, is_proxy=false
+2026-03-19T10:02:00.100010Z  INFO Compiling WASM core module for task: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+2026-03-19T10:02:00.130000Z  INFO Module compiled successfully for task: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+AMD SEV Detection:
+  - AMD CPU: true
+  - /dev/sev-guest: false
+  - /dev/sev: false
+  - TSM support: false
+Intel TDX Detection:
+  - Intel CPU: false
+  - /dev/tdx_guest: false
+  - TSM support: false
+  - TDX CPU flag: false
+AMD SEV Detection:
+  - AMD CPU: true
+  - /dev/sev-guest: false
+  - /dev/sev: false
+  - TSM support: false
+Intel TDX Detection:
+  - Intel CPU: false
+  - /dev/tdx_guest: false
+  - TSM support: false
+  - TDX CPU flag: false
+2026-03-19T10:02:00.130050Z  INFO Running in synchronous mode for task: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+2026-03-19T10:02:00.130060Z  INFO No _initialize function found, skipping initialization for task: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+2026-03-19T10:02:00.130070Z  INFO WASM module exports for task a1b2c3d4-e5f6-7890-abcd-ef1234567890: requested='platform-test', available=["memory", "_start", "__main_void", "run_export"]
+2026-03-19T10:02:00.130080Z  INFO Function 'platform-test' not found, using fallback '_start'
+2026-03-19T10:02:00.130090Z  INFO Calling function 'platform-test' with 0 params, expects 0 results
+get-platform-info: {"platform_type":"None","version":"0.0.0","attestation_support":false}
+AMD SEV Detection:
+  - AMD CPU: true
+  - /dev/sev-guest: false
+  - /dev/sev: false
+  - TSM support: false
+Intel TDX Detection:
+  - Intel CPU: false
+  - /dev/tdx_guest: false
+  - TSM support: false
+  - TDX CPU flag: false
+attestation: ok (evidence len=64)
+attestation evidence: 4242424242424242424242424242424242424242424242424242424242424242
+2026-03-19T10:02:00.160000Z  INFO Function 'platform-test' executed successfully
+2026-03-19T10:02:00.160010Z  INFO Task a1b2c3d4-e5f6-7890-abcd-ef1234567890 completed successfully, result size: 0 bytes
+2026-03-19T10:02:00.161000Z DEBUG Stopping monitoring for task a1b2c3d4-e5f6-7890-abcd-ef1234567890
+2026-03-19T10:02:00.161010Z  INFO Task a1b2c3d4-e5f6-7890-abcd-ef1234567890 completed successfully. Result:
+2026-03-19T10:02:00.161020Z  INFO Publishing result for task a1b2c3d4-e5f6-7890-abcd-ef1234567890
+2026-03-19T10:02:00.161030Z  INFO Successfully published result for task a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+## Invoking Using WasmTime
+
+Since the default wasmtime doesn't have the exposed HAL functions, there is no need of running it on wasmtime.
