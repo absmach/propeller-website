@@ -3,9 +3,14 @@ title: Attestation Test
 description: Attestation Test example
 ---
 
-This is a simple example using the [Elastic HAL](https://github.com/elasticproject-eu/wasmhal) `elastic:attestation` interface, introduced in [PR #4](https://github.com/elasticproject-eu/wasmhal/pull/4). It validates that the proplet runtime correctly provides hardware-rooted attestation to WASM modules via the `elastic:attestation/hal` interface. The module calls `get-attestation` with a 16-byte nonce to request an attestation report from the underlying platform.
+This is a simple example using the [Elastic HAL](https://github.com/elasticproject-eu/wasmhal) `elastic:tee-hal` interface. It validates that the proplet runtime correctly provides hardware-rooted attestation to WASM modules via the `elastic:tee-hal/platform` interface. The module calls `attestation` with a 16-byte nonce to request an attestation report from the underlying platform.
 
-To run this example, we need to set the `PROPLET_EXTERNAL_WASM_RUNTIME` environment variable to `""` so that the proplet runtime uses the default WASM runtime. We also need to set the `PROPLET_HAL_ENABLED` environment variable to `true` to enable the HAL.
+## Prerequisites
+
+- A running proplet with HAL enabled, or a TDX-capable machine running the CVM setup from `hal/ubuntu/qemu.sh`
+- The `wasm-hal-runner` binary (built from `proplet`) for standalone testing outside the task pipeline
+
+To enable HAL in the proplet, set the following environment variables:
 
 ```bash
 export PROPLET_EXTERNAL_WASM_RUNTIME=""
@@ -21,9 +26,7 @@ The source code is available in the [examples/attestation-test](https://github.c
   lang="rust"
 />
 
-## Create Task
-
-To create a task for this example, we need to build the example to wasm and then create a task with the wasm file.
+## Build
 
 ```bash
 cd propeller
@@ -38,7 +41,54 @@ cd examples/attestation-test && cargo build --release
 cp examples/attestation-test/target/wasm32-wasip1/release/attestation-test.wasm build/attestation-test.wasm
 ```
 
-Now we can create a task with the wasm file:
+## Running Standalone on a TDX CVM
+
+To test against real hardware attestation, copy the WASM file and the `wasm-hal-runner` binary into a TDX CVM and run:
+
+```bash
+wasm-hal-runner attestation-test.wasm
+```
+
+On an Intel TDX guest, the output will be:
+
+```
+AMD SEV Detection:
+  - AMD CPU: false
+  - /dev/sev-guest: false
+  - /dev/sev: false
+  - TSM support: true
+Intel TDX Detection:
+  - Intel CPU: true
+  - /dev/tdx_guest: true
+  - TSM support: true
+  - TDX CPU flag: true
+get-attestation: ok (report len=863)
+get-attestation report: 7b226d6561737572656d656e7473223a7b2268616c223a2236616439363133613435353739386436643932653566356633393061623462616137303539366263383639656436623137663563646432623238363335663036222c226d727464223a22396331383136373665663162653636333164366339356138313731623239383731313365633838633832373435313862323963303137383862353161613336363632633161396432303033373437613932373739633838656436396664323730222c2272746d7230223a22343539623132323164643666383864643264383266386231383466383538643939373235643239326561343534303134303038393934616237356563623136643162343035393633613034333039306431386333353664623336323666656538222c2272746d7231223a22366235623662313566616639333565333065616432303139666363333132373731396333313537373135303663343839353931626465663635653932353064313134643235316336646630633361343531646437393632343761613338636333222c2272746d7232223a22373538363965363634326365636235343031643738353736303630633663623138376639646561633565643734366438643732343964393731653234336636636134316432303866303230656335303366383666396233333361656238623961222c2272746d7233223a22316538323535653732306537376139306432643835663333386330306138316439343062663465643763376365656162343232396636303030663834336161643937646335623039316262363061666664353464363231616338643635303664227d2c22706c6174666f726d223a22696e74656c2d746478222c227265706f72745f64617461223a223031303230333034303530363037303830393061306230633064306530663130616130316263363930303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030222c227464785f6d6f64756c655f76657273696f6e223a22312e352e30222c2274696d657374616d70223a313737333932383837342c2276657273696f6e223a22302e312e30227d
+```
+
+The report is a hex-encoded JSON object. Decoded:
+
+```json
+{
+  "measurements": {
+    "hal": "6ad9613a455798d6d92e5f5f390ab4baa70596bc869ed6b17f5cdd2b28635f06",
+    "mrtd": "9c181676ef1be6631d6c95a8171b2987113ec88c8274518b29c01788b51aa36662c1a9d2003747a92779c88ed69fd270",
+    "rtmr0": "459b1221dd6f88dd2d82f8b184f858d99725d292ea454014008994ab75ecb16d1b405963a043090d18c356db3626fee8",
+    "rtmr1": "6b5b6b15faf935e30ead2019fcc3127719c315771506c489591bdef65e9250d114d251c6df0c3a451dd796247aa38cc3",
+    "rtmr2": "75869e6642cecb5401d78576060c6cb187f9deac5ed746d8d7249d971e243f6ca41d208f020ec503f86f9b333aeb8b9a",
+    "rtmr3": "1e8255e720e77a90d2d85f338c00a81d940bf4ed7c7ceeab4229f6000f843aad97dc5b091bb60affd54d621ac8d6506d"
+  },
+  "platform": "intel-tdx",
+  "report_data": "0102030405060708090a0b0c0d0e0f10aa01bc690000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "tdx_module_version": "1.5.0",
+  "timestamp": 1773928874,
+  "version": "0.1.0"
+}
+```
+
+## Create Task
+
+To run this example via the task pipeline, build the WASM and create a task:
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
@@ -68,8 +118,6 @@ Your output should look like this:
 
 ## Upload Wasm
 
-Now we need to upload the wasm file:
-
 ```bash
 curl -X PUT "http://localhost:7070/tasks/b2c3d4e5-f6a7-8901-bcde-f12345678901/upload" \
 -F "file=@$(pwd)/build/attestation-test.wasm"
@@ -97,8 +145,6 @@ Your output should look like this:
 ```
 
 ## Start Task
-
-Now we can start the task:
 
 ```bash
 curl -X POST "http://localhost:7070/tasks/b2c3d4e5-f6a7-8901-bcde-f12345678901/start"
@@ -139,49 +185,29 @@ Your output should look like this:
 }
 ```
 
-The logs from proplet would be something like this.
+The logs from a proplet running inside a TDX CVM will look like this:
 
 ```bash
 2026-03-19T10:02:00.100000Z  INFO Starting Wasmtime runtime app: task_id=b2c3d4e5-f6a7-8901-bcde-f12345678901, function=attestation-test, daemon=false, wasm_size=65536, is_component=false, is_proxy=false
 2026-03-19T10:02:00.100010Z  INFO Compiling WASM core module for task: b2c3d4e5-f6a7-8901-bcde-f12345678901
 2026-03-19T10:02:00.130000Z  INFO Module compiled successfully for task: b2c3d4e5-f6a7-8901-bcde-f12345678901
 AMD SEV Detection:
-  - AMD CPU: true
+  - AMD CPU: false
   - /dev/sev-guest: false
   - /dev/sev: false
-  - TSM support: false
+  - TSM support: true
 Intel TDX Detection:
-  - Intel CPU: false
-  - /dev/tdx_guest: false
-  - TSM support: false
-  - TDX CPU flag: false
-AMD SEV Detection:
-  - AMD CPU: true
-  - /dev/sev-guest: false
-  - /dev/sev: false
-  - TSM support: false
-Intel TDX Detection:
-  - Intel CPU: false
-  - /dev/tdx_guest: false
-  - TSM support: false
-  - TDX CPU flag: false
+  - Intel CPU: true
+  - /dev/tdx_guest: true
+  - TSM support: true
+  - TDX CPU flag: true
 2026-03-19T10:02:00.130050Z  INFO Running in synchronous mode for task: b2c3d4e5-f6a7-8901-bcde-f12345678901
 2026-03-19T10:02:00.130060Z  INFO No _initialize function found, skipping initialization for task: b2c3d4e5-f6a7-8901-bcde-f12345678901
 2026-03-19T10:02:00.130070Z  INFO WASM module exports for task b2c3d4e5-f6a7-8901-bcde-f12345678901: requested='attestation-test', available=["memory", "_start", "__main_void", "run_export"]
 2026-03-19T10:02:00.130080Z  INFO Function 'attestation-test' not found, using fallback '_start'
 2026-03-19T10:02:00.130090Z  INFO Calling function 'attestation-test' with 0 params, expects 0 results
-AMD SEV Detection:
-  - AMD CPU: true
-  - /dev/sev-guest: false
-  - /dev/sev: false
-  - TSM support: false
-Intel TDX Detection:
-  - Intel CPU: false
-  - /dev/tdx_guest: false
-  - TSM support: false
-  - TDX CPU flag: false
-get-attestation: ok (report len=64)
-get-attestation report: 0102030405060708090a0b0c0d0e0f10
+get-attestation: ok (report len=863)
+get-attestation report: 7b226d6561737572656d656e7473223a...
 2026-03-19T10:02:00.160000Z  INFO Function 'attestation-test' executed successfully
 2026-03-19T10:02:00.160010Z  INFO Task b2c3d4e5-f6a7-8901-bcde-f12345678901 completed successfully, result size: 0 bytes
 2026-03-19T10:02:00.161000Z DEBUG Stopping monitoring for task b2c3d4e5-f6a7-8901-bcde-f12345678901
@@ -189,7 +215,3 @@ get-attestation report: 0102030405060708090a0b0c0d0e0f10
 2026-03-19T10:02:00.161020Z  INFO Publishing result for task b2c3d4e5-f6a7-8901-bcde-f12345678901
 2026-03-19T10:02:00.161030Z  INFO Successfully published result for task b2c3d4e5-f6a7-8901-bcde-f12345678901
 ```
-
-## Invoking Using WasmTime
-
-Since the default wasmtime doesn't have the exposed HAL functions, there is no need of running it on wasmtime.
