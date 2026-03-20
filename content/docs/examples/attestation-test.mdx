@@ -105,10 +105,10 @@ Since `elastic:attestation/hal` is not yet implemented, the task will fail at in
 2026-03-19T10:02:00.100000Z  INFO Starting Wasmtime runtime app: task_id=b2c3d4e5-f6a7-8901-bcde-f12345678901, function=attestation-test, daemon=false, wasm_size=65536, is_component=false, is_proxy=false
 2026-03-19T10:02:00.100010Z  INFO Compiling WASM core module for task: b2c3d4e5-f6a7-8901-bcde-f12345678901
 2026-03-19T10:02:00.130000Z  INFO Module compiled successfully for task: b2c3d4e5-f6a7-8901-bcde-f12345678901
-2026-03-19T10:02:00.130010Z ERROR Task b2c3d4e5-f6a7-8901-bcde-f12345678901 failed with stderr: Error: failed to run main module
+2026-03-19T10:02:00.130010Z ERROR Task b2c3d4e5-f6a7-8901-bcde-f12345678901 failed with stderr: Error: failed to run main module `/tmp/proplet_b2c3d4e5-f6a7-8901-bcde-f12345678901.wasm`
 
 Caused by:
-    0: failed to instantiate "attestation-test.wasm"
+    0: failed to instantiate "/tmp/proplet_b2c3d4e5-f6a7-8901-bcde-f12345678901.wasm"
     1: unknown import: `elastic:attestation/hal::get-attestation` has not been defined
 ```
 
