@@ -13,26 +13,49 @@ const rubik = Rubik({
 const baseUrl =
   process.env.NEXT_PUBLIC_BASE_URL || "https://propeller.absmach.eu";
 
+const siteTitle =
+  "Propeller — WebAssembly Orchestrator for Cloud-Edge Computing";
+const siteDescription =
+  "Open-source WebAssembly orchestrator for Cloud-Edge computing. Deploy Wasm workloads from cloud servers to microcontrollers with near-instant boot, OCI registry support, and sandboxed isolation.";
+const ogTitle = "Propeller — WebAssembly Orchestrator for Cloud-Edge";
+
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
-  title: "Propeller",
-  description: "Deploy Wasm from Cloud to Microcontrollers",
-  keywords: ["Propeller", "WebAssembly", "WASM", "Cloud", "Microcontrollers"],
+  // Explicit canonical for the homepage.
+  // Next.js combines metadataBase + alternates.canonical to produce the full URL.
+  alternates: {
+    canonical: "/",
+  },
+  title: siteTitle,
+  description: siteDescription,
+  keywords: [
+    "Propeller",
+    "WebAssembly",
+    "Wasm",
+    "Cloud-Edge",
+    "orchestration",
+    "IoT",
+    "microcontrollers",
+    "edge computing",
+    "Zephyr RTOS",
+    "WAMR",
+    "Abstract Machines",
+  ],
   appleWebApp: {
     title: "Propeller",
   },
 
   openGraph: {
     type: "website",
-    title: "Propeller",
-    description: "Deploy Wasm from Cloud to Microcontrollers",
+    title: ogTitle,
+    description: siteDescription,
     url: baseUrl,
-    siteName: "Propeller",
+    siteName: "Propeller by Abstract Machines",
     images: [
       {
         url: `${baseUrl}/opengraph-image.jpg`,
         secureUrl: `${baseUrl}/opengraph-image.jpg`,
-        alt: "Propeller",
+        alt: "Propeller — WebAssembly Orchestrator for Cloud-Edge Computing",
         type: "image/jpeg",
         width: 1200,
         height: 630,
@@ -41,13 +64,14 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Propeller",
-    description: "Deploy Wasm from Cloud to Microcontrollers",
+    title: ogTitle,
+    description: siteDescription,
+    site: "@absmach",
     images: [
       {
         url: `${baseUrl}/opengraph-image.jpg`,
         secureUrl: `${baseUrl}/opengraph-image.jpg`,
-        alt: "Propeller",
+        alt: "Propeller — WebAssembly Orchestrator for Cloud-Edge Computing",
         type: "image/jpeg",
         width: 1200,
         height: 630,

@@ -1,5 +1,5 @@
 import type { BaseLayoutProps, LinkItemType } from "fumadocs-ui/layouts/shared";
-import { AlbumIcon, LayoutTemplate } from "lucide-react";
+import { AlbumIcon, Info, LayoutTemplate } from "lucide-react";
 import { assetPath } from "./base-path";
 
 export const linkItems: LinkItemType[] = [
@@ -28,6 +28,12 @@ export const linkItems: LinkItemType[] = [
     text: "Blogs",
     url: "https://www.absmach.eu/blog/?category=propeller",
     icon: <LayoutTemplate />,
+    active: "url",
+  },
+  {
+    text: "About",
+    url: "/about",
+    icon: <Info />,
     active: "url",
   },
 ];

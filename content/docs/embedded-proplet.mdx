@@ -1,6 +1,6 @@
 ---
 title: Embedded Proplet
-description: WebAssembly runtime for microcontroller-based edge devices using Zephyr RTOS and WAMR
+description: "Run WebAssembly on microcontrollers with Propeller's Embedded Proplet. Executes Wasm workloads on ESP32-S3 and Zephyr RTOS devices using WAMR — with as little as 128 KB RAM."
 ---
 
 The Embedded Proplet brings WebAssembly execution to microcontrollers like the ESP32-S3. It is a C firmware application running on Zephyr RTOS that connects to a Propeller [Manager](/docs/manager) over MQTT and executes WebAssembly tasks using the WebAssembly Micro Runtime (WAMR). When the Manager sends a task, the Embedded Proplet decodes the WASM module, runs it locally on the device, and reports results back — enabling computation at the true edge with as little as 128 KB RAM.

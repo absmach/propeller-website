@@ -10,10 +10,36 @@ import StatisticsSection from "@/components/statistics-section";
 // import TestimonialsSection from "@/components/testimonials-section";
 import { Separator } from "@/components/ui/separator";
 import { assetPath } from "@/lib/base-path";
+import {
+  faqPageSchema,
+  organizationSchema,
+  softwareApplicationSchema,
+  webSiteSchema,
+} from "@/lib/structured-data";
 
 export default function HomePage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(organizationSchema()),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(softwareApplicationSchema()),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema()) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema()) }}
+      />
       <link
         rel="preload"
         href={assetPath("/architecture.svg")}
