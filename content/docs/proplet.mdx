@@ -1,6 +1,6 @@
 ---
 title: Proplet
-description: WebAssembly execution runtime for edge devices in the Propeller system
+description: "Propeller's Proplet is the Rust-based edge runtime. It receives Wasm tasks from the Manager via MQTT, executes them inside a sandboxed Wasmtime runtime, and publishes results."
 ---
 
 The Proplet is Propeller's edge execution runtime. It receives task commands from the Manager over MQTT, fetches WebAssembly binaries, executes them using an embedded or external Wasmtime runtime, and publishes results back over MQTT.
