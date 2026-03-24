@@ -8,16 +8,18 @@ import {
   Youtube,
 } from "lucide-react";
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/json-ld";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { organizationSchema } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
   title: "About Abstract Machines — Propeller WebAssembly Orchestrator",
   description:
-    "Abstract Machines is the Paris-based team behind Propeller, an open-source WebAssembly orchestrator for Cloud-Edge computing. EU Horizon Europe funded. Apache-2.0.",
+    "Abstract Machines is a Paris-based open-source engineering team building Propeller, a WebAssembly orchestration platform co-funded by EU Horizon Europe (Grant No. 101139067).",
   alternates: {
-    canonical: "/about",
+    canonical: "https://propeller.absmach.eu/about",
   },
 };
 
@@ -30,20 +32,36 @@ interface TeamMember {
 }
 
 const teamMembers: TeamMember[] = [
-  // {
-  //   name: "Alice Dupont",
-  //   role: "Co-founder & CEO",
-  //   github: "alicedupont",
-  //   bio: "Alice leads product strategy and research partnerships. Previously …",
-  //   linkedin: "alicedupont",
-  // },
-  // {
-  //   name: "Bob Martin",
-  //   role: "Lead Systems Engineer",
-  //   github: "bobmartin",
-  //   bio: "Bob designed Propeller's MQTT orchestration layer and the Rust Proplet runtime.",
-  // },
-  // Add your real team here ↑
+  {
+    name: "Drasko Draskovic",
+    role: "Founder, Abstract Machines",
+    github: "drasko",
+    bio: "Drasko founded Abstract Machines and initiated the Propeller project. He focuses on distributed systems architecture and Cloud-Edge orchestration research, coordinating the EU ELASTIC project collaboration from Paris.",
+  },
+  {
+    name: "Rodney Osodo",
+    role: "Software Engineer",
+    github: "rodneyosodo",
+    bio: "Rodney is the primary contributor to Propeller's Go-based manager and CI infrastructure. He works on the orchestration engine, API layer, and SuperMQ integration from Nairobi.",
+  },
+  {
+    name: "Jeff Mboya",
+    role: "Embedded Systems Engineer",
+    github: "JeffMboya",
+    bio: "Jeff brings Mechatronic Engineering expertise to Propeller's edge runtime. He works on the Rust-based Proplet agent, Zephyr RTOS integration, and constrained-device deployment pipelines.",
+  },
+  {
+    name: "Steve Munene",
+    role: "Systems Engineer",
+    github: "nyagamunene",
+    bio: "Steve contributes to Propeller's core systems and Wasm execution layer, with a background in Mechatronics and embedded systems development.",
+  },
+  {
+    name: "Dušan Borovčanin",
+    role: "Software Engineer",
+    github: "dborovcanin",
+    bio: "Dušan contributes to Propeller's backend infrastructure and distributed systems components, bringing experience from open-source systems engineering.",
+  },
 ];
 
 const researchPartners = [
@@ -88,6 +106,7 @@ const values = [
 export default function AboutPage() {
   return (
     <div className="w-full py-12 sm:py-20 lg:py-28 space-y-20">
+      <JsonLd data={organizationSchema()} />
       <section className="container mx-auto px-4 sm:px-6 max-w-4xl">
         <div className="flex flex-col gap-6 items-start">
           <Badge variant="outline">About Abstract Machines</Badge>
