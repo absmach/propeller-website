@@ -12,12 +12,10 @@ import { notFound } from "next/navigation";
 import { DocAttribution } from "@/components/doc-attribution";
 import { LLMCopyButton, ViewOptions } from "@/components/page-actions";
 import { resolveAuthors } from "@/lib/authors";
+import { SITE_URL } from "@/lib/geo-constants";
 import { getPageImage, source } from "@/lib/source";
 import { breadcrumbListSchema, techArticleSchema } from "@/lib/structured-data";
 import { getMDXComponents } from "@/mdx-components";
-
-const BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL || "https://propeller.absmach.eu";
 
 function resolvePageLastModified(
   frontmatterDate: string | undefined,
@@ -82,7 +80,8 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
 
   const MDX = page.data.body;
   const authors = resolveAuthors(page.data.authors);
-  const pageUrl = `${BASE_URL}${page.url}`;
+  const pageUrl = `${SITE_URL}${page.url}`;
+  const pageImage = `${SITE_URL}${getPageImage(page).url}`;
   const contentPath = join(process.cwd(), "content", page.path);
   const lastModified = resolvePageLastModified(
     page.data.lastModified,
@@ -100,6 +99,7 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
               title: page.data.title,
               description: page.data.description,
               url: pageUrl,
+              image: pageImage,
               datePublished,
               dateModified: lastModified,
             }),
@@ -150,7 +150,7 @@ export async function generateMetadata(
     title: page.data.title,
     description: page.data.description,
     alternates: {
-      canonical: `${BASE_URL}${page.url}`,
+      canonical: `${SITE_URL}${page.url}`,
     },
     ...(THIN_API_PAGES.has(page.url) && {
       robots: { index: false, follow: true },

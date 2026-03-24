@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/geo-constants";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL || "https://propeller.absmach.eu";
+const BASE_URL = SITE_URL;
 
 export const dynamic = "force-static";
 

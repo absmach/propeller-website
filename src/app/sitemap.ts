@@ -1,10 +1,10 @@
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/geo-constants";
 import { source } from "@/lib/source";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL || "https://propeller.absmach.eu";
+const BASE_URL = SITE_URL;
 
 export const dynamic = "force-static";
 
@@ -26,13 +26,13 @@ function gitLastModified(filePath: string): Date | null {
 function resolveLastModified(page: {
   data: { lastModified?: string };
   path: string;
-}): Date {
+}): Date | undefined {
   if (page.data.lastModified) {
     const d = new Date(page.data.lastModified);
     if (!Number.isNaN(d.getTime())) return d;
   }
   return (
-    gitLastModified(join(process.cwd(), "content", page.path)) ?? new Date()
+    gitLastModified(join(process.cwd(), "content", page.path)) ?? undefined
   );
 }
 
@@ -80,22 +80,23 @@ const EXCLUDED_PATHS = new Set([
 export default function sitemap(): MetadataRoute.Sitemap {
   const entries: MetadataRoute.Sitemap = [];
 
+  const homepageMod = gitLastModified(
+    join(process.cwd(), "src/app/(home)/page.tsx"),
+  );
+  const aboutMod = gitLastModified(
+    join(process.cwd(), "src/app/(home)/about/page.tsx"),
+  );
+
   entries.push(
     {
       url: BASE_URL,
-      lastModified: (
-        gitLastModified(join(process.cwd(), "src/app/(home)/page.tsx")) ??
-        new Date()
-      ).toISOString(),
+      ...(homepageMod && { lastModified: homepageMod.toISOString() }),
       changeFrequency: "daily",
       priority: 1,
     },
     {
       url: `${BASE_URL}/about`,
-      lastModified: (
-        gitLastModified(join(process.cwd(), "src/app/(home)/about/page.tsx")) ??
-        new Date()
-      ).toISOString(),
+      ...(aboutMod && { lastModified: aboutMod.toISOString() }),
       changeFrequency: "monthly",
       priority: 0.7,
     },
@@ -104,9 +105,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   for (const page of source.getPages()) {
     if (EXCLUDED_PATHS.has(page.url)) continue;
 
+    const lastMod = resolveLastModified(page);
     entries.push({
       url: `${BASE_URL}${page.url}`,
-      lastModified: resolveLastModified(page).toISOString(),
+      ...(lastMod && { lastModified: lastMod.toISOString() }),
       changeFrequency: deriveChangeFreq(page.slugs),
       priority: derivePriority(page.slugs),
     });

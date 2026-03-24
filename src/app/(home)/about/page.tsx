@@ -12,6 +12,7 @@ import { JsonLd } from "@/components/json-ld";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { SITE_URL } from "@/lib/geo-constants";
 import { organizationSchema } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
   description:
     "Abstract Machines is a Paris-based open-source engineering team building Propeller, a WebAssembly orchestration platform co-funded by EU Horizon Europe (Grant No. 101139067).",
   alternates: {
-    canonical: "https://propeller.absmach.eu/about",
+    canonical: `${SITE_URL}/about`,
   },
 };
 
