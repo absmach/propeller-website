@@ -1,0 +1,64 @@
+---
+title: Changelog
+description: "Propeller release history and changelog. Track new features, breaking changes, and bug fixes across all versions of the WebAssembly orchestrator."
+---
+
+Release notes for Propeller by Abstract Machines. Full release artifacts and tagged source code are available on [GitHub Releases](https://github.com/absmach/propeller/releases).
+
+## Unreleased
+
+- WASI-NN backend support for TensorFlow Lite and OpenVINO inference engines
+- Federated learning round scheduling improvements
+- Embedded Proplet OTA firmware update mechanism via MQTT
+
+## v0.3.0
+
+**Manager**
+- DAG-based workflow execution engine with configurable fail-fast semantics
+- Parallel and sequential job execution modes
+- REST API for workflow lifecycle management (`POST /workflows`)
+
+**Proplet**
+- Wasmtime upgrade to latest stable release
+- Improved MQTT reconnection backoff with jitter
+- Task result streaming via chunked MQTT payloads
+
+**Embedded Proplet**
+- WAMR AOT compilation support for ESP32-S3
+- Reduced flash footprint by 18% through unused WASI module pruning
+
+## v0.2.0
+
+**Manager**
+- Federated learning experiment API (`/api/federated-ml/*`)
+- FedAvg aggregation server with configurable round size
+- Prometheus metrics endpoint (`/metrics`)
+
+**Proplet**
+- TEE workload support: Intel TDX, AMD SEV-SNP, Intel SGX via Gramine
+- OCI registry pull-through caching via Proxy service
+- WASI-NN initial implementation (OpenVINO backend)
+
+**Proxy**
+- New standalone Proxy service for OCI registry distribution over MQTT
+- Chunked binary transfer with SHA-256 integrity verification
+
+## v0.1.0
+
+Initial public release.
+
+**Manager**
+- Task CRUD API (`/tasks`)
+- Job CRUD API (`/jobs`)
+- Proplet registration and health tracking
+- MQTT-based task dispatch via SuperMQ
+
+**Proplet**
+- Wasmtime-based task execution
+- WASI preview1 host function support
+- MQTT task subscription and result reporting
+
+**Embedded Proplet**
+- WAMR interpreter mode on Zephyr RTOS
+- ESP32-S3 reference target
+- Minimal WASI subset (args, env, clock, fd_write)
