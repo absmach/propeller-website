@@ -21,10 +21,8 @@ const ogTitle = "Propeller — WebAssembly Orchestrator for Cloud-Edge";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
-  // Explicit canonical for the homepage.
-  // Next.js combines metadataBase + alternates.canonical to produce the full URL.
   alternates: {
-    canonical: "/",
+    canonical: `${baseUrl}/`,
   },
   title: siteTitle,
   description: siteDescription,
@@ -64,9 +62,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    site: "@absmach",
+    creator: "@absmach",
     title: ogTitle,
     description: siteDescription,
-    site: "@absmach",
     images: [
       {
         url: `${baseUrl}/opengraph-image.jpg`,

@@ -30,23 +30,39 @@ export const AUTHORS: Record<string, Author> = {
     avatar: "/abstract-machines.svg",
   },
 
-  // ── Individual contributors (fill in real names) ───────────────────────────
-  // Example entries — replace with actual team members:
-  //
-  // "alice-dupont": {
-  //   id: "alice-dupont",
-  //   name: "Alice Dupont",
-  //   role: "Software Engineer",
-  //   github: "alicedupont",
-  //   url: "https://github.com/alicedupont",
-  // },
-  //
-  // "bob-martin": {
-  //   id: "bob-martin",
-  //   name: "Bob Martin",
-  //   role: "Embedded Systems Engineer",
-  //   github: "bobmartin",
-  // },
+  // ── Individual contributors ────────────────────────────────────────────────
+  drasko: {
+    id: "drasko",
+    name: "Drasko Draskovic",
+    role: "Founder, Abstract Machines",
+    github: "drasko",
+    url: "https://absmach.eu",
+  },
+  rodneyosodo: {
+    id: "rodneyosodo",
+    name: "Rodney Osodo",
+    role: "Software Engineer",
+    github: "rodneyosodo",
+    url: "https://rodneyosodo.com",
+  },
+  jeffmboya: {
+    id: "jeffmboya",
+    name: "Jeff Mboya",
+    role: "Embedded Systems Engineer",
+    github: "JeffMboya",
+  },
+  nyagamunene: {
+    id: "nyagamunene",
+    name: "Steve Munene",
+    role: "Systems Engineer",
+    github: "nyagamunene",
+  },
+  dborovcanin: {
+    id: "dborovcanin",
+    name: "Dušan Borovčanin",
+    role: "Software Engineer",
+    github: "dborovcanin",
+  },
 };
 
 /** Returns authors for a page, falling back to the org author if none match. */

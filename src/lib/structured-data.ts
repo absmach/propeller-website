@@ -5,8 +5,8 @@ import {
   GRANT_NUMBER,
   GRANT_PROGRAMME,
   LINKEDIN_URL,
+  ORG_GITHUB,
   ORG_NAME,
-  PRODUCT_DESCRIPTION,
   SHORT_NAME,
   WIKIDATA_URL,
   YOUTUBE_URL,
@@ -17,10 +17,10 @@ const BASE_URL =
 
 export function organizationSchema() {
   const sameAs = [
-    `https://github.com/${ORG_NAME.toLowerCase().replace(" ", "")}`,
+    `https://github.com/${ORG_GITHUB}`,
     LINKEDIN_URL,
     YOUTUBE_URL,
-    `https://twitter.com/absmach`,
+    `https://twitter.com/${ORG_GITHUB}`,
     CORDIS_URL,
     ...(WIKIDATA_URL ? [WIKIDATA_URL] : []),
   ];
@@ -33,10 +33,18 @@ export function organizationSchema() {
     url: BASE_URL,
     logo: {
       "@type": "ImageObject",
-      url: `${BASE_URL}/opengraph-image.jpg`,
-      width: 1200,
-      height: 630,
+      url: `${BASE_URL}/named-logo-black.svg`,
+      width: 160,
+      height: 40,
     },
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "141 Quai de Valmy",
+      addressLocality: "Paris",
+      postalCode: "75010",
+      addressCountry: "FR",
+    },
+    email: "info@absmach.eu",
     sameAs,
     description: `${ORG_NAME} builds open-source WebAssembly orchestration infrastructure for Cloud-Edge computing. Co-funded by the ${GRANT_PROGRAMME} under the ELASTIC project (Grant No. ${GRANT_NUMBER}).`,
     contactPoint: {
@@ -61,14 +69,13 @@ export function softwareApplicationSchema() {
     "@type": "SoftwareApplication",
     name: FULL_NAME,
     alternateName: [SHORT_NAME, "Propeller WebAssembly Orchestrator"],
-    // disambiguatingDescription helps AI engines distinguish this software
-    // from mechanical propellers, the Parallax Propeller MCU chip, etc.
     disambiguatingDescription: `${FULL_NAME} is a software orchestration platform for WebAssembly workloads — not a mechanical propeller, marine propeller, or the Parallax Propeller microcontroller chip.`,
     applicationCategory: "DeveloperApplication",
     applicationSubCategory: "WebAssembly Orchestration",
     operatingSystem: "Linux, Kubernetes, Zephyr RTOS",
-    description: PRODUCT_DESCRIPTION,
-    url: BASE_URL,
+    description:
+      "Open-source WebAssembly orchestration platform for deploying Wasm workloads from cloud servers to microcontrollers.",
+    url: "https://propeller.absmach.eu",
     downloadUrl: GITHUB_URL,
     installUrl: `${BASE_URL}/docs/getting-started`,
     sameAs,
@@ -76,6 +83,7 @@ export function softwareApplicationSchema() {
       "@type": "Offer",
       price: "0",
       priceCurrency: "USD",
+      description: "Free and open-source under Apache 2.0",
       availability: "https://schema.org/InStock",
     },
     featureList: [
@@ -99,6 +107,7 @@ export function softwareApplicationSchema() {
       "@type": "Organization",
       name: ORG_NAME,
     },
+    license: "https://opensource.org/licenses/Apache-2.0",
     codeRepository: GITHUB_URL,
     isAccessibleForFree: true,
     programmingLanguage: ["Go", "Rust"],
@@ -208,10 +217,14 @@ export function techArticleSchema({
   title,
   description,
   url,
+  datePublished,
+  dateModified,
 }: {
   title: string;
   description?: string;
   url: string;
+  datePublished?: string;
+  dateModified?: string;
 }) {
   return {
     "@context": "https://schema.org",
@@ -221,6 +234,8 @@ export function techArticleSchema({
       description ??
       `${title} — technical documentation for Propeller by Abstract Machines.`,
     url,
+    ...(datePublished && { datePublished }),
+    ...(dateModified && { dateModified }),
     inLanguage: "en",
     publisher: {
       "@type": "Organization",
@@ -244,7 +259,6 @@ export function techArticleSchema({
   };
 }
 
-// slugs from page.slugs → Home > Docs > [segments...]
 export function breadcrumbListSchema(slugs: string[]) {
   const crumbs: { name: string; item: string }[] = [
     { name: "Home", item: BASE_URL },
