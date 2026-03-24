@@ -5,6 +5,7 @@
     "compute.mdx",
     "addition-base64.mdx",
     "addition-external-runtime.mdx",
+    "addition-component.mdx",
     "addition-embedded.mdx",
     "filesystem.mdx",
     "http-client.mdx",

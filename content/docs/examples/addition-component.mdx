@@ -1,0 +1,185 @@
+---
+title: Addition (WASM Component)
+description: Addition example using the WASM Component Model with an external wasmtime runtime
+---
+
+This example demonstrates running a **WASM Component Model** binary on propeller. Unlike the module mode example which passes arguments via `--invoke` CLI flags, component mode uses the `function_name` field and typed `inputs` — propeller encodes the arguments using [WAVE (WebAssembly Value Encoding)](https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasm-wave) and calls the exported function by name.
+
+This example requires the external wasmtime runtime. Set the `PROPLET_EXTERNAL_WASM_RUNTIME` environment variable before starting proplet:
+
+```bash
+export PROPLET_EXTERNAL_WASM_RUNTIME="/usr/local/bin/wasmtime"
+make start-proplet
+```
+
+The proplet logs should confirm the external runtime is in use:
+
+```bash
+INFO Using external Wasm runtime: /usr/local/bin/wasmtime
+```
+
+## Source Code
+
+The source code is available in the [examples/add-component](https://github.com/absmach/propeller/blob/main/examples/add-component) directory.
+
+The WIT interface defines a single exported function:
+
+<CodeFromSource
+  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/add-component/wit/world.wit"
+  lang="wit"
+/>
+
+The Rust implementation:
+
+<CodeFromSource
+  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/add-component/src/lib.rs"
+  lang="rust"
+/>
+
+## Build the Component
+
+You need the following tools installed:
+
+- [Rust](https://rustup.rs/) with the `wasm32-wasip1` target
+- [wasm-tools](https://github.com/bytecodealliance/wasm-tools) (v0.200 or later) to componentize the binary
+- [cargo-component](https://github.com/bytecodealliance/cargo-component) or `wit-component` CLI
+
+```bash
+cd propeller/examples/add-component
+cargo build --target wasm32-wasip1 --release
+wasm-tools component new target/wasm32-wasip1/release/add_component.wasm -o add_component.wasm
+```
+
+Your output should look like this:
+
+```bash
+   Compiling add-component v0.1.0
+    Finished release [optimized] target(s) in 2.3s
+```
+
+## Create Task
+
+Create a task using the `function_name` field to specify the exported component function. The `inputs` array contains the typed arguments that will be WAVE-encoded and passed to the function:
+
+```bash
+curl -X POST "http://localhost:7070/tasks" -H "Content-Type: application/json" -d '{"name": "add-component", "function_name": "add", "inputs": ["1", "2"]}'
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "add-component",
+  "kind": "standard",
+  "state": 0,
+  "function_name": "add",
+  "inputs": ["1", "2"],
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-24T10:00:00.000000000Z",
+  "updated_at": "0001-01-01T00:00:00Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+## Upload Wasm
+
+Upload the component binary using the task ID from the previous step:
+
+```bash
+curl -X PUT "http://localhost:7070/tasks/a1b2c3d4-e5f6-7890-abcd-ef1234567890/upload" -F "file=@add_component.wasm"
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "add-component",
+  "kind": "standard",
+  "state": 0,
+  "file": "...<redacted>...",
+  "function_name": "add",
+  "inputs": ["1", "2"],
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-24T10:00:00.000000000Z",
+  "updated_at": "2026-03-24T10:01:00.000000000Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+## Start Task
+
+```bash
+curl -X POST "http://localhost:7070/tasks/a1b2c3d4-e5f6-7890-abcd-ef1234567890/start"
+```
+
+Your output should look like this:
+
+```json
+{ "started": true }
+```
+
+## Get Results
+
+```bash
+curl -X GET "http://localhost:7070/tasks/a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "add-component",
+  "kind": "standard",
+  "state": 3,
+  "file": "...<redacted>...",
+  "function_name": "add",
+  "inputs": ["1", "2"],
+  "daemon": false,
+  "encrypted": false,
+  "proplet_id": "9f428638-d8f4-4fe4-9249-4b3dcdb59f14",
+  "results": "3\n",
+  "start_time": "2026-03-24T10:02:00.000000000Z",
+  "finish_time": "2026-03-24T10:02:01.000000000Z",
+  "created_at": "2026-03-24T10:00:00.000000000Z",
+  "updated_at": "2026-03-24T10:02:01.000000000Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+State `3` means the task completed successfully. The `results` field shows `"3\n"` — the return value of `add(1, 2)`.
+
+## How It Differs from Module Mode
+
+| | Module mode | Component mode |
+|---|---|---|
+| Binary format | Core WASM module | WASM Component Model |
+| Function invocation | `cli_args: ["--invoke", "add"]` + `inputs: [10, 20]` | `function_name: "add"` + `inputs: ["1", "2"]` |
+| Argument encoding | Passed as CLI positional args | WAVE-encoded typed values |
+| WIT interface | Not required | Required |
+| Build tooling | tinygo / emcc | cargo-component / wasm-tools |
+
+## Invoking Directly with wasmtime
+
+You can also test the component binary directly without propeller:
+
+```bash
+wasmtime run --invoke "add(1, 2)" add_component.wasm
+```
+
+Your output should look like this:
+
+```bash
+3
+```
