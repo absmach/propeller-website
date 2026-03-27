@@ -73,7 +73,90 @@ To build Propeller for other platforms, use the following:
 | Windows | amd64        | `GOOS=windows GOARCH=amd64 make all` |
 | Darwin  | amd64        | `GOOS=darwin GOARCH=amd64 make all`  |
 
-### Building an individual service
+#### Cross-compiling
+
+To cross-compile for other architectures on your local machine, you need to install the appropriate cross-compilation toolchain.
+
+##### Installing Cross-compilation Toolchains
+
+On Debian/Ubuntu, install the required toolchains:
+
+```bash
+# For ARM64 (aarch64)
+sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+
+# For RISC-V 64-bit
+sudo apt-get install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross
+
+# For ARMv7 (32-bit)
+sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
+```
+
+On macOS with Homebrew:
+
+```bash
+# For ARM64
+brew install aarch64-unknown-linux-gnu
+
+# For RISC-V
+brew install riscv64-unknown-linux-gnu
+```
+
+##### Building for ARM on Linux
+
+Once the toolchains are installed, you can cross-compile:
+
+```bash
+# Build for ARM64
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 make all
+
+# Build for RISC-V 64-bit
+GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 make all
+
+# Build for ARMv7 (32-bit ARM)
+GOOS=linux GOARCH=arm CGO_ENABLED=0 make all
+```
+
+##### Building Proplet (Rust) for ARM
+
+For the Rust-based proplet, use the following:
+
+```bash
+# Install the target
+rustup target add aarch64-unknown-linux-gnu
+
+# Set the linker for cross-compilation
+export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+
+# Build
+cd proplet
+cargo build --release --target aarch64-unknown-linux-gnu
+```
+
+For RISC-V:
+
+```bash
+rustup target add riscv64gc-unknown-linux-gnu
+export CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc
+cd proplet
+cargo build --release --target riscv64gc-unknown-linux-gnu
+```
+
+##### Building for ARM on macOS
+
+Building for ARM on macOS (Apple Silicon) is straightforward since the native compiler supports ARM64:
+
+```bash
+# ARM64 (native)
+GOOS=darwin GOARCH=arm64 make all
+
+# x86_64 (Intel macs)
+GOOS=darwin GOARCH=amd64 make all
+```
+
+Note: Cross-compiling from Intel macOS to ARM64 requires macOS SDK and is not directly supported. Consider using GitHub Actions for cross-platform builds.
+
+#### Building an individual service
 
 You can build individual services using the following:
 
