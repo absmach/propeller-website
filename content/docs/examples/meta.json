@@ -6,7 +6,7 @@
     "addition-base64.mdx",
     "addition-external-runtime.mdx",
     "addition-component.mdx",
-    "greet-component.mdx",
+    "string-input.mdx",
     "addition-embedded.mdx",
     "filesystem.mdx",
     "http-client.mdx",
