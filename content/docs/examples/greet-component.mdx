@@ -57,7 +57,12 @@ Your output should look like this:
 
 ## Create Task
 
-String inputs are passed as WAVE-encoded values. A string must be quoted inside the JSON string, i.e. `"\"John Doe\""`:
+String inputs are passed as [WAVE](https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasm-wave)-encoded values (WebAssembly Value Encoding). This means there are two layers of quoting:
+
+1. **Outer quotes** — JSON string syntax (every element in the `inputs` array is a JSON string)
+2. **Inner escaped quotes `\"`** — WAVE format, which requires explicit quotes to identify a value as a string (as opposed to an identifier, tuple, or enum variant)
+
+For example, the JSON value `"\"John Doe\""` contains the WAVE string `"John Doe"`, which is then passed to the WASM function.
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
