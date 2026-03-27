@@ -263,3 +263,70 @@ SuperMQ can be stopped using the following:
 ```bash
 make stop-supermq
 ```
+
+## CI/CD
+
+### GitHub Actions Workflows
+
+Propeller uses GitHub Actions for continuous integration and deployment. The main workflows are located in `.github/workflows/`.
+
+#### Build Workflow (`build.yml`)
+
+The build workflow builds all Propeller services for multiple platforms:
+
+- **Go services** (manager, cli, proxy): Built for linux/amd64, linux/arm64, linux/riscv64
+- **Proplet** (Rust): Built for linux/amd64, linux/arm64, linux/riscv64
+
+##### Go Services Build
+
+The Go services are built using the following matrix:
+
+| OS    | Architecture | Service |
+| ----- | ------------ | ------- |
+| linux | amd64        | manager |
+| linux | arm64        | manager |
+| linux | riscv64      | manager |
+| linux | amd64        | cli     |
+| linux | arm64        | cli     |
+| linux | riscv64      | cli     |
+| linux | amd64        | proxy   |
+| linux | arm64        | proxy   |
+| linux | riscv64      | proxy   |
+
+The build uses `CGO_ENABLED=0` for static binaries and cross-compiles using GCC cross-compilers installed via apt.
+
+##### Proplet (Rust) Build
+
+The proplet is built using Cargo with the following targets:
+
+| Architecture | Rust Target                 |
+| ------------ | --------------------------- |
+| amd64        | x86_64-unknown-linux-gnu    |
+| arm64        | aarch64-unknown-linux-gnu   |
+| riscv64      | riscv64gc-unknown-linux-gnu |
+
+Cross-compilation for arm64 and riscv64 requires installing the appropriate GCC cross-compilers:
+
+```bash
+# For arm64
+sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+
+# For riscv64
+sudo apt-get install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross
+```
+
+The linker is set via environment variables:
+
+```bash
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc
+```
+
+##### Platform Limitations
+
+- **macOS/Windows builds**: Not supported in CI because:
+  - `loopdev` crate (from guest-components) requires Linux kernel headers (`linux/loop.h`)
+  - Cannot cross-compile from Linux to macOS/Windows due to platform-specific dependencies
+
+- **FreeBSD/NetBSD/OpenBSD**: Not supported because:
+  - Cannot cross-compile from Linux due to `aws-lc-sys` using different pthreads API
