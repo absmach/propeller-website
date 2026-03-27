@@ -187,9 +187,9 @@ State `3` means the task completed successfully. The `results` field shows `"\"H
 
 WAVE (WebAssembly Value Encoding) is used to pass typed values to component exports. For strings, the value must be quoted within the JSON string:
 
-| Wasm type | JSON input value | Decoded WAVE value |
-|---|---|---|
-| `string` | `"\"John Doe\""` | `"John Doe"` |
-| `s32` | `"42"` | `42` |
-| `f32` | `"3.14"` | `3.14` |
-| `bool` | `"true"` | `true` |
+| Wasm type | JSON input value   | Decoded WAVE value |
+| --------- | ------------------ | ------------------ |
+| `string`  | `"\"John Doe\""` | `"John Doe"`       |
+| `s32`     | `"42"`             | `42`               |
+| `f32`     | `"3.14"`           | `3.14`             |
+| `bool`    | `"true"`           | `true`             |
