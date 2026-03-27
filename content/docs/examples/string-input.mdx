@@ -1,6 +1,6 @@
 ---
-title: Greet (WASM Component)
-description: String input example using the WASM Component Model — pass a name, get a greeting back
+title: String Input (WASM Component)
+description: Pass a string to a WASM Component Model export and get a greeting back
 ---
 
 This example demonstrates passing a **string input** to a WASM Component Model export via propeller. The component takes a name and returns a personalised greeting.
@@ -34,13 +34,6 @@ cd propeller/examples/greet-component
 cargo build --target wasm32-wasip2 --release
 ```
 
-Your output should look like this:
-
-```bash
-   Compiling greet-component v0.1.0
-    Finished `release` profile [optimized] target(s) in 1m 32s
-```
-
 ## Invoking Directly with wasmtime
 
 You can test the component binary directly without propeller:
@@ -49,7 +42,7 @@ You can test the component binary directly without propeller:
 wasmtime run --invoke 'greet("John Doe")' target/wasm32-wasip2/release/greet_component.wasm
 ```
 
-Your output should look like this:
+Output:
 
 ```bash
 "Hello, John Doe!"
@@ -57,12 +50,7 @@ Your output should look like this:
 
 ## Create Task
 
-String inputs are passed as [WAVE](https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasm-wave)-encoded values (WebAssembly Value Encoding). This means there are two layers of quoting:
-
-1. **Outer quotes** — JSON string syntax (every element in the `inputs` array is a JSON string)
-2. **Inner escaped quotes `\"`** — WAVE format, which requires explicit quotes to identify a value as a string (as opposed to an identifier, tuple, or enum variant)
-
-For example, the JSON value `"\"John Doe\""` contains the WAVE string `"John Doe"`, which is then passed to the WASM function.
+String inputs require [WAVE encoding](#wave-encoding-for-string-inputs) — see below for details.
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
@@ -185,11 +173,16 @@ State `3` means the task completed successfully. The `results` field shows `"\"H
 
 ## WAVE Encoding for String Inputs
 
-WAVE (WebAssembly Value Encoding) is used to pass typed values to component exports. For strings, the value must be quoted within the JSON string:
+[WAVE](https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasm-wave) (WebAssembly Value Encoding) is used to pass typed values to component exports. This means there are two layers of quoting:
+
+1. **Outer quotes** — JSON string syntax (every element in the `inputs` array is a JSON string)
+2. **Inner escaped quotes `\"`** — WAVE format, which requires explicit quotes to identify a value as a string (as opposed to an identifier, tuple, or enum variant)
+
+For example, the JSON value `"\"John Doe\""` contains the WAVE string `"John Doe"`, which is then passed to the WASM function.
 
 | Wasm type | JSON input value   | Decoded WAVE value |
 | --------- | ------------------ | ------------------ |
-| `string`  | `"\"John Doe\""` | `"John Doe"`       |
+| `string`  | `"\"John Doe\""`   | `"John Doe"`       |
 | `s32`     | `"42"`             | `42`               |
 | `f32`     | `"3.14"`           | `3.14`             |
 | `bool`    | `"true"`           | `true`             |
