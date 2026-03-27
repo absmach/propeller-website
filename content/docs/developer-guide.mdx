@@ -26,6 +26,34 @@ To build Propeller, you will need the following:
 - [Wasmtime](https://wasmtime.dev/)
 - [TinyGo](https://tinygo.org/getting-started/install/)
 
+### Downloading Pre-built Binaries
+
+Instead of building from source, you can download pre-built binaries from the [GitHub Releases](https://github.com/absmach/propeller/releases) page.
+
+#### Docker Images
+
+Propeller provides pre-built Docker images via GitHub Container Registry:
+
+```bash
+# Pull all services
+docker pull ghcr.io/absmach/propeller/manager:latest
+docker pull ghcr.io/absmach/propeller/cli:latest
+docker pull ghcr.io/absmach/propeller/proxy:latest
+docker pull ghcr.io/absmach/propeller/proplet:latest
+
+# For WASI-NN support (amd64 only)
+docker pull ghcr.io/absmach/propeller/proplet-wasi-nn:latest
+```
+
+#### GitHub Releases
+
+Binaries for all services are available in the GitHub Releases:
+
+- **Go services** (manager, cli, proxy): Available for linux/amd64, linux/arm64, linux/riscv64
+- **Proplet** (Rust): Available for linux/amd64, linux/arm64
+
+Download the appropriate binary for your platform from the [releases page](https://github.com/absmach/propeller/releases).
+
 ### Building
 
 Use the GNU Make tool to build all Propeller services:

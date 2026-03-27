@@ -15,7 +15,50 @@ Before proceeding, install the following prerequisites:
 
 > **Note:** `rustup` will install the Rust toolchain and `cargo`. You will also use it to add WebAssembly targets.
 
-## Clone the repository
+## Download Pre-built Binaries
+
+You can download pre-built binaries from the [GitHub Releases](https://github.com/absmach/propeller/releases) page.
+
+### Docker Images
+
+Propeller also provides pre-built Docker images via GitHub Container Registry:
+
+| Service           | Image                                              |
+| ----------------- | -------------------------------------------------- |
+| Manager           | `ghcr.io/absmach/propeller/manager:latest`         |
+| CLI               | `ghcr.io/absmach/propeller/cli:latest`             |
+| Proxy             | `ghcr.io/absmach/propeller/proxy:latest`           |
+| Proplet           | `ghcr.io/absmach/propeller/proplet:latest`         |
+| Proplet (WASI-NN) | `ghcr.io/absmach/propeller/proplet-wasi-nn:latest` |
+
+To pull the latest images:
+
+```bash
+docker pull ghcr.io/absmach/propeller/manager:latest
+docker pull ghcr.io/absmach/propeller/cli:latest
+docker pull ghcr.io/absmach/propeller/proxy:latest
+docker pull ghcr.io/absmach/propeller/proplet:latest
+```
+
+For WASI-NN (OpenVINO) support:
+
+```bash
+docker pull ghcr.io/absmach/propeller/proplet-wasi-nn:latest
+```
+
+> **Note:** The WASI-NN image is only available for `linux/amd64` architecture due to OpenVINO limitations.
+
+### Multi-Architecture Support
+
+Docker images are built for multiple architectures:
+
+| Architecture | manager | cli | proxy | proplet | proplet-wasinn |
+| ------------ | ------- | --- | ----- | ------- | -------------- |
+| amd64        | ✓       | ✓   | ✓     | ✓       | ✓              |
+| arm64        | ✓       | ✓   | ✓     | ✓       | ✗              |
+| riscv64      | ✓       | ✓   | ✓     | ✗       | ✗              |
+
+## Build from Source
 
 Clone the repository:
 
