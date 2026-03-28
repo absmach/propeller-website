@@ -175,16 +175,24 @@ State `3` means the task completed successfully. The `results` field shows `"\"H
 
 ## WAVE Encoding for String Inputs
 
-[WAVE](https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasm-wave) (WebAssembly Value Encoding) is used to pass typed values to component exports. This means there are two layers of quoting:
+The proplet passes inputs to component exports using [WAVE](https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasm-wave) (WebAssembly Value Encoding). In WAVE, a `string` value must include its own surrounding quotes — `"John Doe"` — so the parser knows it is a string and not an identifier, enum variant, or other type.
 
-1. **Outer quotes** — JSON string syntax (every element in the `inputs` array is a JSON string)
-2. **Inner escaped quotes `\"`** — WAVE format, which requires explicit quotes to identify a value as a string (as opposed to an identifier, tuple, or enum variant)
+Because every element in the `inputs` JSON array is already a JSON string, you end up with two layers of quoting:
 
-For example, the JSON value `"\"John Doe\""` contains the WAVE string `"John Doe"`, which is then passed to the WASM function.
+1. **WAVE layer** — the value itself must be `"John Doe"` (with quotes) to be a valid WAVE string
+2. **JSON layer** — to embed that quoted value inside a JSON string, the inner quotes must be escaped: `\"John Doe\"`
 
-| Wasm type | JSON input value   | Decoded WAVE value |
-| --------- | ------------------ | ------------------ |
-| `string`  | `"\"John Doe\""`   | `"John Doe"`       |
-| `s32`     | `"42"`             | `42`               |
-| `f32`     | `"3.14"`           | `3.14`             |
-| `bool`    | `"true"`           | `true`             |
+The final JSON input for the string `John Doe` is therefore `"\"John Doe\""`.
+
+**What happens if you omit the inner quotes?**
+
+If you send `"John Doe"` instead of `"\"John Doe\""`, the WAVE parser receives `John Doe` with no surrounding quotes. It treats that as an identifier — not a string literal — and rejects it. The task will fail with a WAVE parse error before the component is even called.
+
+| Wasm type | JSON input value   | WAVE value received by component |
+| --------- | ------------------ | -------------------------------- |
+| `string`  | `"\"John Doe\""`   | `"John Doe"`                     |
+| `s32`     | `"42"`             | `42`                             |
+| `f32`     | `"3.14"`           | `3.14`                           |
+| `bool`    | `"true"`           | `true`                           |
+
+Non-string types (`s32`, `f32`, `bool`) do not need inner quotes because their WAVE representations have no quoting requirement.
