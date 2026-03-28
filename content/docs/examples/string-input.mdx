@@ -50,6 +50,8 @@ Output:
 
 ## Create Task
 
+The task `name` must exactly match the exported function name in the WIT interface. The proplet uses the task name to look up and call the component export — if the names don't match, the task will fail.
+
 String inputs require [WAVE encoding](#wave-encoding-for-string-inputs) — see below for details.
 
 ```bash
