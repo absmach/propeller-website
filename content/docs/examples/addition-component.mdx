@@ -3,7 +3,9 @@ title: Addition (WASM Component)
 description: Addition example using the WASM Component Model with an external wasmtime runtime
 ---
 
-This example demonstrates running a **WASM Component Model** binary on propeller. Unlike the module mode example which passes arguments via `--invoke` CLI flags, component mode uses the `function_name` field and typed `inputs` — propeller encodes the arguments using [WAVE (WebAssembly Value Encoding)](https://github.com/bytecodealliance/wasm-tools/tree/main/crates/wasm-wave) and calls the exported function by name.
+This example demonstrates running a **WASM Component Model** binary on propeller. Unlike the module mode example which passes arguments via `--invoke` CLI flags, component mode uses WAVE-encoded `inputs` — the proplet calls the exported function by name, constructing the wasmtime invocation internally.
+
+The task `name` must exactly match the exported function name in the WIT interface. The proplet uses the task name to determine which component export to call. If they don't match, the proplet looks for a non-existent export and the task fails.
 
 This example requires the external wasmtime runtime. Set the `PROPLET_EXTERNAL_WASM_RUNTIME` environment variable before starting proplet:
 
@@ -79,12 +81,10 @@ The `wasm32-wasip2` target produces a WASM Component Model binary directly — n
 
 ## Create Task
 
-Create a task using the `function_name` field to specify the exported component function. The `inputs` array contains the arguments that will be WAVE-encoded and passed to the function.
-
-The `function_name` must exactly match the exported function name in the WIT interface. If they don't match, the proplet looks for a non-existent export and the task fails.
+The task `name` must exactly match the WIT export function name — the proplet uses it to construct the wasmtime invocation (`--invoke "add(1, 2)"`). The `inputs` array contains the arguments, WAVE-encoded as strings.
 
 ```bash
-curl -X POST "http://localhost:7070/tasks" -H "Content-Type: application/json" -d '{"name": "add-component", "function_name": "add", "inputs": ["1", "2"]}'
+curl -X POST "http://localhost:7070/tasks" -H "Content-Type: application/json" -d '{"name": "add", "inputs": ["1", "2"]}'
 ```
 
 Your output should look like this:
@@ -92,10 +92,9 @@ Your output should look like this:
 ```json
 {
     "id": "ab375ffe-05c4-4d26-8dd1-498108708f7d",
-    "name": "add-component",
+    "name": "add",
     "kind": "standard",
     "state": 0,
-    "function_name": "add",
     "cli_args": null,
     "inputs": [
         "1",
@@ -125,10 +124,9 @@ Your output should look like this:
 ```json
 {
     "id": "ab375ffe-05c4-4d26-8dd1-498108708f7d",
-    "name": "add-component",
+    "name": "add",
     "kind": "standard",
     "state": 0,
-    "function_name": "add",
     "file": "...<redacted>...",
     "cli_args": null,
     "inputs": [
@@ -183,10 +181,9 @@ Your output should look like this:
 ```json
 {
     "id": "ab375ffe-05c4-4d26-8dd1-498108708f7d",
-    "name": "add-component",
+    "name": "add",
     "kind": "standard",
     "state": 3,
-    "function_name": "add",
     "file": "...<redacted>...",
     "cli_args": null,
     "inputs": [
@@ -213,7 +210,7 @@ State `3` means the task completed successfully. The `results` field shows `"3\n
 | | Module mode | Component mode |
 |---|---|---|
 | Binary format | Core WASM module | WASM Component Model |
-| Function invocation | `cli_args: ["--invoke", "add"]` + `inputs: [10, 20]` | `function_name: "add"` + `inputs: ["1", "2"]` |
+| Function invocation | `cli_args: ["--invoke", "add"]` + `inputs: [10, 20]` | `name: "add"` + `inputs: ["1", "2"]` |
 | Argument encoding | Passed as CLI positional args | WAVE-encoded typed values |
 | WIT interface | Not required | Required |
 | Build target | `wasm32-wasip1` (tinygo / emcc) | `wasm32-wasip2` (cargo) |
