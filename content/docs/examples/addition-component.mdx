@@ -79,7 +79,9 @@ The `wasm32-wasip2` target produces a WASM Component Model binary directly — n
 
 ## Create Task
 
-Create a task using the `function_name` field to specify the exported component function. The `inputs` array contains the arguments that will be WAVE-encoded and passed to the function:
+Create a task using the `function_name` field to specify the exported component function. The `inputs` array contains the arguments that will be WAVE-encoded and passed to the function.
+
+The `function_name` must exactly match the exported function name in the WIT interface. If they don't match, the proplet looks for a non-existent export and the task fails.
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" -H "Content-Type: application/json" -d '{"name": "add-component", "function_name": "add", "inputs": ["1", "2"]}'
