@@ -23,9 +23,6 @@ const isNonProdBuild =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  alternates: {
-    canonical: `${SITE_URL}/`,
-  },
   ...(isNonProdBuild && { robots: { index: false, follow: false } }),
   title: siteTitle,
   description: siteDescription,
