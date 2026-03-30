@@ -64,22 +64,24 @@ The WASI-NN proplet requires a special Docker image that includes the OpenVINO i
 Edit `docker/.env` to use the WASI-NN proplet image:
 
 ```bash
-sed -i 's/PROPLET_IMAGE_TAG=.*/PROPLET_IMAGE_TAG="wasi-nn"/' docker/.env
+sed -i 's/PROPLET_IMAGE=.*/PROPLET_IMAGE="ghcr.io\/absmach\/propeller\/proplet-wasi-nn"/' docker/.env
+sed -i 's/PROPLET_IMAGE_TAG=.*/PROPLET_IMAGE_TAG="latest"/' docker/.env
 ```
 
-Verify the change:
+Verify the changes:
 
 ```bash
-grep PROPLET_IMAGE_TAG docker/.env
+grep "PROPLET_IMAGE" docker/.env
 ```
 
 Your output should look like this:
 
 ```
-PROPLET_IMAGE_TAG="wasi-nn"
+PROPLET_IMAGE="ghcr.io/absmach/propeller/proplet-wasi-nn"
+PROPLET_IMAGE_TAG="latest"
 ```
 
-This tells Docker Compose to pull `ghcr.io/absmach/propeller/proplet:wasi-nn` instead of the standard proplet image. The `wasi-nn` tag includes OpenVINO libraries and the wasmtime runtime configured with WASI-NN support.
+This tells Docker Compose to pull `ghcr.io/absmach/propeller/proplet-wasi-nn:latest` instead of the standard proplet image. The `proplet-wasi-nn` image includes OpenVINO libraries and the wasmtime runtime configured with WASI-NN support.
 
 ### Create Docker Compose Override
 
@@ -96,12 +98,14 @@ EOF
 ```
 
 **Why these settings matter:**
-- `platform: linux/amd64` — The `wasi-nn` image with OpenVINO only supports amd64 architecture. If you're on an ARM Mac (M1/M2/M3), Docker will emulate x86_64 via Rosetta.
+
+- `platform: linux/amd64` — The `proplet-wasi-nn` image with OpenVINO only supports amd64 architecture. If you're on an ARM Mac (M1/M2/M3), Docker will emulate x86_64 via Rosetta.
 - `volumes: ../fixture:/home/proplet/fixture:ro` — Mounts the local `fixture/` directory (containing model files) into the container at `/home/proplet/fixture` in read-only mode. The WASM code will read model files from this path.
 
 ## Step 3: Prepare Model Files
 
 The WASI-NN example requires three files in the `fixture/` directory:
+
 - `model.xml` — OpenVINO model definition (computational graph)
 - `model.bin` — Model weights (learned parameters)
 - `tensor.bgr` — Input tensor (the image to classify)
@@ -202,6 +206,7 @@ EOF
 ```
 
 This script creates a minimal neural network that:
+
 1. Takes a 224×224 RGB image as input
 2. Reduces spatial dimensions via mean pooling
 3. Applies a fully-connected layer to produce 1001 class scores
@@ -260,6 +265,7 @@ drwxrwxr-x 8 user user   4096 Mar  2 07:30 ..
 ```
 
 **File breakdown:**
+
 - `model.xml` (~3.4 KB) — XML definition of the computational graph
 - `model.bin` (~16 KB) — Binary weights (3 × 1001 × 4 bytes = 12,012 bytes plus overhead)
 - `tensor.bgr` (602,112 bytes) — Input image tensor
@@ -359,6 +365,7 @@ Environment variables updated in docker/.env
 ```
 
 **What provisioning does:**
+
 1. Creates a SuperMQ user and domain for authentication
 2. Creates a channel for MQTT communication between components
 3. Generates unique client IDs and secret keys for manager, proplet, and proxy
@@ -472,6 +479,7 @@ Your output should look like this:
 ```
 
 **Understanding the response:**
+
 - `offset`, `limit`, `total` — Pagination fields for the proplet list
 - `id` — The proplet's UUID, matching the `PROPLET_CLIENT_ID` in docker/.env
 - `name` — The proplet's human-readable name
@@ -538,11 +546,7 @@ Your output should look like this:
   "name": "_start",
   "kind": "standard",
   "state": 0,
-  "cli_args": [
-    "-S",
-    "nn",
-    "--dir=/home/proplet/fixture::fixture"
-  ],
+  "cli_args": ["-S", "nn", "--dir=/home/proplet/fixture::fixture"],
   "daemon": false,
   "encrypted": false,
   "start_time": "0001-01-01T00:00:00Z",
@@ -555,6 +559,7 @@ Your output should look like this:
 ```
 
 **Understanding the response fields:**
+
 - `id` — Unique task identifier (UUID) used for all subsequent operations
 - `name: "_start"` — The WASM function to invoke (must be `_start` for the entry point)
 - `state: 0` — Task state: 0=pending, 1=scheduled, 2=running, 3=completed, 4=failed, 5=skipped, 6=interrupted
@@ -562,6 +567,7 @@ Your output should look like this:
 - `created_at` — Timestamp when the task was created
 
 **Understanding the CLI arguments:**
+
 - `-S nn` — Enables WASI-NN support in wasmtime. Without this, WASI-NN host functions are unavailable and the WASM will trap.
 - `--dir=/home/proplet/fixture::fixture` — Directory mapping in format `host_path::guest_path`. This makes the container's `/home/proplet/fixture` directory available to the WASM code as `fixture/`. The WASM code reads `fixture/model.xml`, `fixture/model.bin`, and `fixture/tensor.bgr`.
 
@@ -594,6 +600,7 @@ Your output should look like this:
 ```
 
 **Understanding the response:**
+
 - `file_size: 145636` — The base64-encoded WASM file size (larger than the raw binary). The manager stores the WASM file and will distribute it to the proplet when the task starts.
 - `state: 0` — Still in "pending" state; upload doesn't change the state.
 
@@ -632,11 +639,7 @@ Your output should look like this:
   "name": "_start",
   "kind": "standard",
   "state": 3,
-  "cli_args": [
-    "-S",
-    "nn",
-    "--dir=/home/proplet/fixture::fixture"
-  ],
+  "cli_args": ["-S", "nn", "--dir=/home/proplet/fixture::fixture"],
   "daemon": false,
   "encrypted": false,
   "proplet_id": "c81fa4d7-8049-4c70-b432-51797aea8878",
@@ -652,13 +655,13 @@ Your output should look like this:
 
 **Understanding the response:**
 
-| Field         | Value              | Meaning                                                                                                           |
-| ------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Field         | Value              | Meaning                                                                                                          |
+| ------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `state`       | `3`                | Task completed successfully (0=pending, 1=scheduled, 2=running, 3=completed, 4=failed, 5=skipped, 6=interrupted) |
-| `proplet_id`  | UUID               | The proplet that executed the task                                                                                |
-| `start_time`  | ISO 8601 timestamp | When execution began                                                                                              |
-| `finish_time` | ISO 8601 timestamp | When execution completed                                                                                          |
-| `results`     | stdout from WASM   | The inference output                                                                                              |
+| `proplet_id`  | UUID               | The proplet that executed the task                                                                               |
+| `start_time`  | ISO 8601 timestamp | When execution began                                                                                             |
+| `finish_time` | ISO 8601 timestamp | When execution completed                                                                                         |
+| `results`     | stdout from WASM   | The inference output                                                                                             |
 
 **Understanding the inference results:**
 

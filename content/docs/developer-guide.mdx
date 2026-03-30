@@ -26,6 +26,34 @@ To build Propeller, you will need the following:
 - [Wasmtime](https://wasmtime.dev/)
 - [TinyGo](https://tinygo.org/getting-started/install/)
 
+### Downloading Pre-built Binaries
+
+Instead of building from source, you can download pre-built binaries from the [GitHub Releases](https://github.com/absmach/propeller/releases) page.
+
+#### Docker Images
+
+Propeller provides pre-built Docker images via GitHub Container Registry:
+
+```bash
+# Pull all services
+docker pull ghcr.io/absmach/propeller/manager:latest
+docker pull ghcr.io/absmach/propeller/cli:latest
+docker pull ghcr.io/absmach/propeller/proxy:latest
+docker pull ghcr.io/absmach/propeller/proplet:latest
+
+# For WASI-NN support (amd64 only)
+docker pull ghcr.io/absmach/propeller/proplet-wasi-nn:latest
+```
+
+#### GitHub Releases
+
+Binaries for all services are available in the GitHub Releases:
+
+- **Go services** (manager, cli, proxy): Available for linux/amd64, linux/arm64, linux/riscv64
+- **Proplet** (Rust): Available for linux/amd64, linux/arm64
+
+Download the appropriate binary for your platform from the [releases page](https://github.com/absmach/propeller/releases).
+
 ### Building
 
 Use the GNU Make tool to build all Propeller services:
@@ -45,7 +73,90 @@ To build Propeller for other platforms, use the following:
 | Windows | amd64        | `GOOS=windows GOARCH=amd64 make all` |
 | Darwin  | amd64        | `GOOS=darwin GOARCH=amd64 make all`  |
 
-### Building an individual service
+#### Cross-compiling
+
+To cross-compile for other architectures on your local machine, you need to install the appropriate cross-compilation toolchain.
+
+##### Installing Cross-compilation Toolchains
+
+On Debian/Ubuntu, install the required toolchains:
+
+```bash
+# For ARM64 (aarch64)
+sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+
+# For RISC-V 64-bit
+sudo apt-get install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross
+
+# For ARMv7 (32-bit)
+sudo apt-get install -y gcc-arm-linux-gnueabihf libc6-dev-armhf-cross
+```
+
+On macOS with Homebrew:
+
+```bash
+# For ARM64
+brew install aarch64-unknown-linux-gnu
+
+# For RISC-V
+brew install riscv64-unknown-linux-gnu
+```
+
+##### Building for ARM on Linux
+
+Once the toolchains are installed, you can cross-compile:
+
+```bash
+# Build for ARM64
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 make all
+
+# Build for RISC-V 64-bit
+GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 make all
+
+# Build for ARMv7 (32-bit ARM)
+GOOS=linux GOARCH=arm CGO_ENABLED=0 make all
+```
+
+##### Building Proplet (Rust) for ARM
+
+For the Rust-based proplet, use the following:
+
+```bash
+# Install the target
+rustup target add aarch64-unknown-linux-gnu
+
+# Set the linker for cross-compilation
+export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+
+# Build
+cd proplet
+cargo build --release --target aarch64-unknown-linux-gnu
+```
+
+For RISC-V:
+
+```bash
+rustup target add riscv64gc-unknown-linux-gnu
+export CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc
+cd proplet
+cargo build --release --target riscv64gc-unknown-linux-gnu
+```
+
+##### Building for ARM on macOS
+
+Building for ARM on macOS (Apple Silicon) is straightforward since the native compiler supports ARM64:
+
+```bash
+# ARM64 (native)
+GOOS=darwin GOARCH=arm64 make all
+
+# x86_64 (Intel macs)
+GOOS=darwin GOARCH=amd64 make all
+```
+
+Note: Cross-compiling from Intel macOS to ARM64 requires macOS SDK and is not directly supported. Consider using GitHub Actions for cross-platform builds.
+
+#### Building an individual service
 
 You can build individual services using the following:
 
@@ -235,3 +346,70 @@ SuperMQ can be stopped using the following:
 ```bash
 make stop-supermq
 ```
+
+## CI/CD
+
+### GitHub Actions Workflows
+
+Propeller uses GitHub Actions for continuous integration and deployment. The main workflows are located in `.github/workflows/`.
+
+#### Build Workflow (`build.yml`)
+
+The build workflow builds all Propeller services for multiple platforms:
+
+- **Go services** (manager, cli, proxy): Built for linux/amd64, linux/arm64, linux/riscv64
+- **Proplet** (Rust): Built for linux/amd64, linux/arm64, linux/riscv64
+
+##### Go Services Build
+
+The Go services are built using the following matrix:
+
+| OS    | Architecture | Service |
+| ----- | ------------ | ------- |
+| linux | amd64        | manager |
+| linux | arm64        | manager |
+| linux | riscv64      | manager |
+| linux | amd64        | cli     |
+| linux | arm64        | cli     |
+| linux | riscv64      | cli     |
+| linux | amd64        | proxy   |
+| linux | arm64        | proxy   |
+| linux | riscv64      | proxy   |
+
+The build uses `CGO_ENABLED=0` for static binaries and cross-compiles using GCC cross-compilers installed via apt.
+
+##### Proplet (Rust) Build
+
+The proplet is built using Cargo with the following targets:
+
+| Architecture | Rust Target                 |
+| ------------ | --------------------------- |
+| amd64        | x86_64-unknown-linux-gnu    |
+| arm64        | aarch64-unknown-linux-gnu   |
+| riscv64      | riscv64gc-unknown-linux-gnu |
+
+Cross-compilation for arm64 and riscv64 requires installing the appropriate GCC cross-compilers:
+
+```bash
+# For arm64
+sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+
+# For riscv64
+sudo apt-get install -y gcc-riscv64-linux-gnu libc6-dev-riscv64-cross
+```
+
+The linker is set via environment variables:
+
+```bash
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc
+```
+
+##### Platform Limitations
+
+- **macOS/Windows builds**: Not supported in CI because:
+  - `loopdev` crate (from guest-components) requires Linux kernel headers (`linux/loop.h`)
+  - Cannot cross-compile from Linux to macOS/Windows due to platform-specific dependencies
+
+- **FreeBSD/NetBSD/OpenBSD**: Not supported because:
+  - Cannot cross-compile from Linux due to `aws-lc-sys` using different pthreads API
