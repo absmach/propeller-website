@@ -12,7 +12,7 @@ for img in public/*.png public/*.jpg; do
     size_kb=$(du -k "$img" | cut -f1)
     if [ "$size_kb" -gt "$IMAGE_SIZE_LIMIT_KB" ]; then
         echo "ERROR: $img is ${size_kb}KB (limit ${IMAGE_SIZE_LIMIT_KB}KB) — convert to .webp."
-        echo "       Run: bun run optimize:images $img"
+        echo "       Run: pnpm run optimize:images $img"
         FAILED=1
     fi
 done
@@ -27,7 +27,7 @@ for vid in public/*.mp4; do
         bitrate_kbps=$((bitrate_kbps / 1000))
         if [ "$bitrate_kbps" -gt "$VIDEO_BITRATE_LIMIT_KBPS" ]; then
             echo "ERROR: $vid is ${size_kb}KB with bitrate ${bitrate_kbps}kbps (limit ${VIDEO_BITRATE_LIMIT_KBPS}kbps)."
-            echo "       Run: bun run optimize:videos $vid"
+            echo "       Run: pnpm run optimize:videos $vid"
             FAILED=1
         else
             echo "OK: $vid — ${bitrate_kbps}kbps"

@@ -15,12 +15,13 @@ Propeller Website is a documentation website built with [Next.js](https://nextjs
 
 ### Prerequisites
 
-- [Bun](https://bun.com/) (recommended) or Node.js
+- [Node.js](https://nodejs.org/) v20+
+- [pnpm](https://pnpm.io/) v9+
 
 ### Installation
 
 ```bash
-bun install
+pnpm install
 ```
 
 ### Development
@@ -28,7 +29,7 @@ bun install
 Run the development server:
 
 ```bash
-bun run dev
+pnpm run dev
 ```
 
 Open <http://localhost:3000> with your browser to see the result.
@@ -38,7 +39,7 @@ Open <http://localhost:3000> with your browser to see the result.
 Build the static site:
 
 ```bash
-bun run build
+pnpm run build
 ```
 
 The output will be generated in the `out` directory.
@@ -46,16 +47,16 @@ The output will be generated in the `out` directory.
 ### Preview Production Build
 
 ```bash
-bun run start
+pnpm run start
 ```
 
 ### Linting
 
 ```bash
-bun run lint
-bun run lint:fix  # Auto-fix issues
+pnpm run lint
+pnpm run lint:fix  # Auto-fix issues
 ```
 
 ## Deployment
 
-The site is configured for static export and can be deployed to GitHub Pages (via [`.github/workflows/cd.yml`](.github/workflows/cd.yml)) or any other static hosting provider.
+The site is configured for static export and can be deployed to GitHub Pages (via [`.github/workflows/cd.yaml`](.github/workflows/cd.yaml)) or any other static hosting provider.
