@@ -1,6 +1,6 @@
 ---
 title: Proxy Service
-description: Service for fetching and distributing WebAssembly modules from OCI registries
+description: "Propeller's Proxy fetches Wasm modules from OCI registries and distributes them to edge proplets over MQTT — centralising registry access without exposing credentials to devices."
 ---
 
 When you want to run WebAssembly modules stored in a container registry like Docker Hub, the Proxy handles everything between the registry and your edge devices. Instead of embedding binaries in your task definitions or manually uploading files, you simply reference an image URL, and the Proxy fetches, chunks, and delivers the module to whichever Proplet needs it.

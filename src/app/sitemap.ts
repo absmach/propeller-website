@@ -1,41 +1,118 @@
+import { execSync } from "node:child_process";
+import { join } from "node:path";
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/geo-constants";
 import { source } from "@/lib/source";
 
-const baseUrl =
-  process.env.NEXT_PUBLIC_BASE_URL || "https://propeller.absmach.eu";
+const BASE_URL = SITE_URL;
 
 export const dynamic = "force-static";
 
-function generateDocsSitemap(): MetadataRoute.Sitemap {
-  const pages = source.getPages();
-  const sitemap: MetadataRoute.Sitemap = [];
-
-  for (const page of pages) {
-    sitemap.push({
-      url: `${baseUrl}${page.url}`,
-      lastModified: new Date().toISOString(),
-      changeFrequency: "weekly",
-      priority: 0.7,
-    });
+function gitLastModified(filePath: string): Date | null {
+  try {
+    const iso = execSync(`git log -1 --format=%cI -- ${filePath}`, {
+      cwd: process.cwd(),
+    })
+      .toString()
+      .trim();
+    if (!iso) return null;
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
   }
-
-  return sitemap;
 }
 
+function resolveLastModified(page: {
+  data: { lastModified?: string };
+  path: string;
+}): Date | undefined {
+  if (page.data.lastModified) {
+    const d = new Date(page.data.lastModified);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return (
+    gitLastModified(join(process.cwd(), "content", page.path)) ?? undefined
+  );
+}
+
+function derivePriority(slugs: string[]): number {
+  switch (slugs.length) {
+    case 0:
+      return 0.9;
+    case 1:
+      return 0.8;
+    case 2:
+      return 0.65;
+    default:
+      return 0.45;
+  }
+}
+
+function deriveChangeFreq(
+  slugs: string[],
+): MetadataRoute.Sitemap[number]["changeFrequency"] {
+  if (slugs.length >= 3) return "monthly";
+  return "weekly";
+}
+
+const EXCLUDED_PATHS = new Set([
+  "/docs/test",
+  "/docs/api/health/get",
+  "/docs/api/metrics/get",
+  "/docs/api/proplets/get",
+  "/docs/api/proplets/proplet_id/get",
+  "/docs/api/proplets/proplet_id/delete",
+  "/docs/api/proplets/proplet_id/metrics/get",
+  "/docs/api/tasks/get",
+  "/docs/api/tasks/task_id/get",
+  "/docs/api/tasks/task_id/delete",
+  "/docs/api/tasks/task_id/start/post",
+  "/docs/api/tasks/task_id/stop/post",
+  "/docs/api/tasks/task_id/metrics/get",
+  "/docs/api/tasks/task_id/results/get",
+  "/docs/api/jobs/get",
+  "/docs/api/jobs/job_id/get",
+  "/docs/api/jobs/job_id/start/post",
+  "/docs/api/jobs/job_id/stop/post",
+]);
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
+  const entries: MetadataRoute.Sitemap = [];
+
+  const homepageMod = gitLastModified(
+    join(process.cwd(), "src/app/(home)/page.tsx"),
+  );
+  const aboutMod = gitLastModified(
+    join(process.cwd(), "src/app/(home)/about/page.tsx"),
+  );
+
+  entries.push(
     {
-      url: baseUrl,
-      lastModified: new Date().toISOString(),
+      url: BASE_URL,
+      ...(homepageMod && { lastModified: homepageMod.toISOString() }),
       changeFrequency: "daily",
       priority: 1,
     },
     {
-      url: `${baseUrl}/docs`,
-      lastModified: new Date().toISOString(),
-      changeFrequency: "weekly",
-      priority: 0.9,
+      url: `${BASE_URL}/about`,
+      ...(aboutMod && { lastModified: aboutMod.toISOString() }),
+      changeFrequency: "monthly",
+      priority: 0.7,
     },
-    ...generateDocsSitemap(),
-  ];
+  );
+
+  for (const page of source.getPages()) {
+    if (EXCLUDED_PATHS.has(page.url)) continue;
+
+    const lastMod = resolveLastModified(page);
+    entries.push({
+      url: `${BASE_URL}${page.url}`,
+      ...(lastMod && { lastModified: lastMod.toISOString() }),
+      changeFrequency: deriveChangeFreq(page.slugs),
+      priority: derivePriority(page.slugs),
+    });
+  }
+
+  return entries;
 }

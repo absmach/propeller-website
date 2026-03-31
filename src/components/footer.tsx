@@ -95,6 +95,9 @@ export default function FooterSection() {
             <h3 className="text-base sm:text-lg font-semibold">Company</h3>
             <ul className="[&_li_a]:text-muted-foreground [&_li_a]:hover:text-foreground space-y-2 [&_li_a]:block [&_li_a]:text-sm [&_li_a]:transition-colors [&_li_a]:hover:underline">
               <li>
+                <Link href="/about">About</Link>
+              </li>
+              <li>
                 <Link href="https://absmach.eu" target="_blank">
                   Abstract Machines
                 </Link>
