@@ -1,0 +1,139 @@
+---
+title: Attestation Test
+description: Attestation Test example
+---
+
+This is a simple example using the [Elastic HAL](https://github.com/elasticproject-eu/wasmhal) `elastic:attestation` interface, introduced in [PR #4](https://github.com/elasticproject-eu/wasmhal/pull/4). It demonstrates the intended nonce-based attestation API via the `elastic:attestation/hal` interface, calling `get-attestation` with a 16-byte nonce to request an attestation report from the underlying platform.
+
+> **Note:** The `elastic:attestation/hal` interface from PR #4 is not yet implemented in the proplet runtime. Running this example will fail at instantiation with an unknown import error. This example serves as a placeholder for when the interface lands.
+
+## Source Code
+
+The source code is available in the [examples/attestation-test](https://github.com/absmach/propeller/blob/main/examples/attestation-test/src/main.rs) directory.
+
+<CodeFromSource
+  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/attestation-test/src/main.rs"
+  lang="rust"
+/>
+
+## Build
+
+```bash
+cd propeller
+make attestation-test
+```
+
+Your output should look like this:
+
+```bash
+cd examples/attestation-test && cargo build --release
+    Finished `release` profile [optimized] target(s) in 0.01s
+cp examples/attestation-test/target/wasm32-wasip1/release/attestation-test.wasm build/attestation-test.wasm
+```
+
+## Create Task
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{"name": "attestation-test"}'
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "name": "attestation-test",
+  "kind": "standard",
+  "state": 0,
+  "cli_args": null,
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-19T10:00:00.000000000Z",
+  "updated_at": "0001-01-01T00:00:00Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+## Upload Wasm
+
+```bash
+curl -X PUT "http://localhost:7070/tasks/b2c3d4e5-f6a7-8901-bcde-f12345678901/upload" \
+-F "file=@$(pwd)/build/attestation-test.wasm"
+```
+
+Your output should look like this:
+
+```json
+{
+  "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "name": "attestation-test",
+  "kind": "standard",
+  "state": 0,
+  "file": "...<redacted>...",
+  "cli_args": null,
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "0001-01-01T00:00:00Z",
+  "finish_time": "0001-01-01T00:00:00Z",
+  "created_at": "2026-03-19T10:00:00.000000000Z",
+  "updated_at": "2026-03-19T10:01:00.000000000Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+## Start Task
+
+```bash
+curl -X POST "http://localhost:7070/tasks/b2c3d4e5-f6a7-8901-bcde-f12345678901/start"
+```
+
+Your output should look like this:
+
+```json
+{ "started": true }
+```
+
+Since `elastic:attestation/hal` is not yet implemented, the task will fail at instantiation. The proplet logs will show:
+
+```bash
+2026-03-19T10:02:00.100000Z  INFO Starting Wasmtime runtime app: task_id=b2c3d4e5-f6a7-8901-bcde-f12345678901, function=attestation-test, daemon=false, wasm_size=65536, is_component=false, is_proxy=false
+2026-03-19T10:02:00.100010Z  INFO Compiling WASM core module for task: b2c3d4e5-f6a7-8901-bcde-f12345678901
+2026-03-19T10:02:00.130000Z  INFO Module compiled successfully for task: b2c3d4e5-f6a7-8901-bcde-f12345678901
+2026-03-19T10:02:00.130010Z ERROR Task b2c3d4e5-f6a7-8901-bcde-f12345678901 failed with stderr: Error: failed to run main module `/tmp/proplet_b2c3d4e5-f6a7-8901-bcde-f12345678901.wasm`
+
+Caused by:
+    0: failed to instantiate "/tmp/proplet_b2c3d4e5-f6a7-8901-bcde-f12345678901.wasm"
+    1: unknown import: `elastic:attestation/hal::get-attestation` has not been defined
+```
+
+And the task will be in state 4 (failed):
+
+```bash
+curl -X GET "http://localhost:7070/tasks/b2c3d4e5-f6a7-8901-bcde-f12345678901"
+```
+
+```json
+{
+  "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "name": "attestation-test",
+  "kind": "standard",
+  "state": 4,
+  "cli_args": null,
+  "daemon": false,
+  "encrypted": false,
+  "start_time": "2026-03-19T10:02:00.000000000Z",
+  "finish_time": "2026-03-19T10:02:00.200000000Z",
+  "created_at": "2026-03-19T10:00:00.000000000Z",
+  "updated_at": "2026-03-19T10:02:00.200000000Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+This example will be updated once [wasmhal PR #4](https://github.com/elasticproject-eu/wasmhal/pull/4) is merged and the interface is implemented in the proplet runtime.
