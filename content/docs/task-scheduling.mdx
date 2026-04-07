@@ -524,7 +524,7 @@ Only proplets with recent heartbeats (within the liveliness threshold) are eligi
 
 ### Pinning to a Specific Proplet
 
-Override scheduling by specifying a proplet:
+Override scheduling by specifying a proplet. Only that proplet will execute the task; all others ignore it.
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
@@ -535,6 +535,22 @@ curl -X POST "http://localhost:7070/tasks" \
   "proplet_id": "proplet-specific-001"
 }'
 ```
+
+### Broadcast Execution
+
+Set `broadcast: true` to run the same task on all active proplets simultaneously. This is useful for deploying configuration updates, running diagnostics, or executing the same function across a fleet of controllers at the same time.
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "fleet-diagnostic",
+  "image_url": "docker.io/myorg/diagnostic:v1",
+  "broadcast": true
+}'
+```
+
+`broadcast` and `proplet_id` are mutually exclusive. Setting both returns a `400` error.
 
 ## Cron Scheduling
 
