@@ -51,28 +51,6 @@ function resolvePageDatePublished(filePath: string): string | undefined {
   }
 }
 
-// Auto-generated API stub pages with no prose (no request body, no response schema,
-// no field descriptions) that cannot reach 300 words when rendered.
-const THIN_API_PAGES = new Set([
-  "/docs/api/health/get",
-  "/docs/api/metrics/get",
-  "/docs/api/proplets/get",
-  "/docs/api/proplets/proplet_id/get",
-  "/docs/api/proplets/proplet_id/delete",
-  "/docs/api/proplets/proplet_id/metrics/get",
-  "/docs/api/tasks/get",
-  "/docs/api/tasks/task_id/get",
-  "/docs/api/tasks/task_id/delete",
-  "/docs/api/tasks/task_id/start/post",
-  "/docs/api/tasks/task_id/stop/post",
-  "/docs/api/tasks/task_id/metrics/get",
-  "/docs/api/tasks/task_id/results/get",
-  "/docs/api/jobs/get",
-  "/docs/api/jobs/job_id/get",
-  "/docs/api/jobs/job_id/start/post",
-  "/docs/api/jobs/job_id/stop/post",
-]);
-
 export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const params = await props.params;
   const page = source.getPage(params.slug);
@@ -152,10 +130,8 @@ export async function generateMetadata(
     alternates: {
       canonical: `${SITE_URL}${page.url}`,
     },
-    ...(THIN_API_PAGES.has(page.url) && {
-      robots: { index: false, follow: true },
-    }),
     openGraph: {
+      url: `${SITE_URL}${page.url}`,
       images: getPageImage(page).url,
     },
   };

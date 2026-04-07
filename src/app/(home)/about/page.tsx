@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SITE_URL } from "@/lib/geo-constants";
-import { organizationSchema } from "@/lib/structured-data";
+import { founderPersonSchema, organizationSchema } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
   title: "About Abstract Machines — Propeller WebAssembly Orchestrator",
@@ -21,6 +21,9 @@ export const metadata: Metadata = {
     "Abstract Machines is a Paris-based open-source engineering team building Propeller, a WebAssembly orchestration platform co-funded by EU Horizon Europe (Grant No. 101139067).",
   alternates: {
     canonical: `${SITE_URL}/about`,
+  },
+  openGraph: {
+    url: `${SITE_URL}/about`,
   },
 };
 
@@ -108,6 +111,7 @@ export default function AboutPage() {
   return (
     <div className="w-full py-12 sm:py-20 lg:py-28 space-y-20">
       <JsonLd data={organizationSchema()} />
+      <JsonLd data={founderPersonSchema()} />
       <section className="container mx-auto px-4 sm:px-6 max-w-4xl">
         <div className="flex flex-col gap-6 items-start">
           <Badge variant="outline">About Abstract Machines</Badge>

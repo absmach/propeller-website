@@ -123,11 +123,53 @@ export function softwareApplicationSchema() {
     codeRepository: GITHUB_URL,
     isAccessibleForFree: true,
     programmingLanguage: ["Go", "Rust"],
+    softwareVersion: "0.3.0",
     audience: {
       "@type": "Audience",
       audienceType: "Developers, DevOps Engineers, IoT Engineers",
     },
     releaseNotes: `${GITHUB_URL}/releases`,
+  };
+}
+
+export function softwareSourceCodeSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    name: `${FULL_NAME} — Source Code`,
+    description:
+      "Open-source WebAssembly orchestrator for Cloud-Edge computing. Manager written in Go; Proplet (edge runtime) written in Rust.",
+    codeRepository: GITHUB_URL,
+    programmingLanguage: ["Go", "Rust"],
+    license: "https://opensource.org/licenses/Apache-2.0",
+    author: {
+      "@type": "Organization",
+      "@id": `${BASE_URL}/#organization`,
+      name: ORG_NAME,
+    },
+    targetProduct: {
+      "@type": "SoftwareApplication",
+      "@id": `${BASE_URL}/#software`,
+      name: FULL_NAME,
+    },
+  };
+}
+
+export function founderPersonSchema() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: "Drasko Draskovic",
+    jobTitle: "Founder",
+    worksFor: {
+      "@type": "Organization",
+      "@id": `${BASE_URL}/#organization`,
+      name: ORG_NAME,
+    },
+    sameAs: [
+      "https://github.com/drasko",
+      "https://www.linkedin.com/in/draskovic/",
+    ],
   };
 }
 

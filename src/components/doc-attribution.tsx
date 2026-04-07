@@ -1,5 +1,6 @@
 import Link from "fumadocs-core/link";
 import { Github } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Author } from "@/lib/authors";
 
 interface DocAttributionProps {
@@ -8,22 +9,28 @@ interface DocAttributionProps {
   lastModified?: string;
 }
 
-function AuthorAvatar({ author }: { author: Author }) {
-  const initials = author.name
+function getAuthorInitials(name: string) {
+  return name
     .split(" ")
-    .map((w) => w[0])
+    .map((word) => word[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function AuthorChip({ author }: { author: Author }) {
+  const initials = author.name ? getAuthorInitials(author.name) : "?";
 
   return (
     <div className="flex items-center gap-2 group">
-      <span
-        className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-semibold ring-1 ring-border"
-        aria-hidden="true"
-      >
-        {initials}
-      </span>
+      <Avatar size="sm" className="ring-1 ring-border">
+        {author.avatar ? (
+          <AvatarImage src={author.avatar} alt={`Avatar of ${author.name}`} />
+        ) : null}
+        <AvatarFallback className="text-xs font-semibold">
+          {initials}
+        </AvatarFallback>
+      </Avatar>
       <div className="flex flex-col leading-tight">
         {author.url ? (
           <Link
@@ -60,17 +67,21 @@ export function DocAttribution({ authors, lastModified }: DocAttributionProps) {
         day: "numeric",
       }).format(new Date(lastModified))
     : null;
+  const label =
+    authors.length === 1
+      ? authors[0].id === "abstract-machines"
+        ? "Maintained by"
+        : "Author"
+      : "Authors";
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4 mt-2 text-sm text-muted-foreground">
       <div className="flex flex-wrap items-center gap-4">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/70">
-          {authors.length === 1 && authors[0].id === "abstract-machines"
-            ? "Maintained by"
-            : "Authors"}
+          {label}
         </span>
         {authors.map((author) => (
-          <AuthorAvatar key={author.id} author={author} />
+          <AuthorChip key={author.id} author={author} />
         ))}
       </div>
 

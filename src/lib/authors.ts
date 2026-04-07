@@ -9,6 +9,8 @@ export interface Author {
   avatar?: string;
 }
 
+const DEFAULT_AUTHOR_ID = "abstract-machines";
+
 /**
  * Central author registry.
  *
@@ -67,10 +69,13 @@ export const AUTHORS: Record<string, Author> = {
 
 /** Returns authors for a page, falling back to the org author if none match. */
 export function resolveAuthors(ids?: string[]): Author[] {
+  const defaultAuthor = AUTHORS[DEFAULT_AUTHOR_ID];
   if (!ids || ids.length === 0) {
-    return [AUTHORS["abstract-machines"]];
+    return [defaultAuthor];
   }
-  return ids
+  const authors = ids
     .map((id) => AUTHORS[id])
     .filter((a): a is Author => a !== undefined);
+
+  return authors.length > 0 ? authors : [defaultAuthor];
 }

@@ -13,8 +13,10 @@ import { assetPath } from "@/lib/base-path";
 import { SITE_URL } from "@/lib/geo-constants";
 import {
   faqPageSchema,
+  founderPersonSchema,
   organizationSchema,
   softwareApplicationSchema,
+  softwareSourceCodeSchema,
   webSiteSchema,
 } from "@/lib/structured-data";
 
@@ -29,6 +31,8 @@ export default function HomePage() {
     <>
       <JsonLd data={organizationSchema()} />
       <JsonLd data={softwareApplicationSchema()} />
+      <JsonLd data={softwareSourceCodeSchema()} />
+      <JsonLd data={founderPersonSchema()} />
       <JsonLd data={webSiteSchema()} />
       <JsonLd data={faqPageSchema()} />
       <link
