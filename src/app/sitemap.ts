@@ -36,9 +36,7 @@ function resolveLastModified(page: {
   );
 }
 
-const EXCLUDED_PATHS = new Set([
-  "/docs/test",
-]);
+const EXCLUDED_PATHS = new Set(["/docs/test"]);
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const entries: MetadataRoute.Sitemap = [];
