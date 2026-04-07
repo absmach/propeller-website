@@ -99,7 +99,11 @@ paths:
                   description: Task kind (standard or federated)
                 image_url:
                   type: string
-                  description: OCI registry URL for the Wasm binary
+                  description: >
+                    URL for the Wasm binary. Accepts two forms:
+                    (1) OCI registry reference (e.g. `docker.io/myorg/app:v1`) — proplet fetches via the registry proxy;
+                    (2) plain HTTP/HTTPS URL (e.g. `https://releases.example.com/app.wasm`) — proplet fetches directly (max 100 MB).
+                    The scheme (`http://` or `https://`) is used to detect which path to take.
                 file:
                   type: string
                   format: byte
@@ -113,7 +117,8 @@ paths:
                   type: array
                   items:
                     type: integer
-                  description: Input values for simple tasks
+                    format: uint64
+                  description: Integer input values passed to the Wasm module (uint64)
                 env:
                   type: object
                   additionalProperties:
@@ -161,6 +166,10 @@ paths:
                 is_recurring:
                   type: boolean
                   description: If true, task re-runs according to schedule
+                metadata:
+                  type: object
+                  additionalProperties: true
+                  description: Arbitrary key-value metadata attached to the task (max 64KB serialized)
             example:
               name: main
               file: AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL
@@ -179,6 +188,14 @@ paths:
           schema:
             type: integer
           example: "1000"
+        - name: "metadata[<key>]"
+          in: query
+          schema:
+            type: string
+          description: >
+            Filter tasks by metadata key-value pair. Repeat for multiple filters
+            (all must match). Key must contain only alphanumerics, `.`, `_`, `/`,
+            or `-`. Example: `metadata[env]=production&metadata[team]=ops`
       responses:
         "200":
           description: List of tasks
@@ -225,6 +242,10 @@ paths:
                   type: array
                   items:
                     type: integer
+                metadata:
+                  type: object
+                  additionalProperties: true
+                  description: Arbitrary key-value metadata attached to the task (max 64KB serialized)
             example:
               name: add
               inputs:
