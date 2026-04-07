@@ -5,7 +5,6 @@ import type { Author } from "@/lib/authors";
 
 interface DocAttributionProps {
   authors: Author[];
-  /** ISO date string — use git commit date or MDX frontmatter lastModified */
   lastModified?: string;
 }
 

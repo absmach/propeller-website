@@ -3,26 +3,13 @@ export interface Author {
   name: string;
   role: string;
   github: string;
-  /** Optional: links to a personal or company profile page */
   url?: string;
-  /** Optional: relative or absolute avatar URL */
   avatar?: string;
 }
 
 const DEFAULT_AUTHOR_ID = "abstract-machines";
 
-/**
- * Central author registry.
- *
- * Usage in MDX frontmatter:
- *   authors: [abstract-machines]         ← org-level default
- *   authors: [alice, bob]                ← named contributors
- *
- * Add real team members below. The "abstract-machines" entry is the
- * safe fallback for any page without a named individual author.
- */
 export const AUTHORS: Record<string, Author> = {
-  // ── Org-level default ──────────────────────────────────────────────────────
   "abstract-machines": {
     id: "abstract-machines",
     name: "Abstract Machines",
@@ -31,8 +18,6 @@ export const AUTHORS: Record<string, Author> = {
     url: "https://absmach.eu",
     avatar: "/abstract-machines.svg",
   },
-
-  // ── Individual contributors ────────────────────────────────────────────────
   drasko: {
     id: "drasko",
     name: "Drasko Draskovic",
@@ -67,7 +52,6 @@ export const AUTHORS: Record<string, Author> = {
   },
 };
 
-/** Returns authors for a page, falling back to the org author if none match. */
 export function resolveAuthors(ids?: string[]): Author[] {
   const defaultAuthor = AUTHORS[DEFAULT_AUTHOR_ID];
   if (!ids || ids.length === 0) {

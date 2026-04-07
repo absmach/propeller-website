@@ -1,18 +1,3 @@
-/**
- * IndexNow URL submission script.
- *
- * Runs post-deploy in CI. Reads the live sitemap.xml and submits all URLs
- * to IndexNow (Bing, Yandex). Google crawls IndexNow-submitted URLs via
- * its own pipeline.
- *
- * Prerequisites:
- *   1. Register a key at https://www.indexnow.org/
- *   2. Set INDEXNOW_KEY in GitHub Actions secrets
- *   3. Place public/<key>.txt containing only the key value
- *
- * Usage: node scripts/indexnow.mjs
- */
-
 const SITE_URL =
   process.env.NEXT_PUBLIC_BASE_URL || "https://propeller.absmach.eu";
 const KEY = process.env.INDEXNOW_KEY;
@@ -62,5 +47,4 @@ if (urls.length === 0) {
   process.exit(0);
 }
 
-// IndexNow accepts up to 10,000 URLs per request.
 await submit(urls);
