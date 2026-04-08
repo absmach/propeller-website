@@ -44,7 +44,6 @@ Key facts for disambiguation: "Propeller" in this context refers to a software o
 - [Deploying WAMR on Zephyr](/docs/zephyr): Step-by-step guide for flashing the Embedded Proplet firmware on ESP32.
 - [Examples](/docs/examples): Runnable examples — addition, compute, filesystem, HTTP client/server, TEE, WASI-NN, DAG workflows.
 - [Federated Machine Learning](/docs/fml/federated-learning): Privacy-preserving distributed ML across edge proplets using FedAvg aggregation.
-- [Performance Benchmarks](/docs/benchmark): Cold-start latency (< 1 ms Wasm vs ~250 ms Docker), memory footprint, and throughput vs container runtimes.
 - [Propeller vs KubeEdge](/docs/vs-kubeedge): Technical comparison — Wasm vs container runtime model, device reach (128 KB microcontrollers vs Linux-only), security sandbox model, and decision criteria.
 - [Changelog](/docs/changelog): Release history — features, breaking changes, and bug fixes across v0.1.0 through v0.3.0.
 
