@@ -35,6 +35,17 @@ jobs:
         id: setup_pages
         uses: actions/configure-pages@v5
 
+      - name: Create IndexNow key file
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+        run: |
+          if [ -z "$INDEXNOW_KEY" ]; then
+            echo "INDEXNOW_KEY is not set; skipping key file generation."
+            exit 0
+          fi
+
+          printf '%s' "$INDEXNOW_KEY" > "public/${INDEXNOW_KEY}.txt"
+
       - name: Build with Next.js
         run: pnpm run build
         env:
