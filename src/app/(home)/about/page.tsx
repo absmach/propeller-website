@@ -5,6 +5,7 @@ import {
   Globe,
   Linkedin,
   Mail,
+  Youtube,
 } from "lucide-react";
 import type { Metadata } from "next";
 import FooterSection from "@/components/footer";
@@ -296,6 +297,65 @@ export default function AboutPage() {
                 </Link>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <Separator className="container mx-auto" />
+
+      <section className="container mx-auto px-4 sm:px-6">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3">
+            <Badge variant="outline">Open Source</Badge>
+            <h2 className="text-2xl sm:text-4xl font-regular tracking-tighter">
+              Free to Use. Forever.
+            </h2>
+          </div>
+          <p className="text-muted-foreground leading-relaxed">
+            Propeller is and will remain open source under the{" "}
+            <Link
+              href="https://github.com/absmach/propeller/blob/main/LICENSE"
+              target="_blank"
+              className="underline hover:no-underline"
+            >
+              Apache-2.0 licence
+            </Link>
+            . We believe the infrastructure layer of the Cloud-Edge continuum
+            should be open to everyone — researchers, startups, and enterprises
+            alike.
+          </p>
+          <p className="text-muted-foreground leading-relaxed">
+            Contributions are welcome. Join the conversation on our{" "}
+            <Link
+              href="https://matrix.to/#/#absmach:matrix.org"
+              target="_blank"
+              className="underline hover:no-underline"
+            >
+              Matrix community
+            </Link>{" "}
+            or open an issue on{" "}
+            <Link
+              href="https://github.com/absmach/propeller"
+              target="_blank"
+              className="underline hover:no-underline"
+            >
+              GitHub
+            </Link>
+            .
+          </p>
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Link href="https://github.com/absmach/propeller" target="_blank">
+              <Button variant="outline" className="gap-2">
+                <Github className="w-4 h-4" />
+                Star on GitHub
+              </Button>
+            </Link>
+            <Link href="https://www.youtube.com/@absmach" target="_blank">
+              <Button variant="outline" className="gap-2">
+                <Youtube className="w-4 h-4" />
+                Watch on YouTube
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
