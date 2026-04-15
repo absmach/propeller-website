@@ -114,58 +114,36 @@ export default function AboutPage() {
       <JsonLd data={organizationSchema()} />
       <JsonLd data={founderPersonSchema()} />
       <section className="container mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className="flex flex-col gap-6 items-start">
-            <Badge variant="outline">About Abstract Machines</Badge>
-            <h1 className="text-3xl sm:text-5xl font-regular tracking-tighter">
-              Building the Missing Layer Between Cloud Orchestration and
-              Microcontrollers
-            </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              Abstract Machines is a Paris-based research and engineering team. We
-              build open-source infrastructure for the Cloud-Edge continuum — the
-              space between cloud data centres and the billions of constrained IoT
-              devices that will define the next decade of computing.
-            </p>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              Propeller is our flagship project: an open-source WebAssembly
-              orchestrator that makes deploying Wasm workloads from cloud servers
-              to Zephyr RTOS microcontrollers as simple as a single CLI command.
-            </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Link href="https://github.com/absmach/propeller" target="_blank">
-                <Button variant="outline" className="gap-2">
-                  <Github className="w-4 h-4" />
-                  View on GitHub
-                </Button>
-              </Link>
-              <Link href="mailto:info@absmach.eu">
-                <Button variant="outline" className="gap-2">
-                  <Mail className="w-4 h-4" />
-                  Contact Us
-                </Button>
-              </Link>
-            </div>
-          </div>
-          <div className="hidden lg:grid grid-cols-2 gap-4">
-            {[
-              { label: "License", value: "Apache 2.0" },
-              { label: "Latest Release", value: "v0.3.0" },
-              { label: "Runtime", value: "Wasm / WAMR" },
-              { label: "Min Device RAM", value: "128 KB" },
-              { label: "Funding", value: "EU Horizon Europe" },
-              { label: "Language", value: "Go + Rust" },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-lg border p-4 space-y-1 bg-background"
-              >
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                  {stat.label}
-                </p>
-                <p className="font-semibold text-sm">{stat.value}</p>
-              </div>
-            ))}
+        <div className="flex flex-col gap-6 items-start">
+          <Badge variant="outline">About Abstract Machines</Badge>
+          <h1 className="text-3xl sm:text-5xl font-regular tracking-tighter">
+            Building the Missing Layer Between Cloud Orchestration and
+            Microcontrollers
+          </h1>
+          <p className="text-lg text-muted-foreground leading-relaxed">
+            Abstract Machines is a Paris-based research and engineering team. We
+            build open-source infrastructure for the Cloud-Edge continuum — the
+            space between cloud data centres and the billions of constrained IoT
+            devices that will define the next decade of computing.
+          </p>
+          <p className="text-lg text-muted-foreground leading-relaxed">
+            Propeller is our flagship project: an open-source WebAssembly
+            orchestrator that makes deploying Wasm workloads from cloud servers
+            to Zephyr RTOS microcontrollers as simple as a single CLI command.
+          </p>
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Link href="https://github.com/absmach/propeller" target="_blank">
+              <Button variant="outline" className="gap-2">
+                <Github className="w-4 h-4" />
+                View on GitHub
+              </Button>
+            </Link>
+            <Link href="mailto:info@absmach.eu">
+              <Button variant="outline" className="gap-2">
+                <Mail className="w-4 h-4" />
+                Contact Us
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -293,7 +271,7 @@ export default function AboutPage() {
               Union&apos;s Horizon Europe research and innovation programme.
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {researchPartners.map((partner) => (
               <div
                 key={partner.name}
@@ -326,110 +304,58 @@ export default function AboutPage() {
       <Separator className="container mx-auto" />
 
       <section className="container mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-3">
-              <Badge variant="outline">Open Source</Badge>
-              <h2 className="text-2xl sm:text-4xl font-regular tracking-tighter">
-                Free to Use. Forever.
-              </h2>
-            </div>
-            <p className="text-muted-foreground leading-relaxed">
-              Propeller is and will remain open source under the{" "}
-              <Link
-                href="https://github.com/absmach/propeller/blob/main/LICENSE"
-                target="_blank"
-                className="underline hover:no-underline"
-              >
-                Apache-2.0 licence
-              </Link>
-              . We believe the infrastructure layer of the Cloud-Edge continuum
-              should be open to everyone — researchers, startups, and enterprises
-              alike.
-            </p>
-            <p className="text-muted-foreground leading-relaxed">
-              Contributions are welcome. Join the conversation on our{" "}
-              <Link
-                href="https://matrix.to/#/#absmach:matrix.org"
-                target="_blank"
-                className="underline hover:no-underline"
-              >
-                Matrix community
-              </Link>{" "}
-              or open an issue on{" "}
-              <Link
-                href="https://github.com/absmach/propeller"
-                target="_blank"
-                className="underline hover:no-underline"
-              >
-                GitHub
-              </Link>
-              .
-            </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <Link href="https://github.com/absmach/propeller" target="_blank">
-                <Button variant="outline" className="gap-2">
-                  <Github className="w-4 h-4" />
-                  Star on GitHub
-                </Button>
-              </Link>
-              <Link href="https://www.youtube.com/@absmach" target="_blank">
-                <Button variant="outline" className="gap-2">
-                  <Youtube className="w-4 h-4" />
-                  Watch on YouTube
-                </Button>
-              </Link>
-            </div>
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-3">
+            <Badge variant="outline">Open Source</Badge>
+            <h2 className="text-2xl sm:text-4xl font-regular tracking-tighter">
+              Free to Use. Forever.
+            </h2>
           </div>
-          <div className="flex flex-col gap-4">
-            <h3 className="font-semibold text-lg">Get Involved</h3>
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              <li>
-                <Link
-                  href="https://github.com/absmach/propeller/issues"
-                  target="_blank"
-                  className="hover:text-foreground hover:underline transition-colors"
-                >
-                  Open an issue on GitHub
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="https://github.com/absmach/.github/blob/main/CONTRIBUTING.md"
-                  target="_blank"
-                  className="hover:text-foreground hover:underline transition-colors"
-                >
-                  Read the contributing guide
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="https://matrix.to/#/#absmach:matrix.org"
-                  target="_blank"
-                  className="hover:text-foreground hover:underline transition-colors"
-                >
-                  Join the Matrix community
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="https://www.youtube.com/@absmach"
-                  target="_blank"
-                  className="hover:text-foreground hover:underline transition-colors"
-                >
-                  Watch demos on YouTube
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="https://www.absmach.eu/blog/?category=propeller"
-                  target="_blank"
-                  className="hover:text-foreground hover:underline transition-colors"
-                >
-                  Read the blog
-                </Link>
-              </li>
-            </ul>
+          <p className="text-muted-foreground leading-relaxed">
+            Propeller is and will remain open source under the{" "}
+            <Link
+              href="https://github.com/absmach/propeller/blob/main/LICENSE"
+              target="_blank"
+              className="underline hover:no-underline"
+            >
+              Apache-2.0 licence
+            </Link>
+            . We believe the infrastructure layer of the Cloud-Edge continuum
+            should be open to everyone — researchers, startups, and enterprises
+            alike.
+          </p>
+          <p className="text-muted-foreground leading-relaxed">
+            Contributions are welcome. Join the conversation on our{" "}
+            <Link
+              href="https://matrix.to/#/#absmach:matrix.org"
+              target="_blank"
+              className="underline hover:no-underline"
+            >
+              Matrix community
+            </Link>{" "}
+            or open an issue on{" "}
+            <Link
+              href="https://github.com/absmach/propeller"
+              target="_blank"
+              className="underline hover:no-underline"
+            >
+              GitHub
+            </Link>
+            .
+          </p>
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Link href="https://github.com/absmach/propeller" target="_blank">
+              <Button variant="outline" className="gap-2">
+                <Github className="w-4 h-4" />
+                Star on GitHub
+              </Button>
+            </Link>
+            <Link href="https://www.youtube.com/@absmach" target="_blank">
+              <Button variant="outline" className="gap-2">
+                <Youtube className="w-4 h-4" />
+                Watch on YouTube
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
