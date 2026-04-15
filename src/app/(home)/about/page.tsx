@@ -300,6 +300,8 @@ export default function AboutPage() {
         </div>
       </section>
 
+      <Separator className="container mx-auto" />
+
       <FooterSection />
     </div>
   );
