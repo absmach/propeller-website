@@ -9,9 +9,7 @@ import {
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { DocAttribution } from "@/components/doc-attribution";
 import { LLMCopyButton, ViewOptions } from "@/components/page-actions";
-import { resolveAuthors } from "@/lib/authors";
 import { SITE_URL } from "@/lib/geo-constants";
 import { getPageImage, source } from "@/lib/source";
 import { breadcrumbListSchema, techArticleSchema } from "@/lib/structured-data";
@@ -57,7 +55,6 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   if (!page) notFound();
 
   const MDX = page.data.body;
-  const authors = resolveAuthors(page.data.authors);
   const pageUrl = `${SITE_URL}${page.url}`;
   const pageImage = `${SITE_URL}${getPageImage(page).url}`;
   const contentPath = join(process.cwd(), "content", page.path);
@@ -99,8 +96,6 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
           githubUrl={`https://github.com/absmach/propeller-website/blob/main/content/docs/${page.path}`}
         />
       </div>
-
-      <DocAttribution authors={authors} lastModified={lastModified} />
 
       <DocsBody>
         <MDX

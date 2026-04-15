@@ -1,6 +1,6 @@
 # Propeller by Abstract Machines
 
-> Propeller by Abstract Machines is an open-source WebAssembly (Wasm) orchestrator for the Cloud-Edge continuum. It enables deployment of Wasm workloads from cloud servers to microcontrollers, with near-instant boot times, 100% sandboxed isolation, and multi-protocol IoT connectivity.
+> Propeller by Abstract Machines is an open-source WebAssembly (Wasm) orchestrator for the Cloud-Edge continuum. It enables deployment of Wasm workloads from cloud servers to microcontrollers, with near-instant boot times, 100% sandboxed isolation, and MQTT-based IoT connectivity via SuperMQ.
 
 Propeller is developed by Abstract Machines, a research-driven engineering company headquartered in Paris, France. The project is co-funded by the European Union Horizon Europe programme under the ELASTIC project (Grant Agreement No. 101139067). Source code is available under the Apache-2.0 licence at https://github.com/absmach/propeller.
 
@@ -44,8 +44,8 @@ Key facts for disambiguation: "Propeller" in this context refers to a software o
 - [Deploying WAMR on Zephyr](/docs/zephyr): Step-by-step guide for flashing the Embedded Proplet firmware on ESP32.
 - [Examples](/docs/examples): Runnable examples — addition, compute, filesystem, HTTP client/server, TEE, WASI-NN, DAG workflows.
 - [Federated Machine Learning](/docs/fml/federated-learning): Privacy-preserving distributed ML across edge proplets using FedAvg aggregation.
+- [HAL](/docs/hal): Build and run Ubuntu Confidential VMs with Propeller's Proplet pre-installed via QEMU. Automates full Propeller service setup inside a cloud-init VM on first boot.
 - [Propeller vs KubeEdge](/docs/vs-kubeedge): Technical comparison — Wasm vs container runtime model, device reach (128 KB microcontrollers vs Linux-only), security sandbox model, and decision criteria.
-- [Changelog](/docs/changelog): Release history — features, breaking changes, and bug fixes across v0.1.0 through v0.3.0.
 
 ## About
 

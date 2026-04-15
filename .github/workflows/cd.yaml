@@ -79,8 +79,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-
       - name: Submit URLs to IndexNow
         run: node scripts/indexnow.mjs
         env:

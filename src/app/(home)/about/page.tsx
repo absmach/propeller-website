@@ -8,6 +8,7 @@ import {
   Youtube,
 } from "lucide-react";
 import type { Metadata } from "next";
+import FooterSection from "@/components/footer";
 import { JsonLd } from "@/components/json-ld";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -98,7 +99,7 @@ const values = [
   {
     title: "Standards-Driven",
     description:
-      "Built on OCI, MQTT, WASI, and CoAP. Propeller integrates with what you already use rather than replacing it.",
+      "Built on OCI, MQTT, and WASI. Propeller integrates with what you already use rather than replacing it.",
   },
   {
     title: "Edge-First",
@@ -109,7 +110,7 @@ const values = [
 
 export default function AboutPage() {
   return (
-    <div className="w-full py-12 sm:py-20 lg:py-28 space-y-20">
+    <div className="w-full space-y-16">
       <JsonLd data={organizationSchema()} />
       <JsonLd data={founderPersonSchema()} />
       <section className="container mx-auto px-4 sm:px-6 max-w-4xl">
@@ -358,6 +359,7 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+      <FooterSection />
     </div>
   );
 }

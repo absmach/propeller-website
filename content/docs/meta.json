@@ -22,7 +22,7 @@
     "developer-guide.mdx",
     "zephyr.mdx",
     "coco-k8s-setup.mdx",
-    "vs-kubeedge.mdx",
-    "changelog.mdx"
+    "hal.mdx",
+    "vs-kubeedge.mdx"
   ]
 }

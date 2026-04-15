@@ -12,7 +12,6 @@ export const docs = defineDocs({
   dir: "content/docs",
   docs: {
     schema: frontmatterSchema.extend({
-      authors: z.array(z.string()).optional(),
       lastModified: z.string().optional(),
     }),
     postprocess: {

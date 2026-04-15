@@ -105,7 +105,7 @@ export function softwareApplicationSchema() {
       "Function-as-a-Service (FaaS) deployment",
       "WAMR on Zephyr RTOS for constrained devices",
       "SuperMQ service mesh integration",
-      "MQTT, CoAP, WebSocket protocol support",
+      "MQTT protocol support via SuperMQ",
       "100% sandboxed workload isolation",
       "Trusted Execution Environment (TEE) support",
       "WASI-NN for edge machine learning",
@@ -217,7 +217,7 @@ export function faqPageSchema() {
         name: "What are the key features of Propeller?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Propeller by Abstract Machines provides ten core capabilities for Cloud-Edge Wasm orchestration: (1) near-instant Wasm boot times, typically under 1 ms; (2) OCI registry support for storing and distributing Wasm binaries via Docker Hub or GHCR; (3) Function-as-a-Service deployment across heterogeneous infrastructure; (4) WAMR runtime on Zephyr RTOS for microcontrollers with 128 KB RAM; (5) DAG-based task scheduling for parallel, sequential, and dependency-ordered workflows; (6) SuperMQ service mesh integration for secure device-to-cloud messaging; (7) multi-protocol support including MQTT, CoAP, and WebSocket; (8) 100% sandboxed workload isolation guaranteed by the WebAssembly security model; (9) Trusted Execution Environment (TEE) support via Intel TDX, AMD SEV-SNP, and Intel SGX; and (10) WASI-NN for running machine learning inference at the edge.",
+          text: "Propeller by Abstract Machines provides ten core capabilities for Cloud-Edge Wasm orchestration: (1) near-instant Wasm boot times; (2) OCI registry support for storing and distributing Wasm binaries via Docker Hub or GHCR; (3) Function-as-a-Service deployment across heterogeneous infrastructure; (4) WAMR runtime on Zephyr RTOS for microcontrollers with 128 KB RAM; (5) DAG-based task scheduling for parallel, sequential, and dependency-ordered workflows; (6) SuperMQ MQTT-based service mesh for secure device-to-cloud messaging; (7) 100% sandboxed workload isolation guaranteed by the WebAssembly security model; (8) Trusted Execution Environment (TEE) support via Intel TDX, AMD SEV-SNP, and Intel SGX; (9) WASI-NN for running machine learning inference at the edge; and (10) federated machine learning with FedAvg aggregation across edge proplets.",
         },
       },
       {
