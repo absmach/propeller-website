@@ -1,41 +1,35 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/geo-constants";
 import { source } from "@/lib/source";
 
-const baseUrl =
-  process.env.NEXT_PUBLIC_BASE_URL || "https://propeller.absmach.eu";
+const BASE_URL = SITE_URL;
 
 export const dynamic = "force-static";
 
-function generateDocsSitemap(): MetadataRoute.Sitemap {
-  const pages = source.getPages();
-  const sitemap: MetadataRoute.Sitemap = [];
+const EXCLUDED_PATHS = new Set(["/docs/test"]);
 
-  for (const page of pages) {
-    sitemap.push({
-      url: `${baseUrl}${page.url}`,
-      lastModified: new Date().toISOString(),
+export default function sitemap(): MetadataRoute.Sitemap {
+  const entries: MetadataRoute.Sitemap = [
+    {
+      url: BASE_URL,
+      changeFrequency: "daily",
+      priority: 1,
+    },
+    {
+      url: `${BASE_URL}/about`,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+  ];
+
+  for (const page of source.getPages()) {
+    if (EXCLUDED_PATHS.has(page.url)) continue;
+    entries.push({
+      url: `${BASE_URL}${page.url}`,
       changeFrequency: "weekly",
       priority: 0.7,
     });
   }
 
-  return sitemap;
-}
-
-export default function sitemap(): MetadataRoute.Sitemap {
-  return [
-    {
-      url: baseUrl,
-      lastModified: new Date().toISOString(),
-      changeFrequency: "daily",
-      priority: 1,
-    },
-    {
-      url: `${baseUrl}/docs`,
-      lastModified: new Date().toISOString(),
-      changeFrequency: "weekly",
-      priority: 0.9,
-    },
-    ...generateDocsSitemap(),
-  ];
+  return entries;
 }

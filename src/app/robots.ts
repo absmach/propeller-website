@@ -1,7 +1,5 @@
 import type { MetadataRoute } from "next";
-
-const baseUrl =
-  process.env.NEXT_PUBLIC_BASE_URL || "https://propeller.absmach.eu";
+import { SITE_URL } from "@/lib/geo-constants";
 
 export const dynamic = "force-static";
 
@@ -12,6 +10,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/api/"],
     },
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

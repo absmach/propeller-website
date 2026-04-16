@@ -1,3 +1,5 @@
+import { execSync } from "node:child_process";
+import { join } from "node:path";
 import {
   DocsBody,
   DocsDescription,
@@ -8,8 +10,44 @@ import { createRelativeLink } from "fumadocs-ui/mdx";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LLMCopyButton, ViewOptions } from "@/components/page-actions";
+import { SITE_URL } from "@/lib/geo-constants";
 import { getPageImage, source } from "@/lib/source";
+import { breadcrumbListSchema, techArticleSchema } from "@/lib/structured-data";
 import { getMDXComponents } from "@/mdx-components";
+
+function resolvePageLastModified(
+  frontmatterDate: string | undefined,
+  filePath: string,
+): string | undefined {
+  if (frontmatterDate) return frontmatterDate;
+  try {
+    const date = execSync(
+      `git log -1 --format=%cd --date=short -- ${filePath}`,
+      { cwd: process.cwd() },
+    )
+      .toString()
+      .trim();
+    return date || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function resolvePageDatePublished(filePath: string): string | undefined {
+  try {
+    const output = execSync(
+      `git log --follow --format=%cd --date=short -- ${filePath}`,
+      { cwd: process.cwd() },
+    )
+      .toString()
+      .trim();
+    if (!output) return undefined;
+    const lines = output.split("\n").filter(Boolean);
+    return lines[lines.length - 1] || undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const params = await props.params;
@@ -17,9 +55,38 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   if (!page) notFound();
 
   const MDX = page.data.body;
+  const pageUrl = `${SITE_URL}${page.url}`;
+  const pageImage = `${SITE_URL}${getPageImage(page).url}`;
+  const contentPath = join(process.cwd(), "content", page.path);
+  const lastModified = resolvePageLastModified(
+    page.data.lastModified,
+    contentPath,
+  );
+  const datePublished = resolvePageDatePublished(contentPath);
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            techArticleSchema({
+              title: page.data.title,
+              description: page.data.description,
+              url: pageUrl,
+              image: pageImage,
+              datePublished,
+              dateModified: lastModified,
+            }),
+          ),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbListSchema(params.slug ?? [])),
+        }}
+      />
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <div className="flex flex-row gap-2 items-center border-b pt-2 pb-6">
@@ -33,7 +100,6 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
       <DocsBody>
         <MDX
           components={getMDXComponents({
-            // this allows you to link to other pages with relative file paths
             a: createRelativeLink(source, page),
           })}
         />
@@ -56,7 +122,11 @@ export async function generateMetadata(
   return {
     title: page.data.title,
     description: page.data.description,
+    alternates: {
+      canonical: `${SITE_URL}${page.url}`,
+    },
     openGraph: {
+      url: `${SITE_URL}${page.url}`,
       images: getPageImage(page).url,
     },
   };

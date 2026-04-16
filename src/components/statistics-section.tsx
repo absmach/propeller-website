@@ -22,9 +22,9 @@ const stats = [
   },
   {
     icon: Network,
-    value: "Multi-Protocol",
+    value: "MQTT-Based",
     label: "Connectivity",
-    description: "MQTT, CoAP, WebSocket support",
+    description: "MQTT-based device communication",
   },
 ];
 

@@ -1,19 +1,40 @@
+import type { Metadata } from "next";
 import { FAQSection } from "@/components/faq-section";
 import FeatureSection from "@/components/feature-section";
 import FooterSection from "@/components/footer";
 import { HeroSection } from "@/components/hero";
 import HowItWorksSection from "@/components/how-it-works-section";
+import { JsonLd } from "@/components/json-ld";
 import PartnerCloudSection from "@/components/partner-cloud";
-// import ProductDemoSection from "@/components/product-demo-section";
 import PropellerUISection from "@/components/propeller-ui-section";
 import StatisticsSection from "@/components/statistics-section";
-// import TestimonialsSection from "@/components/testimonials-section";
 import { Separator } from "@/components/ui/separator";
 import { assetPath } from "@/lib/base-path";
+import { SITE_URL } from "@/lib/geo-constants";
+import {
+  faqPageSchema,
+  founderPersonSchema,
+  organizationSchema,
+  softwareApplicationSchema,
+  softwareSourceCodeSchema,
+  webSiteSchema,
+} from "@/lib/structured-data";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: `${SITE_URL}/`,
+  },
+};
 
 export default function HomePage() {
   return (
     <>
+      <JsonLd data={organizationSchema()} />
+      <JsonLd data={softwareApplicationSchema()} />
+      <JsonLd data={softwareSourceCodeSchema()} />
+      <JsonLd data={founderPersonSchema()} />
+      <JsonLd data={webSiteSchema()} />
+      <JsonLd data={faqPageSchema()} />
       <link
         rel="preload"
         href={assetPath("/architecture.svg")}

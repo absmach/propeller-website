@@ -21,6 +21,8 @@
     "api",
     "developer-guide.mdx",
     "zephyr.mdx",
-    "coco-k8s-setup.mdx"
+    "coco-k8s-setup.mdx",
+    "hal.mdx",
+    "vs-kubeedge.mdx"
   ]
 }

@@ -2,32 +2,46 @@ import { MarqueeEffect } from "@/components/ui/marquee-effect";
 
 const logos = [
   {
-    name: "WebAssembly",
-    img: "https://cdn.worldvectorlogo.com/logos/webassembly-1.svg",
+    alt: "WebAssembly — workload runtime used by Propeller",
+    img: "/logos/webassembly.svg",
+    width: 80,
+    height: 60,
   },
   {
-    name: "Kubernetes",
-    img: "https://cdn.worldvectorlogo.com/logos/kubernets.svg",
+    alt: "Kubernetes — cloud orchestration platform supported by Propeller",
+    img: "/logos/kubernetes.svg",
+    width: 80,
+    height: 60,
   },
   {
-    name: "Docker",
-    img: "https://cdn.worldvectorlogo.com/logos/docker-3.svg",
+    alt: "Docker — OCI-compatible container registry support",
+    img: "/logos/docker.svg",
+    width: 80,
+    height: 60,
   },
   {
-    name: "Zephyr RTOS",
-    img: "https://www.zephyrproject.org/wp-content/uploads/2021/11/zephyr_logo_r_color_negative_big.svg",
+    alt: "Zephyr RTOS — embedded OS for Propeller microcontroller deployments",
+    img: "/logos/zephyr.svg",
+    width: 80,
+    height: 60,
   },
   {
-    name: "Rust",
-    img: "https://cdn.worldvectorlogo.com/logos/rust.svg",
+    alt: "Rust — language used to build the Proplet edge runtime",
+    img: "/logos/rust.svg",
+    width: 80,
+    height: 60,
   },
   {
-    name: "Go",
-    img: "https://cdn.worldvectorlogo.com/logos/gopher.svg",
+    alt: "Go — language used to build the Propeller Manager",
+    img: "/logos/go.svg",
+    width: 80,
+    height: 60,
   },
   {
-    name: "Linux Foundation",
-    img: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/Linux_Foundation_logo_2013.svg/1280px-Linux_Foundation_logo_2013.svg.png",
+    alt: "Linux Foundation — open-source governance body",
+    img: "/logos/linux-foundation.svg",
+    width: 80,
+    height: 60,
   },
 ];
 
@@ -52,11 +66,13 @@ export default function PartnerCloudSection() {
             gap={40}
           >
             {logos.map((logo) => (
-              <div key={logo.name} className="flex items-center">
+              <div key={logo.alt} className="flex items-center">
                 <img
                   src={logo.img}
-                  className="w-[80px] h-[60px] sm:w-[100px] sm:h-[80px] lg:w-[130px] lg:h-[100px] object-contain"
-                  alt={logo.name}
+                  className="w-20 h-15 sm:w-25 sm:h-20 lg:w-32.5 lg:h-25 object-contain"
+                  alt={logo.alt}
+                  width={logo.width}
+                  height={logo.height}
                 />
               </div>
             ))}
