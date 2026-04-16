@@ -10,7 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export const FAQSection = () => (
-  <div id="faq" className="w-full py-12 sm:py-20 lg:py-28">
+  <div
+    id="faq"
+    className="w-full scroll-mt-24 py-12 sm:scroll-mt-28 sm:py-20 lg:py-28"
+  >
     <div className="container mx-auto px-4 sm:px-6">
       <div className="flex flex-col gap-6 sm:gap-10">
         <div className="flex text-center justify-center items-center gap-3 sm:gap-4 flex-col">

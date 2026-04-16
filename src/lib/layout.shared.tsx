@@ -1,23 +1,17 @@
 import type { BaseLayoutProps, LinkItemType } from "fumadocs-ui/layouts/shared";
 import { AlbumIcon, Info, LayoutTemplate } from "lucide-react";
+import { TopbarSectionLink } from "@/components/topbar-section-link";
 import { assetPath } from "./base-path";
 
+const sectionLink = (text: string, url: `/#${string}`): LinkItemType => ({
+  type: "custom",
+  children: <TopbarSectionLink href={url}>{text}</TopbarSectionLink>,
+});
+
 export const linkItems: LinkItemType[] = [
-  {
-    text: "Features",
-    url: "/#features",
-    active: "url",
-  },
-  {
-    text: "How It Works",
-    url: "/#how-it-works",
-    active: "url",
-  },
-  {
-    text: "FAQ",
-    url: "/#faq",
-    active: "url",
-  },
+  sectionLink("Features", "/#features"),
+  sectionLink("How It Works", "/#how-it-works"),
+  sectionLink("FAQ", "/#faq"),
   {
     icon: <AlbumIcon />,
     text: "Docs",
