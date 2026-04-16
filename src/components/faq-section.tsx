@@ -84,8 +84,7 @@ export const FAQSection = () => (
               <AccordionContent className="text-sm sm:text-base md:text-lg leading-relaxed">
                 Propeller integrates with OCI-compliant registries for workload
                 storage and retrieval, and connects with SuperMQ for secure IoT
-                device communication. It supports standard protocols like MQTT,
-                CoAP, and WebSocket for communication with edge devices.
+                device communication over MQTT.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-5" className="border-b-2">
