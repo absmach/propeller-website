@@ -12,7 +12,6 @@
     "tee.mdx",
     "wasi-http.mdx",
     "hal-test.mdx",
-    "platform-test.mdx",
     "attestation-test.mdx",
     "wasi-nn.mdx"
   ]
