@@ -3,7 +3,9 @@ title: HAL
 description: "Build and run Ubuntu Confidential VMs with Propeller's Proplet pre-installed via QEMU. Automates full Propeller service setup inside a cloud-init VM on first boot."
 ---
 
-The Hardware Abstraction Layer (HAL) provides a single script — [hal/ubuntu/qemu.sh](https://github.com/absmach/propeller/blob/main/hal/ubuntu/qemu.sh) — that builds an Ubuntu Noble cloud image and boots it as a QEMU virtual machine. On first boot, cloud-init compiles and installs all Propeller services inside the VM automatically.
+The Hardware Abstraction Layer (HAL) provides a single script — [hal/ubuntu/qemu.sh](https://github.com/absmach/propeller/blob/main/hal/ubuntu/qemu.sh) — that builds an **Ubuntu Noble (24.04)** cloud image and boots it as a QEMU virtual machine. On first boot, cloud-init compiles and installs all Propeller services inside the VM automatically.
+
+The first boot takes **10–15 minutes** while cloud-init installs packages and compiles services from source. Subsequent boots start all services immediately in under 30 seconds.
 
 ## Understand what it does
 
@@ -15,15 +17,14 @@ The script has two phases controlled by a positional argument:
 
 On first boot, cloud-init runs unattended and:
 
-1. Installs system packages (`build-essential`, `libssl-dev`, `protobuf-compiler`, `libtss2-dev`, `tpm2-tools`, and others)
-2. Installs the latest Wasmtime release binary from GitHub
-3. Clones and compiles the Attestation Agent with all attesters enabled
-4. Clones and compiles the CoCo Keyprovider
-5. Clones and compiles Proplet from source
-6. Verifies all four binaries exist before enabling any services
-7. Enables and starts three systemd services: `attestation-agent`, `coco-keyprovider`, and `proplet`
-
-First boot takes 10–15 minutes. Subsequent boots start all services immediately.
+1. Installs system packages (`build-essential`, `libssl-dev`, `protobuf-compiler`, `libtss2-dev`, `tpm2-tools`, `rustup`, and others)
+2. Installs the Rust toolchain via `rustup`
+3. Downloads and installs the latest Wasmtime release binary from GitHub
+4. Clones and compiles the **Attestation Agent** from [guest-components](https://github.com/confidential-containers/guest-components) with all attesters enabled
+5. Clones and compiles the **CoCo Keyprovider** for OCI image decryption
+6. Clones and compiles **Proplet** from the Propeller repository
+7. Verifies all four binaries exist before enabling any services
+8. Enables and starts three systemd services: `attestation-agent`, `coco-keyprovider`, and `proplet`
 
 ## Install dependencies
 
