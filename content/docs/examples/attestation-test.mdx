@@ -108,12 +108,23 @@ Your output should look like this:
 { "started": true }
 ```
 
-On a TDX CVM, the proplet logs will show:
+The proplet logs will vary depending on the platform.
+
+On a TDX CVM:
 
 ```bash
 platform: IntelTdx v0.1.0
 attestation: ok (evidence len=863)
 ```
+
+On a machine with no TEE (stub mode):
+
+```bash
+platform: none v0.0.0
+attestation: ok (evidence len=2)
+```
+
+The stub returns `{}` as the evidence. This is the fallback when `PROPLET_HAL_ENABLED=true` but no TEE hardware is present.
 
 The task will complete in state 3:
 
