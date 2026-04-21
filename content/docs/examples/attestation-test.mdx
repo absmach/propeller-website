@@ -3,7 +3,7 @@ title: Attestation Test
 description: Attestation Test example
 ---
 
-A WASM component example using the [Elastic HAL](https://github.com/elasticproject-eu/wasmhal) `elastic:hal@0.1.0` interface. It queries platform info, generates a random nonce, and requests TEE attestation evidence via the `hal-consumer` world.
+A WASM core module example using the [Elastic HAL](https://github.com/elasticproject-eu/wasmhal) `elastic:tee-hal` interface. It queries platform info, generates a random nonce, and requests TEE attestation evidence.
 
 ## Prerequisites
 
@@ -18,27 +18,27 @@ export PROPLET_HAL_ENABLED=true
 
 ## Source Code
 
-The source code is available in the [examples/attestation-test](https://github.com/absmach/propeller/blob/main/examples/attestation-test/src/lib.rs) directory.
+The source code is available in the [examples/attestation-test](https://github.com/absmach/propeller/blob/main/examples/attestation-test/src/main.rs) directory.
 
 <CodeFromSource
-  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/attestation-test/src/lib.rs"
+  src="https://raw.githubusercontent.com/absmach/propeller/refs/heads/main/examples/attestation-test/src/main.rs"
   lang="rust"
 />
 
 ## Build
 
 ```bash
-cd examples/attestation-test && cargo build --release --target wasm32-wasip2
+cd examples/attestation-test && cargo build --release
 ```
 
 Your output should look like this:
 
 ```bash
-   Compiling attestation-test v0.1.0
+   Compiling attestation-test v0.4.0
     Finished `release` profile [optimized] target(s) in 2.34s
 ```
 
-The component is at `target/wasm32-wasip2/release/attestation_test.wasm`.
+The module is at `target/wasm32-wasip1/release/attestation-test.wasm`.
 
 ## Create Task
 
@@ -72,7 +72,7 @@ Your output should look like this:
 
 ```bash
 curl -X PUT "http://localhost:7070/tasks/b2c3d4e5-f6a7-8901-bcde-f12345678901/upload" \
--F "file=@examples/attestation-test/target/wasm32-wasip2/release/attestation_test.wasm"
+-F "file=@examples/attestation-test/target/wasm32-wasip1/release/attestation-test.wasm"
 ```
 
 Your output should look like this:
@@ -113,15 +113,17 @@ The proplet logs will vary depending on the platform.
 On a TDX CVM:
 
 ```bash
-platform: IntelTdx v0.1.0
+platform-info: {"platform_type":"IntelTdx","version":"1.5.0","attestation_support":true}
 attestation: ok (evidence len=863)
+evidence: {"tdx_report":{"mrtd":"...","rtmr0":"...",...}}
 ```
 
 On a machine with no TEE (stub mode):
 
 ```bash
-platform: none v0.0.0
+platform-info: {"platform_type":"None","version":"0.0.0","attestation_support":false}
 attestation: ok (evidence len=2)
+evidence: {}
 ```
 
 The stub returns `{}` as the evidence. This is the fallback when `PROPLET_HAL_ENABLED=true` but no TEE hardware is present.
