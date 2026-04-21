@@ -113,9 +113,9 @@ The proplet logs will vary depending on the platform.
 On a TDX CVM:
 
 ```bash
-platform-info: {"platform_type":"IntelTdx","version":"1.5.0","attestation_support":true}
+platform-info: {"platform_type":"IntelTdx","version":"0.1.0","attestation_support":true}
 attestation: ok (evidence len=863)
-evidence: {"tdx_report":{"mrtd":"...","rtmr0":"...",...}}
+evidence: {"measurements":{"mrtd":"...","rtmr0":"...",...},"platform":"intel-tdx","tdx_module_version":"1.5.0","version":"0.1.0"}
 ```
 
 On a machine with no TEE (stub mode):
