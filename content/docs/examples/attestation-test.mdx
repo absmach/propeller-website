@@ -128,11 +128,13 @@ evidence: {}
 
 The stub returns `{}` as the evidence. This is the fallback when `PROPLET_HAL_ENABLED=true` but no TEE hardware is present.
 
-The task will complete in state 3:
+The attestation evidence is hex-encoded and returned as the task result. You can retrieve it once the task reaches state 3 (completed):
 
 ```bash
 curl -X GET "http://localhost:7070/tasks/b2c3d4e5-f6a7-8901-bcde-f12345678901"
 ```
+
+On a TDX CVM the `results` field contains the hex-encoded attestation evidence JSON:
 
 ```json
 {
@@ -141,7 +143,7 @@ curl -X GET "http://localhost:7070/tasks/b2c3d4e5-f6a7-8901-bcde-f12345678901"
   "kind": "standard",
   "state": 3,
   "proplet_id": "83a56492-5a89-4852-beee-a3ba95eca876",
-  "results": "...<hex-encoded attestation evidence>...",
+  "results": "7b226d6561737572656d656e7473223a7b226d727464223a222e2e2e227d7d",
   "start_time": "2026-03-19T10:02:00.000000000Z",
   "finish_time": "2026-03-19T10:02:00.200000000Z",
   "created_at": "2026-03-19T10:00:00.000000000Z",
@@ -150,3 +152,24 @@ curl -X GET "http://localhost:7070/tasks/b2c3d4e5-f6a7-8901-bcde-f12345678901"
   "priority": 50
 }
 ```
+
+On a non-TEE machine the `results` field contains the hex-encoded stub `{}`:
+
+```json
+{
+  "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "name": "run",
+  "kind": "standard",
+  "state": 3,
+  "proplet_id": "83a56492-5a89-4852-beee-a3ba95eca876",
+  "results": "7b7d",
+  "start_time": "2026-03-19T10:02:00.000000000Z",
+  "finish_time": "2026-03-19T10:02:00.200000000Z",
+  "created_at": "2026-03-19T10:00:00.000000000Z",
+  "updated_at": "2026-03-19T10:02:00.200000000Z",
+  "next_run": "0001-01-01T00:00:00Z",
+  "priority": 50
+}
+```
+
+> **Note:** This example cannot be run directly with the `wasmtime` CLI. The component requires the `elastic:hal/attestation` host interface, which is only provided by `hal-runtime` from [wasmhal](https://github.com/elasticproject-eu/wasmhal). Running it with `wasmtime run` will fail with an unresolved import error.
