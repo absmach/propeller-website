@@ -334,10 +334,22 @@ The `depends_on` field references task IDs that must complete before this task r
 
 ### WASM Module Deployment
 
-Tasks execute independently on proplets—possibly on different nodes—so each task needs access to its WASM module. There are two ways to provide it:
+Tasks execute independently on proplets—possibly on different nodes—so each task needs access to its WASM module. There are three ways to provide it:
 
 1. **Upload directly**: Use `PUT /tasks/{id}/upload` with a multipart form to upload a `.wasm` file. The module is stored with the task record.
-2. **Reference via URL**: Set `image_url` when creating the task to reference a shared WASM file from a URL (e.g., OCI registry, HTTP server). The proplet fetches the module when execution begins.
+2. **OCI registry**: Set `image_url` to an OCI image reference (e.g. `docker.io/myorg/app:v1`). The proplet fetches the binary through the registry proxy when execution begins.
+3. **Plain HTTP/HTTPS URL**: Set `image_url` to an `http://` or `https://` URL pointing directly to a `.wasm` file (e.g. `https://releases.example.com/app.wasm`). The proplet detects the scheme and fetches the binary directly—no registry proxy involved. Maximum fetch size is **100 MB**.
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "my-task",
+  "image_url": "https://releases.example.com/app.wasm"
+}'
+```
+
+The proplet automatically routes based on the `image_url` scheme: `http://` and `https://` URLs are fetched directly; anything else is treated as an OCI registry reference.
 
 ### Data Passing Between Tasks
 
@@ -512,7 +524,7 @@ Only proplets with recent heartbeats (within the liveliness threshold) are eligi
 
 ### Pinning to a Specific Proplet
 
-Override scheduling by specifying a proplet:
+Override scheduling by specifying a proplet. Only that proplet will execute the task; all others ignore it.
 
 ```bash
 curl -X POST "http://localhost:7070/tasks" \
@@ -523,6 +535,22 @@ curl -X POST "http://localhost:7070/tasks" \
   "proplet_id": "proplet-specific-001"
 }'
 ```
+
+### Broadcast Execution
+
+Set `broadcast: true` to run the same task on all active proplets simultaneously. This is useful for deploying configuration updates, running diagnostics, or executing the same function across a fleet of controllers at the same time.
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "fleet-diagnostic",
+  "image_url": "docker.io/myorg/diagnostic:v1",
+  "broadcast": true
+}'
+```
+
+`broadcast` and `proplet_id` are mutually exclusive. Setting both returns a `400` error.
 
 ## Cron Scheduling
 
@@ -633,6 +661,59 @@ The response returns the full updated task. Key changes:
 - **is_recurring**: Now `false`—the task won't run on schedule
 - **updated_at**: Reflects when the change was applied
 - **schedule**: Retained for reference, but won't trigger execution
+
+## Task Metadata
+
+Tasks accept an optional `metadata` field—a free-form JSON object you can use to attach any key-value information to a task, such as environment labels, team ownership, or custom tags. Metadata is persisted alongside the task and is available in all get/list responses.
+
+### Setting Metadata on a Task
+
+Pass the `metadata` field when creating or updating a task:
+
+```bash
+curl -X POST "http://localhost:7070/tasks" \
+-H "Content-Type: application/json" \
+-d '{
+  "name": "nightly-report",
+  "image_url": "docker.io/myorg/report:v1",
+  "metadata": {
+    "env": "production",
+    "team": "data-eng",
+    "version": "2.1.0"
+  }
+}'
+```
+
+Metadata values can be strings, numbers, booleans, or nested objects—any valid JSON value. The total serialized size must not exceed **64 KB**.
+
+### Filtering Tasks by Metadata
+
+Use `metadata[<key>]=<value>` query parameters to filter the task list. Only tasks whose metadata contains **all** specified key-value pairs are returned:
+
+```bash
+curl "http://localhost:7070/tasks?metadata[env]=production&metadata[team]=data-eng"
+```
+
+Multiple filters are combined with AND semantics—a task must match every supplied filter to appear in the results.
+
+**Metadata key rules:**
+- Allowed characters: alphanumerics, `.`, `_`, `/`, `-`
+- Keys with other characters are rejected with a `400` error
+
+### Updating Metadata
+
+Update metadata on an existing task with a `PUT` request. The entire `metadata` object is replaced:
+
+```bash
+curl -X PUT "http://localhost:7070/tasks/task-abc123" \
+-H "Content-Type: application/json" \
+-d '{
+  "metadata": {
+    "env": "staging",
+    "team": "data-eng"
+  }
+}'
+```
 
 ## Task States
 
