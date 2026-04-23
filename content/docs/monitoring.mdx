@@ -325,10 +325,10 @@ Metrics focus on CPU, memory, and disk I/O with 30-second intervals.
 
 Proplets publish two categories of metrics:
 
-| Topic                                                        | Content                                                                                                               |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `m/{domain_id}/c/{channel_id}/control/proplet/task_metrics`  | Per-task process metrics (CPU, memory, disk I/O, threads, file descriptors) — published while a task is running      |
-| `m/{domain_id}/c/{channel_id}/control/proplet/metrics`       | Proplet-level resource metrics (CPU, memory, cgroup stats) — published on a fixed interval                           |
+| Topic                                                       | Content                                                                                                         |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `m/{domain_id}/c/{channel_id}/control/proplet/task_metrics` | Per-task process metrics (CPU, memory, disk I/O, threads, file descriptors) — published while a task is running |
+| `m/{domain_id}/c/{channel_id}/control/proplet/metrics`      | Proplet-level resource metrics (CPU, memory, cgroup stats) — published on a fixed interval                      |
 
 ### Message Format
 
@@ -654,7 +654,7 @@ CPU percentage is calculated over the collection interval. Use intervals ≥ 1 s
 
 ```bash
 cd propeller
-make start-supermq
+make start-magistrala
 ```
 
 ### Enable Monitoring

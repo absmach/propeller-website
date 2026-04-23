@@ -28,16 +28,16 @@ for j := 0; j < len(weights) && j < len(x); j++ {
 
 ## Key Changes
 
-| Component | Change Required |
-|-----------|-----------------|
-| WASM Client | Add proximal term to weight updates |
-| Aggregator | No changes needed (uses standard FedAvg) |
+| Component   | Change Required                          |
+| ----------- | ---------------------------------------- |
+| WASM Client | Add proximal term to weight updates      |
+| Aggregator  | No changes needed (uses standard FedAvg) |
 
 ## Hyperparameters
 
-| Parameter | Description | Typical Value |
-|-----------|-------------|---------------|
-| `mu` | Proximal coefficient controlling regularization strength | 0.001 - 0.1 |
+| Parameter | Description                                              | Typical Value |
+| --------- | -------------------------------------------------------- | ------------- |
+| `mu`      | Proximal coefficient controlling regularization strength | 0.001 - 0.1   |
 
 Higher values of `mu` keep local updates closer to the global model, while lower values allow more local adaptation.
 
@@ -45,7 +45,7 @@ Higher values of `mu` keep local updates closer to the global model, while lower
 
 ### Prerequisites
 
-Complete the [Federated Learning](/docs/fml/example) example first. All services (SuperMQ, Manager, Proplets, Proxy, FL demo stack) must be running and provisioned before proceeding.
+Complete the [Federated Learning](/docs/fml/example) example first. All services (Magistrala, Manager, Proplets, Proxy, FL demo stack) must be running and provisioned before proceeding.
 
 ### Step 1: Modify and Build the WASM Client
 

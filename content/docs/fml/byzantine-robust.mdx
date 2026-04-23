@@ -78,10 +78,10 @@ func trimmedMeanAggregate(updates []Update, trimPercent float64) []float64 {
 
 ## Key Changes
 
-| Component | Change Required |
-|-----------|-----------------|
-| WASM Client | No changes needed |
-| Aggregator | Replace FedAvg with median or trimmed mean |
+| Component   | Change Required                            |
+| ----------- | ------------------------------------------ |
+| WASM Client | No changes needed                          |
+| Aggregator  | Replace FedAvg with median or trimmed mean |
 
 ## Usage in aggregateHandler
 
@@ -120,7 +120,7 @@ func aggregateHandler(w http.ResponseWriter, r *http.Request) {
 
 ### Prerequisites
 
-Complete the [Federated Learning](/docs/fml/example) example first. All services (SuperMQ, Manager, Proplets, Proxy, FL demo stack) must be running and provisioned before proceeding.
+Complete the [Federated Learning](/docs/fml/example) example first. All services (Magistrala, Manager, Proplets, Proxy, FL demo stack) must be running and provisioned before proceeding.
 
 ### Step 1: Modify the Aggregator
 
@@ -182,11 +182,11 @@ To observe Byzantine robustness in action, you can submit a deliberately corrupt
 
 ## Trade-offs
 
-| Approach | Pros | Cons |
-|----------|------|------|
-| Median | Strong outlier resistance | Ignores sample counts |
-| Trimmed Mean | Balances robustness with efficiency | Requires choosing trim percentage |
-| FedAvg (default) | Optimal for benign environments | Vulnerable to Byzantine failures |
+| Approach         | Pros                                | Cons                              |
+| ---------------- | ----------------------------------- | --------------------------------- |
+| Median           | Strong outlier resistance           | Ignores sample counts             |
+| Trimmed Mean     | Balances robustness with efficiency | Requires choosing trim percentage |
+| FedAvg (default) | Optimal for benign environments     | Vulnerable to Byzantine failures  |
 
 ## Use Cases
 

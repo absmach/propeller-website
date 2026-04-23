@@ -61,8 +61,8 @@ export const FAQSection = () => (
                 Propeller offers cloud-edge orchestration, fast boot times with
                 near-instant startup, FaaS deployment capabilities, OCI registry
                 support, WAMR on Zephyr RTOS for constrained devices,
-                integration with SuperMQ service mesh, and security-first design
-                for IoT environments.
+                integration with Magistrala service mesh, and security-first
+                design for IoT environments.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-3" className="border-b-2">
@@ -83,8 +83,8 @@ export const FAQSection = () => (
               </AccordionTrigger>
               <AccordionContent className="text-sm sm:text-base md:text-lg leading-relaxed">
                 Propeller integrates with OCI-compliant registries for workload
-                storage and retrieval, and connects with SuperMQ for secure IoT
-                device communication over MQTT.
+                storage and retrieval, and connects with Magistrala for secure
+                IoT device communication over MQTT.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-5" className="border-b-2">

@@ -7,15 +7,16 @@ This guide walks you through installing Propeller and running your first WASM wo
 
 ## Prerequisites
 
-| Tool                                       | Version   | Purpose                      |
-| ------------------------------------------ | --------- | ---------------------------- |
-| [Go](https://go.dev/doc/install)           | 1.25.8+   | Building Propeller binaries  |
-| [Rust](https://rustup.rs/)                 | Latest    | Building the proplet runtime |
-| [Docker](https://docs.docker.com/)         | 20.10+    | Running SuperMQ services     |
-| [Make](https://www.gnu.org/software/make/) | 3.81+     | Build automation             |
-| [Mosquitto Tools](https://mosquitto.org/)  | Latest    | MQTT CLI utilities           |
+| Tool                                       | Version | Purpose                      |
+| ------------------------------------------ | ------- | ---------------------------- |
+| [Go](https://go.dev/doc/install)           | 1.25.8+ | Building Propeller binaries  |
+| [Rust](https://rustup.rs/)                 | Latest  | Building the proplet runtime |
+| [Docker](https://docs.docker.com/)         | 20.10+  | Running Magistrala services  |
+| [Make](https://www.gnu.org/software/make/) | 3.81+   | Build automation             |
+| [Mosquitto Tools](https://mosquitto.org/)  | Latest  | MQTT CLI utilities           |
 
 These are only needed if you plan to build WASM modules locally:
+
 - [TinyGo](https://tinygo.org/getting-started/install/) (0.34.0+) - Compile Go to WASM
 - [Wasmtime](https://wasmtime.dev/) - Local WASM testing
 
@@ -80,7 +81,7 @@ make install
 During the build, you will see output similar to:
 
 ```bash
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X 'github.com/absmach/supermq.BuildTime=...' -X 'github.com/absmach/supermq.Version=v0.3.0'" -o build/manager cmd/manager/main.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X 'github.com/absmach/magistrala.BuildTime=...' -X 'github.com/absmach/magistrala.Version=v0.3.0'" -o build/manager cmd/manager/main.go
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "..." -o build/cli cmd/cli/main.go
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "..." -o build/proxy cmd/proxy/main.go
 cd proplet && cargo build --release && cp target/release/proplet ../build
@@ -91,6 +92,7 @@ GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/hello-world.wasm -
 ```
 
 This means:
+
 - All Go binaries were built and placed into `build/`
 - All example WASM modules were built using TinyGo into `build/`
 
@@ -108,13 +110,13 @@ make install
 
 See the [Developer Guide](./developer-guide#troubleshooting) for other common build problems.
 
-### Step 2: Start SuperMQ
+### Step 2: Start Magistrala
 
-SuperMQ provides the messaging infrastructure for Propeller. From the root of the `propeller` repo:
+Magistrala provides the messaging infrastructure for Propeller. From the root of the `propeller` repo:
 
 ```bash
 cd propeller
-make start-supermq
+make start-magistrala
 ```
 
 This runs:
@@ -126,33 +128,77 @@ docker compose -f docker/compose.yaml --env-file docker/.env up -d
 The output will look something like:
 
 ```bash
-[+] Running 43/43
- ✔ Network supermq-base-net                     Created                             0.3s
- ✔ Volume supermq_supermq-users-db-volume       Created                             0.0s
- ✔ Volume supermq_supermq-channels-db-volume    Created                             0.0s
- ✔ Volume supermq_supermq-clients-redis-volume  Created                             0.0s
- ✔ Volume supermq_supermq-channels-redis-volume Created                             0.0s
- ✔ Volume supermq_supermq-groups-db-volume      Created                             0.0s
- ✔ Volume supermq_supermq-pat-db-volume         Created                             0.1s
- ✔ Volume supermq_supermq-spicedb-db-volume     Created                             0.0s
- ✔ Volume supermq_supermq-clients-db-volume     Created                             0.0s
- ✔ Volume supermq_supermq-domains-redis-volume  Created                             0.0s
- ✔ Volume supermq_supermq-auth-db-volume        Created                             0.0s
- ✔ Volume supermq_supermq-mqtt-broker-volume    Created                             0.1s
- ✔ Volume supermq_supermq-auth-redis-volume     Created                             0.0s
- ✔ Volume supermq_supermq-broker-volume         Created                             0.0s
- ✔ Volume supermq_supermq-domains-db-volume     Created                             0.0s
- ✔ Container supermq-spicedb-db                 Started                             1.9s
- ... more
+docker compose -f docker/compose.yaml --env-file docker/.env up -d
+[+] up 66/66
+ ✔ Network magistrala-base-net                        Created                                                                        0.1s
+ ✔ Volume magistrala_magistrala-users-db-volume       Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-domains-redis-volume  Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-channels-redis-volume Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-auth-redis-volume     Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-clients-redis-volume  Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-journal-volume        Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-openbao-data          Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-fluxmq-node3-volume   Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-re-db-volume          Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-reports-db-volume     Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-certs-db-volume       Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-clients-db-volume     Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-alarms-db-volume      Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-channels-db-volume    Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-fluxmq-node2-volume   Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-spicedb-db-volume     Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-pat-db-volume         Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-ui-backend-db-volume  Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-auth-db-volume        Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-fluxmq-node1-volume   Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-domains-db-volume     Created                                                                        0.0s
+ ✔ Volume magistrala_magistrala-groups-db-volume      Created                                                                        0.0s
+ ✔ Container magistrala-clients-redis                 Started                                                                        5.1s
+ ✔ Container magistrala-re-db                         Started                                                                       10.7s
+ ✔ Container magistrala-seaweedfs-s3                  Started                                                                        9.5s
+ ✔ Container magistrala-fluxmq-auth                   Started                                                                        9.9s
+ ✔ Container magistrala-auth-db                       Started                                                                        5.7s
+ ✔ Container magistrala-ui-backend-db                 Healthy                                                                       20.5s
+ ✔ Container magistrala-openbao                       Healthy                                                                       25.5s
+ ✔ Container magistrala-auth-redis                    Started                                                                        5.5s
+ ✔ Container magistrala-groups-db                     Started                                                                        9.9s
+ ✔ Container magistrala-reports-db                    Started                                                                        9.0s
+ ✔ Container magistrala-alarms-db                     Started                                                                        6.6s
+ ✔ Container magistrala-channels-db                   Started                                                                        5.1s
+ ✔ Container magistrala-users-db                      Started                                                                        9.1s
+ ✔ Container magistrala-jaeger                        Started                                                                        9.9s
+ ✔ Container magistrala-domains-db                    Started                                                                        9.0s
+ ✔ Container magistrala-channels-redis                Started                                                                        9.9s
+ ✔ Container magistrala-ui                            Started                                                                        4.9s
+ ✔ Container magistrala-clients-db                    Started                                                                        5.7s
+ ✔ Container magistrala-domains-redis                 Started                                                                        9.2s
+ ✔ Container magistrala-spicedb-db                    Started                                                                        9.0s
+ ✔ Container magistrala-certs-db                      Started                                                                        4.8s
+ ✔ Container magistrala-pdf                           Started                                                                        6.6s
+ ✔ Container magistrala-journal-db                    Started                                                                        5.4s
+ ✔ Container magistrala-seaweedfs-init                Started                                                                        9.9s
+ ✔ Container magistrala-fluxmq-node1                  Started                                                                       10.3s
+ ✔ Container magistrala-ui-backend                    Started                                                                       23.4s
+ ✔ Container magistrala-spicedb-migrate               Started                                                                        9.3s
+ ✔ Container magistrala-fluxmq-node2                  Started                                                                       10.1s
+ ✔ Container magistrala-fluxmq-node3                  Started                                                                       10.1s
+ ✔ Container magistrala-spicedb                       Started                                                                        9.3s
+ ✔ Container magistrala-nginx                         Started                                                                       10.0s
+ ✔ Container magistrala-certs                         Started                                                                       26.8s
+ ✔ Container magistrala-auth                          Started                                                                       10.2s
+ ✔ Container magistrala-alarms                        Started                                                                       17.7s
+ ✔ Container magistrala-reports                       Started                                                                       12.0s
+ ✔ Container magistrala-re                            Started                                                                       17.2s
+ ... 7 more
 ```
 
-Only SuperMQ services start at this point. Wait ~30–60 seconds for SuperMQ's internal services to stabilise before proceeding. Verify with:
+Only Magistrala services start at this point. Wait ~30–60 seconds for Magistrala's internal services to stabilise before proceeding. Verify with:
 
 ```bash
-docker ps | grep supermq
+docker ps | grep magistrala
 ```
 
-Logs from `docker logs supermq-users` look like this once SuperMQ is ready:
+Logs from `docker logs magistrala-users` look like this once Magistrala is ready:
 
 ```bash
 {"time":"...","level":"INFO","msg":"users service http server listening at users:9002 without TLS"}
@@ -161,7 +207,7 @@ Logs from `docker logs supermq-users` look like this once SuperMQ is ready:
 
 ### Step 3: Provision Propeller
 
-Now we create everything Propeller needs **inside** SuperMQ and generate the config file:
+Now we create everything Propeller needs **inside** Magistrala and generate the config file:
 
 ```bash
 propeller-cli provision
@@ -169,7 +215,7 @@ propeller-cli provision
 
 This command will:
 
-- Log you into SuperMQ (you must have a SuperMQ user already created; if not, create one using the [supermq-cli](https://docs.supermq.abstractmachines.fr/cli#create-user), `curl`, or the web UI). You can also use the admin user if you have the credentials.
+- Log you into Magistrala (you must have a Magistrala user already created; if not, create one using the [magistrala-cli](https://magistrala.absmach.eu/docs/dev-guide/cli/users-cli/#create-user), `curl`, or the web UI). You can also use the admin user if you have the credentials.
 - Create a **domain**
 - Log your user into that domain
 - Create a **manager client**
@@ -192,7 +238,7 @@ Successfully created config.toml file
 Your `config.toml` will look like:
 
 ```toml
-# SuperMQ Configuration
+# Magistrala Configuration
 
 [manager]
 domain_id = "182c0907-002c-4bfd-8bf3-e4f40c58dde6"
@@ -233,7 +279,7 @@ This runs:
 docker compose -f docker/compose.propeller.yaml --env-file docker/.env up -d
 ```
 
-The three Propeller containers start, read `config.toml` from their mount paths, and connect to SuperMQ over the shared `supermq-base-net` network.
+The three Propeller containers start, read `config.toml` from their mount paths, and connect to Magistrala over the shared `magistrala-base-net` network.
 
 ### Step 5: Verify Deployment
 
@@ -245,6 +291,7 @@ docker logs propeller-manager | tail -5
 ```
 
 Expected:
+
 ```json
 {"time":"...","level":"INFO","msg":"MQTT connection established"}
 {"time":"...","level":"WARN","msg":"COORDINATOR_URL not configured - FL features will not be available"}
@@ -259,6 +306,7 @@ docker logs propeller-proplet | tail -5
 ```
 
 Expected:
+
 ```
 INFO Starting Proplet (Rust) - Instance ID: ...
 INFO MQTT client created (TLS: false)
@@ -273,6 +321,7 @@ docker logs propeller-proxy | tail -3
 ```
 
 Expected:
+
 ```json
 {"level":"INFO","msg":"MQTT connection established"}
 {"level":"INFO","msg":"starting proxy service"}
@@ -452,7 +501,7 @@ curl -X POST "http://localhost:7070/tasks" \
 
 ## Alternative: Run Without Docker
 
-You can run Propeller binaries directly on your host (useful for development or debugging). SuperMQ still runs in Docker via `make start-supermq`, but the Propeller processes run locally.
+You can run Propeller binaries directly on your host (useful for development or debugging). Magistrala still runs in Docker via `make start-magistrala`, but the Propeller processes run locally.
 
 The provisioning step is the same: run `propeller-cli provision` to generate `config.toml`, then ensure it is in the directory where you start the binaries.
 
@@ -483,13 +532,13 @@ Docker is recommended for production; local binaries are easier for debugging.
 
 ## Adding More Proplets to an Existing Deployment
 
-Once your initial deployment is running, you can add more proplets without re-provisioning from scratch. The `add-proplets` subcommand reads your existing `config.toml`, creates new SuperMQ clients, connects them to the same channel, and appends their credentials to the file.
+Once your initial deployment is running, you can add more proplets without re-provisioning from scratch. The `add-proplets` subcommand reads your existing `config.toml`, creates new Magistrala clients, connects them to the same channel, and appends their credentials to the file.
 
 ```bash
 propeller-cli provision add-proplets
 ```
 
-The command asks for your SuperMQ username and password, then for the number of new proplets to create. For example, if you already have one proplet (`[proplet]`) and add two more, the file becomes:
+The command asks for your Magistrala username and password, then for the number of new proplets to create. For example, if you already have one proplet (`[proplet]`) and add two more, the file becomes:
 
 ```toml
 [manager]
@@ -570,10 +619,10 @@ make install
 
 ### `propeller-cli provision` fails
 
-Ensure SuperMQ is fully started:
+Ensure Magistrala is fully started:
 
 ```bash
-docker logs supermq-users | tail -10
+docker logs magistrala-users | tail -10
 ```
 
 Look for: `users service http server listening at users:9002`
@@ -601,7 +650,7 @@ For detailed troubleshooting, see the [Developer Guide](./developer-guide#troubl
 ## Stopping Propeller
 
 ```bash
-make stop-supermq
+make stop-magistrala
 ```
 
-This stops all SuperMQ and Propeller containers while preserving data volumes.
+This stops all Magistrala and Propeller containers while preserving data volumes.

@@ -47,7 +47,7 @@ const teamMembers: TeamMember[] = [
     name: "Rodney Osodo",
     role: "Software Engineer",
     github: "rodneyosodo",
-    bio: "Rodney is the primary contributor to Propeller's Go-based manager and CI infrastructure. He works on the orchestration engine, API layer, and SuperMQ integration from Nairobi.",
+    bio: "Rodney is the primary contributor to Propeller's Go-based manager and CI infrastructure. He works on the orchestration engine, API layer, and Magistrala integration from Nairobi.",
   },
   {
     name: "Jeff Mboya",

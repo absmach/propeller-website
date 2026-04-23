@@ -263,7 +263,6 @@ skopeo copy dir:$(pwd)/output docker://rodneydav/tee-wasm-addition:encrypted
 
 ![Image Encryption](images/tee/image-encryption.svg)
 
-
 ## Run a CVM with HAL
 
 Propeller provides a [Hardware Abstraction Layer (HAL)](https://github.com/absmach/propeller/tree/main/hal/ubuntu) to build and run Confidential VMs (CVMs) using QEMU. The script installs and starts all required services inside an Ubuntu VM on first boot.
@@ -283,12 +282,12 @@ sudo apt-get install -y \
 
 Set the required variables before running the script:
 
-| Variable             | Description               | Example             |
-| -------------------- | ------------------------- | ------------------- |
-| `PROPLET_DOMAIN_ID`  | SuperMQ domain identifier | `my-domain-123`     |
-| `PROPLET_CLIENT_ID`  | Unique client identifier  | `proplet-worker-01` |
-| `PROPLET_CLIENT_KEY` | Authentication key        | `secret-key-here`   |
-| `PROPLET_CHANNEL_ID` | Communication channel ID  | `channel-456`       |
+| Variable             | Description                  | Example             |
+| -------------------- | ---------------------------- | ------------------- |
+| `PROPLET_DOMAIN_ID`  | Magistrala domain identifier | `my-domain-123`     |
+| `PROPLET_CLIENT_ID`  | Unique client identifier     | `proplet-worker-01` |
+| `PROPLET_CLIENT_KEY` | Authentication key           | `secret-key-here`   |
+| `PROPLET_CHANNEL_ID` | Communication channel ID     | `channel-456`       |
 
 Optional variables:
 
@@ -469,8 +468,6 @@ sudo journalctl -u coco-keyprovider -f
 sudo journalctl -u proplet -f
 ```
 
-
-
 Proplet logs on successful start:
 
 ```bash
@@ -496,8 +493,6 @@ To start it manually:
 ```bash
 attestation-agent --attestation_sock "127.0.0.1:50010"
 ```
-
-
 
 ## Configure Proplet for TEE mode
 

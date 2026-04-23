@@ -70,19 +70,20 @@ The Manager is configured through environment variables. These are the most comm
 
 #### MQTT Connection
 
-The Manager communicates with proplets over MQTT using the [SuperMQ](https://github.com/absmach/supermq) message broker. SuperMQ provides secure, multi-tenant messaging with built-in authentication and authorization—ensuring that only authorized components can publish and subscribe to Propeller's control channels.
+The Manager communicates with proplets over MQTT using the [Magistrala](https://github.com/absmach/magistrala) message broker. Magistrala provides secure, multi-tenant messaging with built-in authentication and authorization—ensuring that only authorized components can publish and subscribe to Propeller's control channels.
 
 | Variable               | Description                           | Default                |
 | ---------------------- | ------------------------------------- | ---------------------- |
 | `MANAGER_MQTT_ADDRESS` | MQTT broker URL                       | `tcp://localhost:1883` |
 | `MANAGER_MQTT_QOS`     | Quality of Service level (0, 1, or 2) | `2`                    |
 | `MANAGER_MQTT_TIMEOUT` | Connection and operation timeout      | `30s`                  |
-| `MANAGER_DOMAIN_ID`    | SuperMQ domain identifier             | From `config.toml`     |
-| `MANAGER_CHANNEL_ID`   | SuperMQ channel identifier            | From `config.toml`     |
+| `MANAGER_DOMAIN_ID`    | Magistrala domain identifier          | From `config.toml`     |
+| `MANAGER_CHANNEL_ID`   | Magistrala channel identifier         | From `config.toml`     |
 | `MANAGER_CLIENT_ID`    | MQTT client ID for authentication     | From `config.toml`     |
 | `MANAGER_CLIENT_KEY`   | MQTT client key for authentication    | From `config.toml`     |
 
 **QoS Levels:**
+
 - `0` (At most once): Fire and forget—fastest but messages may be lost
 - `1` (At least once): Guaranteed delivery but may have duplicates
 - `2` (Exactly once): Guaranteed single delivery—recommended for Propeller
@@ -91,9 +92,9 @@ The Manager communicates with proplets over MQTT using the [SuperMQ](https://git
 
 ##### Provisioning with config.toml
 
-The `MANAGER_DOMAIN_ID`, `MANAGER_CHANNEL_ID`, `MANAGER_CLIENT_ID`, and `MANAGER_CLIENT_KEY` values come from SuperMQ provisioning. The `propeller-cli provision` command automates this setup by:
+The `MANAGER_DOMAIN_ID`, `MANAGER_CHANNEL_ID`, `MANAGER_CLIENT_ID`, and `MANAGER_CLIENT_KEY` values come from Magistrala provisioning. The `propeller-cli provision` command automates this setup by:
 
-1. Authenticating with your SuperMQ instance
+1. Authenticating with your Magistrala instance
 2. Creating a domain (logical isolation boundary)
 3. Creating clients (Manager, Proplets, Proxy)
 4. Creating a channel (shared communication topic)
@@ -106,10 +107,10 @@ Run the provisioning wizard:
 propeller-cli provision
 ```
 
-The wizard prompts for SuperMQ credentials and generates a `config.toml` file:
+The wizard prompts for Magistrala credentials and generates a `config.toml` file:
 
 ```toml
-# SuperMQ Configuration
+# Magistrala Configuration
 
 [manager]
 domain_id = "73cc3c8f-2c6c-4c08-903b-f1f426d5d9bf"
@@ -134,7 +135,7 @@ Each section contains:
 
 | Field        | Purpose                                          |
 | ------------ | ------------------------------------------------ |
-| `domain_id`  | SuperMQ domain for multi-tenant isolation        |
+| `domain_id`  | Magistrala domain for multi-tenant isolation     |
 | `client_id`  | Unique identifier for MQTT authentication        |
 | `client_key` | Secret key for MQTT authentication               |
 | `channel_id` | Shared channel for Manager-Proplet communication |
@@ -201,6 +202,7 @@ Select your storage backend with `MANAGER_STORAGE_TYPE`:
 | `badger`   |         | High-throughput edge, embedded systems        | Fast key-value store; no SQL queries; good for high write volumes                 |
 
 **Default: `memory`** — The Manager defaults to in-memory storage so you can start immediately without database setup. This is ideal for:
+
 - Local development and experimentation
 - Automated testing in CI/CD pipelines
 - Quick demos and proof-of-concept work
@@ -219,6 +221,7 @@ export MANAGER_SQLITE_PATH=./propeller.db
 ```
 
 Use cases:
+
 - Edge gateways managing local proplets
 - Small-scale production (under ~100 concurrent tasks)
 - Deployments where PostgreSQL is overkill
@@ -236,6 +239,7 @@ export MANAGER_POSTGRES_SSLMODE=disable
 ```
 
 Use cases:
+
 - Production deployments with SLA requirements
 - Multi-Manager high-availability setups
 - Environments with existing PostgreSQL infrastructure
@@ -249,6 +253,7 @@ export MANAGER_BADGER_PATH=./data/badger
 ```
 
 Use cases:
+
 - Edge devices collecting high-frequency metrics
 - Embedded systems with limited memory
 - When SQLite write performance becomes a bottleneck
@@ -280,9 +285,9 @@ The Manager exposes Prometheus-compatible metrics at `http://localhost:7070/metr
 
 ```yaml
 scrape_configs:
-  - job_name: 'propeller-manager'
+  - job_name: "propeller-manager"
     static_configs:
-      - targets: ['localhost:7070']
+      - targets: ["localhost:7070"]
     scrape_interval: 15s
 ```
 
@@ -307,6 +312,7 @@ export MANAGER_TRACE_RATIO=1.0  # Trace all requests (development)
 Access the Jaeger UI at `http://localhost:16686` to view traces.
 
 **Trace ratio tuning:**
+
 - `0` — No tracing (default, zero overhead)
 - `0.1` — Sample 10% of requests (production recommendation)
 - `1.0` — Trace every request (development/debugging only)
@@ -346,6 +352,7 @@ The Manager then proxies FL endpoints to the coordinator. For the complete endpo
 ##### When FL is Disabled
 
 When `COORDINATOR_URL` is not set:
+
 - The Manager logs a warning at startup: `"COORDINATOR_URL not configured - FL features will not be available"`
 - All FL endpoints return an error: `"COORDINATOR_URL must be configured"`
 - Standard task, job, and workflow operations work normally
@@ -454,7 +461,7 @@ The Manager subscribes to three proplet-related MQTT topics:
 **Proplet Registration** — When a proplet starts, it publishes a discovery message:
 
 ```json
-{"proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895"}
+{ "proplet_id": "a95517f9-5655-4cf5-a7c8-aa00290b3895" }
 ```
 
 The Manager's `createPropletHandler` receives this and:
@@ -705,6 +712,7 @@ func (wc *WorkflowCoordinator) OnTaskCompletion(ctx context.Context, taskID stri
 ```
 
 **CheckAndStartReadyTasks** scans the workflow for tasks that:
+
 - Have all dependencies in terminal state (Completed, Failed, or Skipped)
 - Are not already Running or Scheduled
 - Pass conditional execution evaluation
@@ -777,6 +785,7 @@ The Manager handles two types of scheduling: **one-time proplet selection** when
 When a task starts without a specified `proplet_id`, the Manager's scheduler selects one using a round-robin algorithm implemented in `pkg/scheduler/roundrobin.go`.
 
 **Key behaviors:**
+
 - Cycles through proplets in order, wrapping around
 - Skips dead proplets (no heartbeat in last 10 seconds)
 - Fails immediately if no proplets exist or all are dead

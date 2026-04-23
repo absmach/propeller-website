@@ -275,6 +275,7 @@ let graph = unsafe {
 ### Model Optimization
 
 1. **Quantize models** to INT8 for faster inference:
+
    ```bash
    pot -q default -m model.xml -w model.bin --output-dir optimized/
    ```
@@ -306,7 +307,7 @@ docker compose -f docker/compose.yaml exec proplet ls -la /home/proplet/fixture
 
 ```bash
 PROPLET_EXTERNAL_WASM_RUNTIME=wasmtime
-make stop-supermq && make start-supermq
+make stop-magistrala && make start-magistrala
 ```
 
 ### OpenVINO backend not available
@@ -320,11 +321,13 @@ export LD_LIBRARY_PATH=/opt/intel/openvino_2025/runtime/lib/intel64:$LD_LIBRARY_
 ### Model Loading Failures
 
 1. Verify model files are in the `fixture/` directory:
+
    ```bash
    ls -la fixture/
    ```
 
 2. Check model format matches encoding:
+
    ```rust
    // OpenVINO requires .xml and .bin files
    wasi_nn::GRAPH_ENCODING_OPENVINO

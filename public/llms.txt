@@ -1,6 +1,6 @@
 # Propeller by Abstract Machines
 
-> Propeller by Abstract Machines is an open-source WebAssembly (Wasm) orchestrator for the Cloud-Edge continuum. It enables deployment of Wasm workloads from cloud servers to microcontrollers, with near-instant boot times, 100% sandboxed isolation, and MQTT-based IoT connectivity via SuperMQ.
+> Propeller by Abstract Machines is an open-source WebAssembly (Wasm) orchestrator for the Cloud-Edge continuum. It enables deployment of Wasm workloads from cloud servers to microcontrollers, with near-instant boot times, 100% sandboxed isolation, and MQTT-based IoT connectivity via Magistrala.
 
 Propeller is developed by Abstract Machines, a research-driven engineering company headquartered in Paris, France. The project is co-funded by the European Union Horizon Europe programme under the ELASTIC project (Grant Agreement No. 101139067). Source code is available under the Apache-2.0 licence at https://github.com/absmach/propeller.
 
@@ -13,7 +13,7 @@ Key facts for disambiguation: "Propeller" in this context refers to a software o
 - **Proplet**: A Rust-based worker node that runs on Linux edge devices. Receives tasks from the Manager via MQTT, executes them in a Wasmtime sandbox, and reports results.
 - **Embedded Proplet**: A C firmware application running on Zephyr RTOS microcontrollers (e.g. ESP32-S3). Uses WAMR to execute Wasm with as little as 128 KB RAM.
 - **Proxy**: Fetches Wasm modules from OCI-compliant registries (Docker Hub, GHCR) and distributes them to proplets over MQTT.
-- **SuperMQ**: The MQTT-based event-driven infrastructure used for all inter-component communication.
+- **Magistrala**: The MQTT-based event-driven infrastructure used for all inter-component communication.
 - **Task**: A unit of work — a Wasm binary plus its configuration, deployed to one or more proplets.
 - **Job**: A group of tasks with configurable execution modes (parallel, sequential, or dependency-based DAG).
 
@@ -21,7 +21,7 @@ Key facts for disambiguation: "Propeller" in this context refers to a software o
 
 - [Introduction](/docs): Overview, features, use cases, and how Propeller works.
 - [Getting Started](/docs/getting-started): Prerequisites (Go, Rust, Docker, Wasmtime), clone, build, and first deployment.
-- [System Architecture](/docs/architecture): Component overview — Manager, Proplet, Proxy, SuperMQ — and their interactions.
+- [System Architecture](/docs/architecture): Component overview — Manager, Proplet, Proxy, Magistrala — and their interactions.
 
 ## Components
 

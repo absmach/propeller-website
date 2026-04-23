@@ -13,7 +13,7 @@ The system is composed of several key components:
 2. **Manager**: Central service responsible for task management, workflow orchestration, and proplet coordination.
 3. **Proplet**: Worker nodes that execute WebAssembly workloads. The proplet is implemented in Rust for performance and memory safety.
 4. **Proxy**: Service downloading wasm modules from OCI registries and distributing them to proplets using MQTT.
-5. **SuperMQ**: Internal Event Driven Infrastructure for creation and communication between services.
+5. **Magistrala**: Internal Event Driven Infrastructure for creation and communication between services.
 
 ![System Architecture](images/architecture.svg)
 
@@ -112,9 +112,9 @@ Proplet includes a built-in process monitoring subsystem for observing task and 
 
 The Proxy service handles downloading and distributing WebAssembly modules from OCI registries and distributes them to proplets.
 
-### SuperMQ
+### Magistrala
 
-SuperMQ is an Event Driven Infrastructure (EDI) that provides:
+Magistrala is an Event Driven Infrastructure (EDI) that provides:
 
 - Entity creation and management
 - MQTT-based messaging between services
@@ -398,4 +398,4 @@ Proplet supports WebAssembly module distribution through:
 - **Encrypted Workloads**: When a TEE is detected, encrypted Wasm workloads are fetched from OCI registries and decrypted using the attestation agent and KBS
 - **Attestation**: The attestation agent (`attestation-agent`) runs as a gRPC keyprovider service on port **50010** (formerly 50002); `coco_keyprovider` uses port **50011**
 - **KBS Integration**: Key Broker Service (KBS) integration for secure encryption key management. `PROPLET_KBS_URI` must be set when a TEE is detected
-- **SuperMQ**: Secure MQTT communication for IoT deployments
+- **Magistrala**: Secure MQTT communication for IoT deployments
