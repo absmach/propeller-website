@@ -62,11 +62,11 @@ The following sequence diagram illustrates this complete module delivery flow:
 
 ### With Docker Compose
 
-If you're using the standard Propeller deployment, the Proxy is included in `docker-compose.yaml`. Configure it through environment variables:
+If you're using the standard Propeller deployment, the Proxy is included in `docker/compose.yaml`. Configure it through environment variables:
 
 ```yaml
 proxy:
-  image: ghcr.io/absmach/propeller-proxy:latest
+  image: ghcr.io/absmach/propeller/proxy:latest
   environment:
     PROXY_REGISTRY_URL: ${PROXY_REGISTRY_URL}
     PROXY_AUTHENTICATE: ${PROXY_AUTHENTICATE}

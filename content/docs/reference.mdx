@@ -36,54 +36,7 @@ propeller-cli tasks        [--offset <n>] [--limit <n>]   # list all tasks
 | Flag       | Short | Default | Description                |
 | ---------- | ----- | ------- | -------------------------- |
 | `--offset` | `-o`  | `0`     | Pagination offset for list |
-| `--limit`  | `-l`  | `100`   | Maximum results to return  |
-
-### Jobs
-
-```bash
-propeller-cli jobs create <name> [--execution-mode <mode>]
-propeller-cli jobs view   <id>
-propeller-cli jobs start  <id>
-propeller-cli jobs stop   <id>
-propeller-cli jobs        [--offset <n>] [--limit <n>]   # list all jobs
-```
-
-| Flag               | Short | Default    | Description                                                 |
-| ------------------ | ----- | ---------- | ----------------------------------------------------------- |
-| `--execution-mode` | `-e`  | `parallel` | Execution mode: `parallel`, `sequential`, or `configurable` |
-| `--offset`         | `-o`  | `0`        | Pagination offset for list                                  |
-| `--limit`          | `-l`  | `100`      | Maximum results to return                                   |
-
-### Workflows
-
-```bash
-propeller-cli workflows create [--file <workflow.json>]
-propeller-cli workflows view   <id>
-propeller-cli workflows start  <id>
-propeller-cli workflows        [--offset <n>] [--limit <n>]   # list all workflows
-```
-
-| Flag       | Short | Default | Description                                                    |
-| ---------- | ----- | ------- | -------------------------------------------------------------- |
-| `--file`   | `-f`  | —       | JSON file defining tasks with `depends_on` and `run_if` fields |
-| `--offset` | `-o`  | `0`     | Pagination offset for list                                     |
-| `--limit`  | `-l`  | `100`   | Maximum results to return                                      |
-
-### Federated Learning
-
-```bash
-propeller-cli fl experiments create [--file <experiment.json>]
-propeller-cli fl experiments view   <id>
-propeller-cli fl task               [--round-id <id>] [--proplet-id <id>]
-propeller-cli fl update             [--round-id <id>] [--file <update.json>]
-propeller-cli fl round-status       <round-id>
-```
-
-| Flag           | Short | Default | Description                                   |
-| -------------- | ----- | ------- | --------------------------------------------- |
-| `--file`       | `-f`  | —       | JSON file defining experiment or model update |
-| `--round-id`   | `-r`  | —       | Federated learning round identifier           |
-| `--proplet-id` | `-p`  | —       | Filter task by proplet (optional)             |
+| `--limit`  | `-l`  | `10`    | Maximum results to return  |
 
 ### Provision
 

@@ -323,9 +323,9 @@ In production, start with `0.1` and adjust based on observed overhead and debugg
 
 Every API request passes through three middleware layers in order:
 
-1. **Logging** → Records method name, duration, and errors to structured logs
+1. **Metrics** → Increments counters and records latency histograms
 2. **Tracing** → Adds OpenTelemetry spans (when enabled)
-3. **Metrics** → Increments counters and records latency histograms
+3. **Logging** → Records method name, duration, and errors to structured logs
 
 This means even with tracing disabled, you still get logging and metrics for every request.
 

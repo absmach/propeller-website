@@ -19,24 +19,13 @@ git remote add upstream https://github.com/absmach/propeller.git
 
 To build Propeller, you will need the following:
 
-- [A Go compiler (Go 1.25.8)](https://go.dev/doc/install)
+- [A Go compiler (Go 1.26.0)](https://go.dev/doc/install)
 - [Rust](https://rustup.rs/) (required for `make proplet` and `make all`)
 - [Make](https://www.gnu.org/software/make/manual/make.html)
 - [Docker](https://docs.docker.com/) (required for `make start-magistrala` and Docker image builds)
 - [Wasmtime](https://wasmtime.dev/) (required to test compiled Wasm examples locally)
 - [TinyGo](https://tinygo.org/getting-started/install/) (required for Wasm example builds)
 - [Mockery](https://vektra.github.io/mockery/latest/installation/) (required for `make test` and `make test-all`)
-
-TinyGo supports Go versions 1.19 through 1.23, but the project's `go.mod` requires Go 1.25.8. This creates a compatibility issue for building WASM examples.
-
-**Workaround**: Install Go 1.23.5 separately and it will be used automatically:
-
-```bash
-go install golang.org/dl/go1.23.5@latest
-~/go/bin/go1.23.5 download
-```
-
-The Makefile has been updated to use Go 1.23.5 for WASM builds instead of 1.25.8. This allows `make addition`, `make compute`, and other WASM examples to compile successfully while the rest of the project uses Go 1.25.8.
 
 ### Downloading Pre-built Binaries
 
@@ -54,7 +43,7 @@ docker pull ghcr.io/absmach/propeller/proxy:latest
 docker pull ghcr.io/absmach/propeller/proplet:latest
 
 # For WASI-NN support (amd64 only)
-docker pull ghcr.io/absmach/propeller/proplet-wasi-nn:latest
+docker pull ghcr.io/absmach/propeller/proplet:wasi-nn
 ```
 
 #### GitHub Releases
@@ -277,15 +266,15 @@ This installs:
 
 ## Testing
 
-The project uses [mockery](https://vektra.github.io/mockery/latest/installation/) to generate mock interfaces for testing. The `make test` and `make test-all` targets automatically run `mockery --config .mockery.yaml` to generate mocks before running tests.
+The project uses [mockery](https://vektra.github.io/mockery/latest/installation/) to generate mock interfaces for testing. The `make test` target automatically runs `mockery --config .mockery.yaml` to generate mocks before running tests.
 
-**Important**: The project migrated from mockery v2 to v3. If you have an older version installed, update it:
+**Important**: The project uses mockery v3. Install it with:
 
 ```bash
-go install github.com/vektra/mockery/v2@latest
+go install github.com/vektra/mockery/v3@latest
 ```
 
-For mockery v3 compatibility (recommended), the project uses `pkgname: mocks` and generates individual mock files for each interface.
+The project uses `pkgname: mocks` and generates individual mock files for each interface.
 
 To run the Go service tests:
 
@@ -303,7 +292,7 @@ ok      github.com/absmach/propeller/manager    0.218s
 PASS
 ```
 
-This target runs tests for the manager service and other core packages.
+This target runs `go test -v ./manager` for the manager service.
 
 To run all tests, including the Rust proplet test suite:
 
@@ -327,7 +316,7 @@ Then run the linter:
 make lint
 ```
 
-This lints all Go code and runs `cargo fmt --all -- --check` and `cargo clippy` on the Rust proplet code.
+This lints all Go code and runs `cargo fmt --all -- --check`, `cargo clippy -- -D warnings`, and `cargo check --release` on the Rust proplet code.
 
 The linting process can take 2-3 minutes or longer depending on system resources. This is normal behavior. The linter performs comprehensive code quality checks across the entire codebase.
 

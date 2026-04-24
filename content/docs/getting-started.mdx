@@ -9,7 +9,7 @@ This guide walks you through installing Propeller and running your first WASM wo
 
 | Tool                                       | Version | Purpose                      |
 | ------------------------------------------ | ------- | ---------------------------- |
-| [Go](https://go.dev/doc/install)           | 1.25.8+ | Building Propeller binaries  |
+| [Go](https://go.dev/doc/install)           | 1.26.0+ | Building Propeller binaries  |
 | [Rust](https://rustup.rs/)                 | Latest  | Building the proplet runtime |
 | [Docker](https://docs.docker.com/)         | 20.10+  | Running Magistrala services  |
 | [Make](https://www.gnu.org/software/make/) | 3.81+   | Build automation             |
@@ -36,7 +36,7 @@ Propeller also provides pre-built Docker images via GitHub Container Registry:
 | CLI               | `ghcr.io/absmach/propeller/cli:latest`             |
 | Proxy             | `ghcr.io/absmach/propeller/proxy:latest`           |
 | Proplet           | `ghcr.io/absmach/propeller/proplet:latest`         |
-| Proplet (WASI-NN) | `ghcr.io/absmach/propeller/proplet-wasi-nn:latest` |
+| Proplet (WASI-NN) | `ghcr.io/absmach/propeller/proplet:wasi-nn`        |
 
 To pull the latest images:
 
@@ -50,7 +50,7 @@ docker pull ghcr.io/absmach/propeller/proplet:latest
 For WASI-NN (OpenVINO) support:
 
 ```bash
-docker pull ghcr.io/absmach/propeller/proplet-wasi-nn:latest
+docker pull ghcr.io/absmach/propeller/proplet:wasi-nn
 ```
 
 > **Note:** The WASI-NN image is only available for `linux/amd64` architecture due to OpenVINO limitations.
@@ -86,9 +86,9 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "..." -o build/cli cmd/c
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "..." -o build/proxy cmd/proxy/main.go
 cd proplet && cargo build --release && cp target/release/proplet ../build
     Finished `release` profile [optimized] target(s) in 15.36s
-GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasip1 examples/addition/addition.go
-GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/compute.wasm -target wasip1 examples/compute/compute.go
-GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/hello-world.wasm -target wasip1 examples/hello-world/hello-world.go
+GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasi examples/addition/addition.go
+GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/compute.wasm -target wasi examples/compute/compute.go
+GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/hello-world.wasm -target wasi examples/hello-world/hello-world.go
 ```
 
 This means:
@@ -650,7 +650,8 @@ For detailed troubleshooting, see the [Developer Guide](./developer-guide#troubl
 ## Stopping Propeller
 
 ```bash
+make stop-propeller
 make stop-magistrala
 ```
 
-This stops all Magistrala and Propeller containers while preserving data volumes.
+This stops all Propeller containers first, then all Magistrala containers, while preserving data volumes.
