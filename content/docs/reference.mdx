@@ -15,10 +15,10 @@ The `propeller-cli` binary is installed to `$GOBIN` by `make install`. All comma
 | -------------------- | ----- | ----------------------- | ----------------------------------- |
 | `--manager-url`      | `-m`  | `http://localhost:7070` | URL of the Manager HTTP API         |
 | `--tls-verification` | `-v`  | —                       | Enable TLS certificate verification |
-| `--users-url`        | `-u`  | `http://localhost:9002` | SuperMQ users service URL           |
-| `--domains-url`      | `-d`  | `http://localhost:9003` | SuperMQ domains service URL         |
-| `--clients-url`      | `-c`  | `http://localhost:9006` | SuperMQ clients service URL         |
-| `--channels-url`     | `-z`  | `http://localhost:9005` | SuperMQ channels service URL        |
+| `--users-url`        | `-u`  | `http://localhost:9002` | Magistrala users service URL        |
+| `--domains-url`      | `-d`  | `http://localhost:9003` | Magistrala domains service URL      |
+| `--clients-url`      | `-c`  | `http://localhost:9006` | Magistrala clients service URL      |
+| `--channels-url`     | `-z`  | `http://localhost:9005` | Magistrala channels service URL     |
 | `--content-type`     | `-t`  | —                       | HTTP Content-Type header value      |
 
 ### Tasks
@@ -36,60 +36,13 @@ propeller-cli tasks        [--offset <n>] [--limit <n>]   # list all tasks
 | Flag       | Short | Default | Description                |
 | ---------- | ----- | ------- | -------------------------- |
 | `--offset` | `-o`  | `0`     | Pagination offset for list |
-| `--limit`  | `-l`  | `100`   | Maximum results to return  |
-
-### Jobs
-
-```bash
-propeller-cli jobs create <name> [--execution-mode <mode>]
-propeller-cli jobs view   <id>
-propeller-cli jobs start  <id>
-propeller-cli jobs stop   <id>
-propeller-cli jobs        [--offset <n>] [--limit <n>]   # list all jobs
-```
-
-| Flag               | Short | Default    | Description                                                 |
-| ------------------ | ----- | ---------- | ----------------------------------------------------------- |
-| `--execution-mode` | `-e`  | `parallel` | Execution mode: `parallel`, `sequential`, or `configurable` |
-| `--offset`         | `-o`  | `0`        | Pagination offset for list                                  |
-| `--limit`          | `-l`  | `100`      | Maximum results to return                                   |
-
-### Workflows
-
-```bash
-propeller-cli workflows create [--file <workflow.json>]
-propeller-cli workflows view   <id>
-propeller-cli workflows start  <id>
-propeller-cli workflows        [--offset <n>] [--limit <n>]   # list all workflows
-```
-
-| Flag       | Short | Default | Description                                                    |
-| ---------- | ----- | ------- | -------------------------------------------------------------- |
-| `--file`   | `-f`  | —       | JSON file defining tasks with `depends_on` and `run_if` fields |
-| `--offset` | `-o`  | `0`     | Pagination offset for list                                     |
-| `--limit`  | `-l`  | `100`   | Maximum results to return                                      |
-
-### Federated Learning
-
-```bash
-propeller-cli fl experiments create [--file <experiment.json>]
-propeller-cli fl experiments view   <id>
-propeller-cli fl task               [--round-id <id>] [--proplet-id <id>]
-propeller-cli fl update             [--round-id <id>] [--file <update.json>]
-propeller-cli fl round-status       <round-id>
-```
-
-| Flag           | Short | Default | Description                                   |
-| -------------- | ----- | ------- | --------------------------------------------- |
-| `--file`       | `-f`  | —       | JSON file defining experiment or model update |
-| `--round-id`   | `-r`  | —       | Federated learning round identifier           |
-| `--proplet-id` | `-p`  | —       | Filter task by proplet (optional)             |
+| `--limit`  | `-l`  | `10`    | Maximum results to return  |
 
 ### Provision
 
 The `provision` command runs an interactive TUI-based wizard that:
 
-1. Creates a SuperMQ domain.
+1. Creates a Magistrala domain.
 2. Creates a Manager client and N proplet clients.
 3. Creates a channel and connects all clients to it.
 4. Writes the resulting credentials to a `config.toml` file.

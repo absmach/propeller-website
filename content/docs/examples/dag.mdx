@@ -19,7 +19,8 @@ This section demonstrates [DAG (Directed Acyclic Graph) workflow](/docs/task-sch
 ### Prerequisites
 
 Ensure you have:
-- Propeller services running (`make start-supermq`)
+
+- Propeller services running (`make start-magistrala`)
 - A [provisioned config](/docs/getting-started#step-3-provision-propeller) with valid credentials
 - The `addition.wasm` module built
 
@@ -298,6 +299,7 @@ After completion, your output should look like this:
 ```
 
 **Results:**
+
 - Task 1: `10 + 20 = 30`
 - Task 2: `5 + 15 = 20` (started after Task 1 completed)
 - Task 3: `100 + 200 = 300` (started after Task 1 completed, ran in parallel with Task 2)
@@ -406,6 +408,7 @@ Your output should look like this:
 ```
 
 Key differences from workflows:
+
 - **job_id**: Tasks share a `job_id` instead of `workflow_id`
 - **No depends_on**: Tasks have no explicit dependencies—execution order is controlled by `execution_mode`
 - **execution_mode**: Set to `parallel` (all tasks start simultaneously) or `sequential` (tasks run one at a time)
@@ -515,6 +518,7 @@ After completion, your output should look like this:
 ```
 
 **Results:**
+
 - Task 1: `100 + 50 = 150`
 - Task 2: `25 + 75 = 100`
 - Task 3: `200 + 300 = 500`
@@ -607,6 +611,7 @@ After completion:
 ```
 
 **Results:**
+
 - Task 1: `1 + 2 = 3`
 - Task 2: `3 + 4 = 7`
 - Task 3: `5 + 6 = 11`

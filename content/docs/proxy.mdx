@@ -62,11 +62,11 @@ The following sequence diagram illustrates this complete module delivery flow:
 
 ### With Docker Compose
 
-If you're using the standard Propeller deployment, the Proxy is included in `docker-compose.yaml`. Configure it through environment variables:
+If you're using the standard Propeller deployment, the Proxy is included in `docker/compose.yaml`. Configure it through environment variables:
 
 ```yaml
 proxy:
-  image: ghcr.io/absmach/propeller-proxy:latest
+  image: ghcr.io/absmach/propeller/proxy:latest
   environment:
     PROXY_REGISTRY_URL: ${PROXY_REGISTRY_URL}
     PROXY_AUTHENTICATE: ${PROXY_AUTHENTICATE}
@@ -104,27 +104,27 @@ The Proxy is configured entirely through environment variables. No config files 
 
 These control logging and instance identification:
 
-| Variable          | Description                                        | Default   |
-| ----------------- | -------------------------------------------------- | --------- |
-| `PROXY_LOG_LEVEL` | Log verbosity: `debug`, `info`, `warn`, or `error` | `info`    |
+| Variable          | Description                                        | Default |
+| ----------------- | -------------------------------------------------- | ------- |
+| `PROXY_LOG_LEVEL` | Log verbosity: `debug`, `info`, `warn`, or `error` | `info`  |
 
 **Why `info` level?** The `info` level logs module fetch requests, chunk delivery progress, and completion events—enough to monitor normal operation without flooding logs. Use `debug` when troubleshooting registry authentication or chunk assembly issues; it logs every HTTP request and MQTT publish.
 
 ### Connecting to the Message Broker
 
-The Proxy needs to connect to the same MQTT broker (SuperMQ) as your Manager and Proplets:
+The Proxy needs to connect to the same MQTT broker (Magistrala) as your Manager and Proplets:
 
-| Variable             | Description                                        | Default                | Required   |
-| -------------------- | -------------------------------------------------- | ---------------------- | ---------- |
-| `PROXY_MQTT_ADDRESS` | Full broker URL including protocol and port        | `tcp://localhost:1883` | Yes        |
-| `PROXY_MQTT_TIMEOUT` | How long to wait for broker responses              | `30s`                  | No         |
-| `PROXY_MQTT_QOS`     | Delivery guarantee (2 = exactly once, recommended) | `2`                    | No         |
-| `PROXY_DOMAIN_ID`    | Your SuperMQ domain ID                             | —                      | Yes        |
-| `PROXY_CHANNEL_ID`   | Channel for registry communication                 | —                      | Yes        |
-| `PROXY_CLIENT_ID`    | Unique client ID for MQTT connection               | —                      | Yes        |
-| `PROXY_CLIENT_KEY`   | Authentication secret for the broker               | —                      | Yes        |
+| Variable             | Description                                        | Default                | Required |
+| -------------------- | -------------------------------------------------- | ---------------------- | -------- |
+| `PROXY_MQTT_ADDRESS` | Full broker URL including protocol and port        | `tcp://localhost:1883` | Yes      |
+| `PROXY_MQTT_TIMEOUT` | How long to wait for broker responses              | `30s`                  | No       |
+| `PROXY_MQTT_QOS`     | Delivery guarantee (2 = exactly once, recommended) | `2`                    | No       |
+| `PROXY_DOMAIN_ID`    | Your Magistrala domain ID                          | —                      | Yes      |
+| `PROXY_CHANNEL_ID`   | Channel for registry communication                 | —                      | Yes      |
+| `PROXY_CLIENT_ID`    | Unique client ID for MQTT connection               | —                      | Yes      |
+| `PROXY_CLIENT_KEY`   | Authentication secret for the broker               | —                      | Yes      |
 
-Get these values from your SuperMQ setup. They should match what you used when provisioning the Propeller channel.
+Get these values from your Magistrala setup. They should match what you used when provisioning the Propeller channel.
 
 **Why QoS 2?** Chunk delivery must be exactly-once. With QoS 1, duplicate chunks could cause the Proplet to corrupt the reassembled binary. With QoS 0, lost chunks would leave gaps. QoS 2's four-step handshake guarantees each chunk arrives exactly once, which is worth the slight latency overhead for binary integrity.
 
@@ -134,14 +134,14 @@ Get these values from your SuperMQ setup. They should match what you used when p
 
 Configure where the Proxy fetches modules from:
 
-| Variable                  | Description                                            | Default   | Required        |
-| ------------------------- | ------------------------------------------------------ | --------- | --------------- |
-| `PROXY_REGISTRY_URL`      | Base URL of your OCI registry                          | —         | Yes             |
-| `PROXY_AUTHENTICATE`      | Whether the registry requires authentication           | `false`   | No              |
-| `PROXY_REGISTRY_USERNAME` | Username for registry login                            | —         | If auth enabled |
-| `PROXY_REGISTRY_PASSWORD` | Password for registry login                            | —         | If auth enabled |
-| `PROXY_REGISTRY_TOKEN`    | Alternative: access token instead of username/password | —         | If auth enabled |
-| `PROXY_CHUNK_SIZE`        | Size of each chunk in bytes (tune based on network)    | `512000`  | No              |
+| Variable                  | Description                                            | Default  | Required        |
+| ------------------------- | ------------------------------------------------------ | -------- | --------------- |
+| `PROXY_REGISTRY_URL`      | Base URL of your OCI registry                          | —        | Yes             |
+| `PROXY_AUTHENTICATE`      | Whether the registry requires authentication           | `false`  | No              |
+| `PROXY_REGISTRY_USERNAME` | Username for registry login                            | —        | If auth enabled |
+| `PROXY_REGISTRY_PASSWORD` | Password for registry login                            | —        | If auth enabled |
+| `PROXY_REGISTRY_TOKEN`    | Alternative: access token instead of username/password | —        | If auth enabled |
+| `PROXY_CHUNK_SIZE`        | Size of each chunk in bytes (tune based on network)    | `512000` | No              |
 
 **Why 512 KB chunks?** This balances transfer efficiency against MQTT broker limits and memory usage. Smaller chunks (64-128 KB) work better on constrained networks or embedded proplets with limited RAM, but increase overhead from more MQTT publishes. Larger chunks (1-2 MB) reduce overhead but may exceed broker message limits or cause memory pressure on proplets reassembling multiple modules simultaneously. The 512 KB default works well for most deployments; tune based on your network latency and proplet memory constraints.
 
@@ -187,7 +187,7 @@ You can also use private registries:
 ```json
 {
   "name": "proprietary-analysis",
-  "inputs": {"data": "..."},
+  "inputs": { "data": "..." },
   "image_url": "ghcr.io/your-org/private-module.wasm"
 }
 ```
@@ -255,10 +255,10 @@ The diagram below shows the internal architecture of the Proxy, illustrating how
 
 ### MQTT Topics Used
 
-| Topic Pattern                             | Direction   | Purpose                                |
-| ----------------------------------------- | ----------- | -------------------------------------- |
-| `m/{domain}/c/{channel}/registry/proplet` | Subscribe   | Receives module requests from Proplets |
-| `m/{domain}/c/{channel}/registry/server`  | Publish     | Sends chunks back to Proplets          |
+| Topic Pattern                             | Direction | Purpose                                |
+| ----------------------------------------- | --------- | -------------------------------------- |
+| `m/{domain}/c/{channel}/registry/proplet` | Subscribe | Receives module requests from Proplets |
+| `m/{domain}/c/{channel}/registry/server`  | Publish   | Sends chunks back to Proplets          |
 
 ### Chunk Format
 

@@ -74,78 +74,6 @@ Balanced monitoring for typical tasks.
 - **History**: 100 samples (~16 minutes)
 - **Best for**: Short to medium tasks, general workloads
 
-### Minimal
-
-Lightweight monitoring for resource-constrained devices.
-
-```json
-{
-  "enabled": true,
-  "interval": 60,
-  "collect_cpu": true,
-  "collect_memory": true,
-  "collect_disk_io": false,
-  "collect_threads": false,
-  "collect_file_descriptors": false,
-  "export_to_mqtt": false,
-  "retain_history": false,
-  "history_size": 0
-}
-```
-
-- **Interval**: 60 seconds
-- **Metrics**: CPU and memory only
-- **History**: None
-- **Best for**: IoT devices, edge nodes, battery-powered systems
-
-### Intensive
-
-High-frequency monitoring for debugging and profiling.
-
-```json
-{
-  "enabled": true,
-  "interval": 1,
-  "collect_cpu": true,
-  "collect_memory": true,
-  "collect_disk_io": true,
-  "collect_threads": true,
-  "collect_file_descriptors": true,
-  "export_to_mqtt": true,
-  "retain_history": true,
-  "history_size": 1000
-}
-```
-
-- **Interval**: 1 second
-- **Metrics**: All available
-- **History**: 1000 samples (~16 minutes)
-- **Best for**: Performance troubleshooting, memory leak detection, development
-
-### Batch processing
-
-Optimized for long-running data processing tasks.
-
-```json
-{
-  "enabled": true,
-  "interval": 30,
-  "collect_cpu": true,
-  "collect_memory": true,
-  "collect_disk_io": true,
-  "collect_threads": false,
-  "collect_file_descriptors": false,
-  "export_to_mqtt": true,
-  "retain_history": true,
-  "history_size": 200
-}
-```
-
-- **Interval**: 30 seconds
-- **Metrics**: CPU, memory, disk I/O
-- **History**: 200 samples (~100 minutes)
-- **Best for**: ETL pipelines, batch jobs, data transformations
-
 ### Long-running daemon
 
 Low-frequency monitoring for background services.
@@ -325,10 +253,10 @@ Metrics focus on CPU, memory, and disk I/O with 30-second intervals.
 
 Proplets publish two categories of metrics:
 
-| Topic                                                        | Content                                                                                                               |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `m/{domain_id}/c/{channel_id}/control/proplet/task_metrics`  | Per-task process metrics (CPU, memory, disk I/O, threads, file descriptors) — published while a task is running      |
-| `m/{domain_id}/c/{channel_id}/control/proplet/metrics`       | Proplet-level resource metrics (CPU, memory, cgroup stats) — published on a fixed interval                           |
+| Topic                                                       | Content                                                                                                         |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `m/{domain_id}/c/{channel_id}/control/proplet/task_metrics` | Per-task process metrics (CPU, memory, disk I/O, threads, file descriptors) — published while a task is running |
+| `m/{domain_id}/c/{channel_id}/control/proplet/metrics`      | Proplet-level resource metrics (CPU, memory, cgroup stats) — published on a fixed interval                      |
 
 ### Message Format
 
@@ -654,7 +582,7 @@ CPU percentage is calculated over the collection interval. Use intervals ≥ 1 s
 
 ```bash
 cd propeller
-make start-supermq
+make start-magistrala
 ```
 
 ### Enable Monitoring

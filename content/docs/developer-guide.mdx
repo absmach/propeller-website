@@ -19,24 +19,13 @@ git remote add upstream https://github.com/absmach/propeller.git
 
 To build Propeller, you will need the following:
 
-- [A Go compiler (Go 1.25.8)](https://go.dev/doc/install)
+- [A Go compiler (Go 1.26.0)](https://go.dev/doc/install)
 - [Rust](https://rustup.rs/) (required for `make proplet` and `make all`)
 - [Make](https://www.gnu.org/software/make/manual/make.html)
-- [Docker](https://docs.docker.com/) (required for `make start-supermq` and Docker image builds)
+- [Docker](https://docs.docker.com/) (required for `make start-magistrala` and Docker image builds)
 - [Wasmtime](https://wasmtime.dev/) (required to test compiled Wasm examples locally)
 - [TinyGo](https://tinygo.org/getting-started/install/) (required for Wasm example builds)
 - [Mockery](https://vektra.github.io/mockery/latest/installation/) (required for `make test` and `make test-all`)
-
-TinyGo supports Go versions 1.19 through 1.23, but the project's `go.mod` requires Go 1.25.8. This creates a compatibility issue for building WASM examples.
-
-**Workaround**: Install Go 1.23.5 separately and it will be used automatically:
-
-```bash
-go install golang.org/dl/go1.23.5@latest
-~/go/bin/go1.23.5 download
-```
-
-The Makefile has been updated to use Go 1.23.5 for WASM builds instead of 1.25.8. This allows `make addition`, `make compute`, and other WASM examples to compile successfully while the rest of the project uses Go 1.25.8.
 
 ### Downloading Pre-built Binaries
 
@@ -54,7 +43,7 @@ docker pull ghcr.io/absmach/propeller/proxy:latest
 docker pull ghcr.io/absmach/propeller/proplet:latest
 
 # For WASI-NN support (amd64 only)
-docker pull ghcr.io/absmach/propeller/proplet-wasi-nn:latest
+docker pull ghcr.io/absmach/propeller/proplet:wasi-nn
 ```
 
 #### GitHub Releases
@@ -74,7 +63,7 @@ Use the GNU Make tool to build all Propeller services:
 make all
 ```
 
-This will build all Go services (manager, cli, proxy), Rust proplet, and WASM examples for your platform. 
+This will build all Go services (manager, cli, proxy), Rust proplet, and WASM examples for your platform.
 
 **Note**: This requires both Go and Rust toolchains to be installed.
 
@@ -254,6 +243,7 @@ make install
 ```
 
 Example output:
+
 ```bash
 cp build/cli /home/jeff/go/bin/propeller-cli
 cp build/manager /home/jeff/go/bin/propeller-manager
@@ -263,26 +253,28 @@ cp build/proxy /home/jeff/go/bin/propeller-proxy
 The `make install` target copies binaries from the `build` directory to `$GOBIN` with a `propeller-` prefix. The `$GOBIN` variable **must** be set before running `make install`, or the command will fail with a permission error. If `$GOBIN` is not set, it defaults to `$HOME/go/bin`.
 
 After installation, ensure `$GOBIN` is in your `PATH`:
+
 ```bash
 export PATH=$GOBIN:$PATH
 ```
 
 This installs:
+
 - `$GOBIN/propeller-cli` - Command-line interface (17 MB)
 - `$GOBIN/propeller-manager` - Task orchestrator service (25 MB)
 - `$GOBIN/propeller-proxy` - Wasm module proxy service (7 MB)
 
 ## Testing
 
-The project uses [mockery](https://vektra.github.io/mockery/latest/installation/) to generate mock interfaces for testing. The `make test` and `make test-all` targets automatically run `mockery --config .mockery.yaml` to generate mocks before running tests.
+The project uses [mockery](https://vektra.github.io/mockery/latest/installation/) to generate mock interfaces for testing. The `make test` target automatically runs `mockery --config .mockery.yaml` to generate mocks before running tests.
 
-**Important**: The project migrated from mockery v2 to v3. If you have an older version installed, update it:
+**Important**: The project uses mockery v3. Install it with:
 
 ```bash
-go install github.com/vektra/mockery/v2@latest
+go install github.com/vektra/mockery/v3@latest
 ```
 
-For mockery v3 compatibility (recommended), the project uses `pkgname: mocks` and generates individual mock files for each interface.
+The project uses `pkgname: mocks` and generates individual mock files for each interface.
 
 To run the Go service tests:
 
@@ -300,7 +292,7 @@ ok      github.com/absmach/propeller/manager    0.218s
 PASS
 ```
 
-This target runs tests for the manager service and other core packages.
+This target runs `go test -v ./manager` for the manager service.
 
 To run all tests, including the Rust proplet test suite:
 
@@ -324,56 +316,71 @@ Then run the linter:
 make lint
 ```
 
-This lints all Go code and runs `cargo fmt --all -- --check` and `cargo clippy` on the Rust proplet code.
+This lints all Go code and runs `cargo fmt --all -- --check`, `cargo clippy -- -D warnings`, and `cargo check --release` on the Rust proplet code.
 
 The linting process can take 2-3 minutes or longer depending on system resources. This is normal behavior. The linter performs comprehensive code quality checks across the entire codebase.
 
-## SuperMQ
+## Magistrala
 
-### Starting SuperMQ
+### Starting Magistrala
 
-To start SuperMQ (the message broker infrastructure for Propeller), use:
+To start Magistrala (the message broker infrastructure for Propeller), use:
 
 ```bash
-make start-supermq
+make start-magistrala
 ```
 
-This runs `docker compose -f docker/compose.yaml --env-file docker/.env up -d` and starts all required SuperMQ services.
+This runs `docker compose -f docker/compose.yaml --env-file docker/.env up -d` and starts all required Magistrala services.
 
 Example output:
 
 ```bash
 docker compose -f docker/compose.yaml --env-file docker/.env up -d
-WARN[0000] Found orphan containers ([supermq-ws]) for this project. If you removed
-or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up.
-[+] up 30/30
- ✔ Container supermq-auth-redis      Started                                6.3s
- ✔ Container supermq-auth-db         Started                                4.9s
- ✔ Container supermq-users-db        Started                                2.5s
- ✔ Container supermq-channels-redis  Started                                4.5s
- ✔ Container supermq-domains-db      Started                                3.0s
- ✔ Container supermq-clients-redis   Started                                5.1s
- ✔ Container supermq-nats            Started                                4.4s
- ✔ Container supermq-domains-redis   Started                                2.6s
- ✔ Container supermq-spicedb-db      Started                                1.9s
- ✔ Container supermq-clients-db      Started                                5.1s
- ✔ Container supermq-channels-db     Started                                6.1s
- ✔ Container supermq-rabbitmq        Started                                5.7s
- ✔ Container supermq-jaeger          Started                                4.7s
- ✔ Container supermq-groups-db       Started                                6.6s
- ✔ Container supermq-spicedb-migrate Started                                3.8s
- ✔ Container supermq-notifications   Started                                0.0s
- ✔ Container supermq-spicedb         Started                                0.0s
- ✔ Container supermq-auth            Started                                0.0s
- ✔ Container supermq-domains         Started                                1.1s
- ✔ Container supermq-users           Started                                0.0s
- ✔ Container supermq-clients         Started                                0.0s
- ✔ Container supermq-http            Started                                0.0s
- ✔ Container supermq-coap            Started                                0.0s
- ✔ Container supermq-mqtt            Started                                0.0s
- ✔ Container propeller-manager       Started                                0.0s
- ✔ Container propeller-proxy         Started                                0.0s
- ✔ Container supermq-nginx           Started                                0.9s
+[+] up 44/44
+ ✔ Network magistrala-base-net          Created                                                                                      0.1s
+ ✔ Container magistrala-re-db           Started                                                                                      2.6s
+ ✔ Container magistrala-clients-db      Started                                                                                      5.8s
+ ✔ Container magistrala-clients-redis   Started                                                                                      3.1s
+ ✔ Container magistrala-fluxmq-auth     Started                                                                                      5.2s
+ ✔ Container magistrala-ui-backend-db   Healthy                                                                                     10.1s
+ ✔ Container magistrala-alarms-db       Started                                                                                      2.7s
+ ✔ Container magistrala-spicedb-db      Started                                                                                      3.5s
+ ✔ Container magistrala-openbao         Healthy                                                                                      8.9s
+ ✔ Container magistrala-pdf             Started                                                                                      3.9s
+ ✔ Container magistrala-auth-redis      Started                                                                                      5.6s
+ ✔ Container magistrala-channels-db     Started                                                                                      2.9s
+ ✔ Container magistrala-certs-db        Started                                                                                      3.9s
+ ✔ Container magistrala-domains-redis   Started                                                                                      3.2s
+ ✔ Container magistrala-reports-db      Started                                                                                      4.2s
+ ✔ Container magistrala-seaweedfs-s3    Started                                                                                      6.1s
+ ✔ Container magistrala-domains-db      Started                                                                                      3.1s
+ ✔ Container magistrala-groups-db       Started                                                                                      5.3s
+ ✔ Container magistrala-channels-redis  Started                                                                                      2.8s
+ ✔ Container magistrala-journal-db      Started                                                                                      3.9s
+ ✔ Container magistrala-auth-db         Started                                                                                      5.0s
+ ✔ Container magistrala-ui              Started                                                                                      3.3s
+ ✔ Container magistrala-users-db        Started                                                                                      3.6s
+ ✔ Container magistrala-jaeger          Started                                                                                      3.9s
+ ✔ Container magistrala-fluxmq-node1    Started                                                                                      6.0s
+ ✔ Container magistrala-seaweedfs-init  Started                                                                                      6.3s
+ ✔ Container magistrala-ui-backend      Started                                                                                     10.2s
+ ✔ Container magistrala-fluxmq-node2    Started                                                                                      6.2s
+ ✔ Container magistrala-fluxmq-node3    Started                                                                                      6.2s
+ ✔ Container magistrala-spicedb-migrate Started                                                                                      5.3s
+ ✔ Container magistrala-nginx           Started                                                                                      6.3s
+ ✔ Container magistrala-certs           Started                                                                                      9.0s
+ ✔ Container magistrala-spicedb         Started                                                                                      5.7s
+ ✔ Container magistrala-reports         Started                                                                                      8.6s
+ ✔ Container magistrala-re              Started                                                                                      7.6s
+ ✔ Container magistrala-notifications   Started                                                                                      7.1s
+ ✔ Container magistrala-alarms          Started                                                                                      8.4s
+ ✔ Container magistrala-domains         Started                                                                                      8.5s
+ ✔ Container magistrala-auth            Started                                                                                      8.7s
+ ✔ Container magistrala-journal         Started                                                                                      9.2s
+ ✔ Container magistrala-users           Started                                                                                      9.2s
+ ✔ Container magistrala-groups          Started                                                                                      9.1s
+ ✔ Container magistrala-clients         Started                                                                                     11.2s
+ ✔ Container magistrala-channels        Started                                                                                     11.3s
 ```
 
 - Docker must be installed and running
@@ -381,18 +388,19 @@ or renamed this service in your compose file, you can run this command with the 
 
 ### Provisioning Propeller
 
-After SuperMQ is running, provision Propeller resources:
+After Magistrala is running, provision Propeller resources:
 
 ```bash
 propeller-cli provision
 ```
 
 This interactive command:
-1. Creates SuperMQ domain, channel, and user credentials
+
+1. Creates Magistrala domain, channel, and user credentials
 2. Generates a `config.toml` file with all necessary configuration
 3. Sets up clients for manager, proplet, and proxy services
 
-The generated `config.toml` contains SuperMQ credentials (domain_id, channel_id, client_id, client_key) that are required for all services to communicate.
+The generated `config.toml` contains Magistrala credentials (domain_id, channel_id, client_id, client_key) that are required for all services to communicate.
 
 ### Using config.toml with Docker Compose
 
@@ -429,11 +437,11 @@ volumes:
   - ./config.toml:/config.toml
 ```
 
-After uncommenting these lines, restart SuperMQ:
+After uncommenting these lines, restart Magistrala:
 
 ```bash
-make stop-supermq
-make start-supermq
+make stop-magistrala
+make start-magistrala
 ```
 
 ### Verifying Service Connectivity
@@ -441,12 +449,14 @@ make start-supermq
 Once services are running, verify they connected to MQTT:
 
 **Manager logs** (healthy state):
+
 ```
 {"time":"2026-02-11T16:57:43.883167345Z","level":"INFO","msg":"Subscribe to MQTT topic completed successfully","duration":"60.157736ms"}
 {"time":"2026-02-11T16:57:43.883519119Z","level":"INFO","msg":"manager service http server listening at manager:7070 without TLS"}
 ```
 
 **Proplet logs** (healthy state):
+
 ```
 2026-02-11T17:34:32.841840Z  INFO Starting Proplet (Rust) - Instance ID: f34cddff-2855-4e3f-9b55-9d83b982b315
 2026-02-11T17:34:32.877439Z DEBUG Published to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/proplet/create
@@ -455,12 +465,12 @@ Once services are running, verify they connected to MQTT:
 2026-02-11T17:34:32.877467Z  INFO Subscribed to topic: m/fcf50e58-a080-4179-a260-e91cdf8fc1c2/c/8259a673-ab09-4b97-8c09-e1f9e60c7c2c/control/manager/stop
 ```
 
-### Stopping SuperMQ
+### Stopping Magistrala
 
-SuperMQ can be stopped using the following:
+Magistrala can be stopped using the following:
 
 ```bash
-make stop-supermq
+make stop-magistrala
 ```
 
 ## CI/CD
@@ -534,7 +544,7 @@ CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc
 
 For development and debugging, you can run Propeller services directly on your host instead of in Docker containers. This allows easier access to logs, debuggers, and faster iteration.
 
-**Prerequisites**: SuperMQ must still be running (via `make start-supermq`), and you must have a valid `config.toml` in your working directory.
+**Prerequisites**: Magistrala must still be running (via `make start-magistrala`), and you must have a valid `config.toml` in your working directory.
 
 First, stop the Docker-based Propeller services:
 
@@ -551,6 +561,7 @@ propeller-manager
 ```
 
 Expected output:
+
 ```json
 {"time":"2026-02-13T12:12:38.938209887+03:00","level":"INFO","msg":"MQTT connection established"}
 {"time":"2026-02-13T12:12:38.938257698+03:00","level":"WARN","msg":"COORDINATOR_URL not configured - FL features will not be available"}
@@ -570,6 +581,7 @@ propeller-proplet
 ```
 
 Expected output:
+
 ```
 2026-02-13T09:13:11.246621Z  INFO Starting Proplet (Rust) - Instance ID: 67b2bcb2-9c56-4c57-b163-085d6ec2c313
 2026-02-13T09:13:11.249067Z  INFO MQTT client created (TLS: false)
@@ -598,6 +610,7 @@ propeller-proxy
 ```
 
 Expected output:
+
 ```json
 {"time":"2026-02-13T12:14:14.683354969+03:00","level":"INFO","msg":"MQTT connection established"}
 {"time":"2026-02-13T12:14:14.683506536+03:00","level":"INFO","msg":"successfully initialized MQTT and HTTP config"}

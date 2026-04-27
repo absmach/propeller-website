@@ -45,7 +45,7 @@ export default function FeatureSection() {
       icon: NetworkIcon,
       title: "Powerful Service Mesh",
       description:
-        "Integrates with SuperMQ for secure, efficient IoT device communication across your entire infrastructure.",
+        "Integrates with Magistrala for secure, efficient IoT device communication across your entire infrastructure.",
     },
     {
       icon: ServerIcon,

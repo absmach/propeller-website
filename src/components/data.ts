@@ -17,7 +17,7 @@ export const testimonials = [
   },
   {
     quote:
-      "Propeller's integration with SuperMQ gives us secure, reliable communication across thousands of IoT devices in our smart city infrastructure. The security-first approach with sandboxed Wasm execution is exactly what we needed.",
+      "Propeller's integration with Magistrala gives us secure, reliable communication across thousands of IoT devices in our smart city infrastructure. The security-first approach with sandboxed Wasm execution is exactly what we needed.",
     name: "Jessica Kim",
     title: "IoT Platform Director, Smart Cities Initiative",
     avatar:

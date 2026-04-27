@@ -36,7 +36,7 @@ The FL demo requires several ports. Check that these are available:
 sudo lsof -i :1883
 ```
 
-If you have **mosquitto** or another MQTT broker running as a system service, it will conflict with SuperMQ's MQTT adapter. Stop it before proceeding:
+If you have **mosquitto** or another MQTT broker running as a system service, it will conflict with Magistrala's MQTT adapter. Stop it before proceeding:
 
 ```bash
 sudo systemctl stop mosquitto
@@ -44,6 +44,7 @@ sudo systemctl disable mosquitto  # Optional: prevent auto-start
 ```
 
 You can verify the port is free:
+
 ```bash
 sudo lsof -i :1883
 # Should return nothing
@@ -82,12 +83,14 @@ sudo lsof -i :1883 -i :7070 -i :8080 -i :8083 -i :8084 -i :8085 -i :8086
 
 ## Step 2: Build Docker Images
 
-The FL demo extends the base SuperMQ + Propeller stack with FL-specific services. You must use both compose files together.
+The FL demo extends the base Magistrala + Propeller stack with FL-specific services. You must use both compose files together.
 
 The FL demo compose file (`examples/fl-demo/compose.yaml`) is an **extension** to the base compose file (`docker/compose.yaml`). Running it standalone will fail with:
+
 ```
-service "local-data-store" refers to undefined network supermq-base-net
+service "local-data-store" refers to undefined network magistrala-base-net
 ```
+
 **Always use both compose files together.**
 
 ### Build All Required Images
@@ -101,6 +104,7 @@ docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-fil
 ```
 
 Your output should look like this:
+
 ```
 [+] Building 127.3s (52/52) FINISHED                                   docker:default
  => [manager internal] load build definition from Dockerfile                     0.0s
@@ -147,26 +151,27 @@ docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-fil
 ```
 
 Your output should look like this:
+
 ```
 [+] Running 36/36
- ✔ Network supermq-base-net              Created                              0.1s
- ✔ Container supermq-nats                Started                              0.8s
- ✔ Container supermq-rabbitmq            Started                              0.9s
- ✔ Container supermq-spicedb-db          Started                              0.7s
- ✔ Container supermq-auth-db             Started                              0.8s
- ✔ Container supermq-users-db            Started                              0.7s
- ✔ Container supermq-clients-db          Started                              0.8s
- ✔ Container supermq-domains-db          Started                              0.9s
- ✔ Container supermq-channels-db         Started                              0.8s
- ✔ Container supermq-spicedb             Started                              1.2s
- ✔ Container supermq-spicedb-migrate     Started                              1.5s
- ✔ Container supermq-auth                Started                              2.1s
- ✔ Container supermq-users               Started                              2.3s
- ✔ Container supermq-domains             Started                              2.4s
- ✔ Container supermq-clients             Started                              2.5s
- ✔ Container supermq-channels            Started                              2.6s
- ✔ Container supermq-nginx               Started                              2.8s
- ✔ Container supermq-mqtt                Started                              2.9s
+ ✔ Network magistrala-base-net              Created                              0.1s
+ ✔ Container magistrala-nats             Started                              0.8s
+ ✔ Container magistrala-rabbitmq         Started                              0.9s
+ ✔ Container magistrala-spicedb-db       Started                              0.7s
+ ✔ Container magistrala-auth-db          Started                              0.8s
+ ✔ Container magistrala-users-db         Started                              0.7s
+ ✔ Container magistrala-clients-db       Started                              0.8s
+ ✔ Container magistrala-domains-db       Started                              0.9s
+ ✔ Container magistrala-channels-db      Started                              0.8s
+ ✔ Container magistrala-spicedb          Started                              1.2s
+ ✔ Container magistrala-spicedb-migrate  Started                              1.5s
+ ✔ Container magistrala-auth             Started                              2.1s
+ ✔ Container magistrala-users            Started                              2.3s
+ ✔ Container magistrala-domains          Started                              2.4s
+ ✔ Container magistrala-clients          Started                              2.5s
+ ✔ Container magistrala-channels         Started                              2.6s
+ ✔ Container magistrala-nginx            Started                              2.8s
+ ✔ Container magistrala-mqtt             Started                              2.9s
  ✔ Container fl-demo-model-registry      Started                              1.1s
  ✔ Container fl-demo-aggregator          Started                              1.2s
  ✔ Container fl-demo-local-data-store    Started                              1.3s
@@ -180,7 +185,8 @@ Your output should look like this:
 ```
 
 This starts:
-- **SuperMQ stack**: Auth, Domains, Clients, Channels, MQTT Adapter, Nginx, SpiceDB
+
+- **Magistrala stack**: Auth, Domains, Clients, Channels, MQTT Adapter, Nginx, SpiceDB
 - **FL services**: Model Registry (8084), Aggregator (8085), Local Data Store (8083), Coordinator (8086)
 - **Propeller services**: Manager (7070), 3 Proplets, Proxy
 
@@ -193,6 +199,7 @@ docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-fil
 ```
 
 **Expected output** (should show 36 containers, all "Up"):
+
 ```
 NAME                          STATUS          PORTS
 fl-demo-aggregator            Up 10 seconds   0.0.0.0:8085->8080/tcp
@@ -205,42 +212,44 @@ propeller-proplet             Up 10 seconds
 propeller-proplet-2           Up 10 seconds
 propeller-proplet-3           Up 10 seconds
 propeller-proxy               Up 10 seconds
-supermq-auth                  Up 10 seconds   0.0.0.0:8189->8189/tcp
-supermq-auth-db               Up 10 seconds   5432/tcp
-supermq-channels              Up 10 seconds   0.0.0.0:9005->9005/tcp
-supermq-channels-db           Up 10 seconds   5432/tcp
-supermq-clients               Up 10 seconds   0.0.0.0:9006->9006/tcp
-supermq-clients-db            Up 10 seconds   5432/tcp
-supermq-domains               Up 10 seconds   0.0.0.0:9003->9003/tcp
-supermq-domains-db            Up 10 seconds   5432/tcp
-supermq-mqtt                  Up 10 seconds   0.0.0.0:1883->1883/tcp
-supermq-nats                  Up 10 seconds   4222/tcp, 6222/tcp, 8222/tcp
-supermq-nginx                 Up 10 seconds   0.0.0.0:80->80/tcp, 0.0.0.0:443->443/tcp
-supermq-rabbitmq              Up 10 seconds   5672/tcp, 15672/tcp
-supermq-spicedb               Up 10 seconds   50051/tcp
-supermq-spicedb-db            Up 10 seconds   5432/tcp
-supermq-spicedb-migrate       Up 10 seconds
-supermq-users                 Up 10 seconds   0.0.0.0:9002->9002/tcp
-supermq-users-db              Up 10 seconds   5432/tcp
+magistrala-auth               Up 10 seconds   0.0.0.0:8189->8189/tcp
+magistrala-auth-db            Up 10 seconds   5432/tcp
+magistrala-channels           Up 10 seconds   0.0.0.0:9005->9005/tcp
+magistrala-channels-db        Up 10 seconds   5432/tcp
+magistrala-clients            Up 10 seconds   0.0.0.0:9006->9006/tcp
+magistrala-clients-db         Up 10 seconds   5432/tcp
+magistrala-domains            Up 10 seconds   0.0.0.0:9003->9003/tcp
+magistrala-domains-db         Up 10 seconds   5432/tcp
+magistrala-mqtt               Up 10 seconds   0.0.0.0:1883->1883/tcp
+magistrala-nats               Up 10 seconds   4222/tcp, 6222/tcp, 8222/tcp
+magistrala-nginx              Up 10 seconds   0.0.0.0:80->80/tcp, 0.0.0.0:443->443/tcp
+magistrala-rabbitmq           Up 10 seconds   5672/tcp, 15672/tcp
+magistrala-spicedb            Up 10 seconds   50051/tcp
+magistrala-spicedb-db         Up 10 seconds   5432/tcp
+magistrala-spicedb-migrate    Up 10 seconds
+magistrala-users              Up 10 seconds   0.0.0.0:9002->9002/tcp
+magistrala-users-db           Up 10 seconds   5432/tcp
 ```
 
 You can quickly verify the core services are running:
+
 ```bash
 curl -s http://localhost:7070/health && echo ""
 curl -s http://localhost:8086/health && echo ""
 ```
 
 Your output should look like this:
+
 ```
 OK
 {"status":"ok"}
 ```
 
-## Step 4: Provision SuperMQ Resources
+## Step 4: Provision Magistrala Resources
 
-Before the manager and proplets can connect to MQTT, you must provision the necessary SuperMQ resources (domain, channel, and clients).
+Before the manager and proplets can connect to MQTT, you must provision the necessary Magistrala resources (domain, channel, and clients).
 
-Provisioning creates persistent data in SuperMQ databases. Only needs to be repeated if you remove Docker volumes (e.g., `docker compose down -v`).
+Provisioning creates persistent data in Magistrala databases. Only needs to be repeated if you remove Docker volumes (e.g., `docker compose down -v`).
 
 ### Install Python Dependencies
 
@@ -249,6 +258,7 @@ pip install -r examples/fl-demo/requirements.txt
 ```
 
 Your output should look like this:
+
 ```
 Collecting requests
 Collecting python-dotenv
@@ -262,9 +272,10 @@ Successfully installed requests-2.31.0 python-dotenv-1.0.0
 ```
 
 Your output should look like this:
+
 ```
 ============================================================
-SuperMQ Provisioning Script for FL Demo
+Magistrala Provisioning Script for FL Demo
 ============================================================
 Waiting for Users service...
 ✓ Users service is ready
@@ -329,7 +340,7 @@ Note: Recreate services to apply new credentials (use --force-recreate, not rest
   docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env up -d --force-recreate manager coordinator-http proplet proplet-2 proplet-3 proxy
 ```
 
-The **proplet-1**, **proplet-2**, and **proplet-3** client IDs shown in the summary are SuperMQ-generated UUIDs — created when the script registers each proplet as a client in your SuperMQ domain. These are what you pass as `participants` when triggering FL experiments. The script automatically writes them to `docker/.env`.
+The **proplet-1**, **proplet-2**, and **proplet-3** client IDs shown in the summary are Magistrala-generated UUIDs — created when the script registers each proplet as a client in your Magistrala domain. These are what you pass as `participants` when triggering FL experiments. The script automatically writes them to `docker/.env`.
 
 ### Verify Environment Variables Were Set
 
@@ -338,6 +349,7 @@ grep -E "PROPLET.*CLIENT_ID|MANAGER_DOMAIN_ID|MANAGER_CHANNEL_ID" docker/.env | 
 ```
 
 Your output should look like this:
+
 ```
 MANAGER_DOMAIN_ID=4e484e5b-0498-4453-adf8-a6fa6a37454b
 MANAGER_CHANNEL_ID=c1578c6c-598e-4dbe-9a8b-5d2acd623679
@@ -356,11 +368,12 @@ docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-fil
 ```
 
 Your output should look like this:
+
 ```
 [+] Running 13/13
- ✔ Container supermq-clients-db      Running                              0.0s
- ✔ Container supermq-users-db        Running                              0.0s
- ✔ Container supermq-nats            Running                              0.0s
+ ✔ Container magistrala-clients-db   Running                              0.0s
+ ✔ Container magistrala-users-db     Running                              0.0s
+ ✔ Container magistrala-nats         Running                              0.0s
  ...
  ✔ Container propeller-manager       Started                              2.3s
  ✔ Container propeller-proplet       Started                              2.1s
@@ -381,6 +394,7 @@ curl -s http://localhost:8086/health && echo ""
 ```
 
 Your output should look like this:
+
 ```
 OK
 {"status":"ok"}
@@ -393,6 +407,7 @@ docker logs propeller-manager 2>&1 | grep -E "MQTT|connected|listening" | tail -
 ```
 
 Your output should look like this:
+
 ```
 {"time":"...","level":"INFO","msg":"Subscribed to MQTT topics"}
 {"time":"...","level":"INFO","msg":"HTTP FL Coordinator enabled","url":"http://coordinator-http:8080"}
@@ -408,6 +423,7 @@ curl -s http://localhost:8084/models/0 | jq .
 ```
 
 Your output should look like this:
+
 ```json
 {
   "b": 0,
@@ -445,6 +461,7 @@ curl -s "http://localhost:8083/datasets/$PROPLET_CLIENT_ID" | jq '{schema: .sche
 ```
 
 Your output should look like this:
+
 ```json
 {
   "schema": "fl-demo-dataset-v1",
@@ -460,11 +477,12 @@ curl -s "http://localhost:8083/datasets/$PROPLET_CLIENT_ID" | jq '.data[0:3]'
 ```
 
 Your output should look like this:
+
 ```json
 [
-  {"x": [0.1, 0.2, 0.3], "y": 1},
-  {"x": [0.2, 0.4, 0.6], "y": 0},
-  {"x": [0.3, 0.6, 0.9], "y": 1}
+  { "x": [0.1, 0.2, 0.3], "y": 1 },
+  { "x": [0.2, 0.4, 0.6], "y": 0 },
+  { "x": [0.3, 0.6, 0.9], "y": 1 }
 ]
 ```
 
@@ -481,6 +499,7 @@ cd ../../..
 ```
 
 Your output should look like this:
+
 ```
 # No output means success
 ```
@@ -492,6 +511,7 @@ ls -lh examples/fl-demo/client-wasm/fl-client.wasm
 ```
 
 Your output should look like this:
+
 ```
 -rwxr-xr-x 1 user user 3.1M Mar  1 11:20 examples/fl-demo/client-wasm/fl-client.wasm
 ```
@@ -503,9 +523,11 @@ The WASM binary should be approximately 3.1MB.
 The [Proxy service](/docs/proxy) fetches WASM binaries from OCI-compliant container registries and delivers them to proplets. In this example, we use GitHub Container Registry (GHCR) which provides native HTTPS support.
 
 While a local registry is simpler to set up, the proxy service connects via **HTTPS**. Local registries typically use **HTTP**, causing connection failures:
+
 ```
 failed to fetch container for task: error sending request
 ```
+
 Using GHCR avoids this issue. For local registry setup with HTTPS, see the [Proxy documentation](/docs/proxy#setting-up-a-local-registry-for-development).
 
 ### Login to GHCR
@@ -517,6 +539,7 @@ echo "YOUR_GITHUB_PAT" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password
 ```
 
 Your output should look like this:
+
 ```
 Login Succeeded
 ```
@@ -536,6 +559,7 @@ docker run --rm \
 ```
 
 Your output should look like this:
+
 ```
 ✓ Uploaded  fl-client.wasm                                           3.1/3.1 MB 100.00%  6s
   └─ sha256:c9113e117b8a4b839df66ecd076f80b77a55ac5e0ceb18185e406b070b0322e0
@@ -547,6 +571,7 @@ Digest: sha256:c9113e117b8a4b839df66ecd076f80b77a55ac5e0ceb18185e406b070b0322e0
 ```
 
 By default, GHCR packages are private. To make it public:
+
 1. Go to `https://github.com/users/YOUR_USERNAME/packages/container/fl-client-wasm/settings`
 2. Change visibility to "Public"
 
@@ -582,6 +607,7 @@ grep -E "PROXY_(AUTHENTICATE|REGISTRY)" docker/.env
 ```
 
 Your output should look like this:
+
 ```
 PROXY_AUTHENTICATE=true
 PROXY_REGISTRY_TOKEN=""
@@ -597,9 +623,10 @@ docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-fil
 ```
 
 Your output should look like this:
+
 ```
 [+] Running 13/13
- ✔ Container supermq-clients-db      Running                              0.0s
+ ✔ Container magistrala-clients-db   Running                              0.0s
  ...
  ✔ Container propeller-proxy         Started                              1.5s
 ```
@@ -627,6 +654,7 @@ echo "PROPLET_3_CLIENT_ID=$PROPLET_3_CLIENT_ID"
 ```
 
 Your output should look like this:
+
 ```
 PROPLET_CLIENT_ID=bf7e3581-4dac-472c-bcd9-a83a6ca53197
 PROPLET_2_CLIENT_ID=cf3738c1-07db-41c7-8fc3-234202cf3642
@@ -653,6 +681,7 @@ curl -s -X POST http://localhost:7070/fl/experiments \
 ```
 
 Your output should look like this:
+
 ```json
 {
   "experiment_id": "exp-round-1709309984",
@@ -679,6 +708,7 @@ docker logs propeller-manager 2>&1 | grep "launched task" | tail -5
 ```
 
 Your output should look like this:
+
 ```
 {"time":"...","level":"INFO","msg":"launched task for FL round participant","round_id":"r-1709309984","proplet_id":"bf7e3581-4dac-472c-bcd9-a83a6ca53197","task_id":"4f5916b1-3b1e-4b27-9c78-8a70e02c3c28"}
 {"time":"...","level":"INFO","msg":"launched task for FL round participant","round_id":"r-1709309984","proplet_id":"cf3738c1-07db-41c7-8fc3-234202cf3642","task_id":"d5aad2f8-a2ed-4cbe-8c7d-881a10460986"}
@@ -692,6 +722,7 @@ docker logs propeller-proxy 2>&1 | tail -15
 ```
 
 Your output should look like this:
+
 ```
 {"time":"...","level":"INFO","msg":"Chunk 0 size: 512000 bytes"}
 {"time":"...","level":"INFO","msg":"Chunk 1 size: 512000 bytes"}
@@ -718,6 +749,7 @@ docker logs propeller-proplet 2>&1 | grep -E "Fetching|Successfully|Process|comp
 ```
 
 Your output should look like this:
+
 ```
 ... INFO Fetching model from registry: http://model-registry:8081/models/0
 ... INFO Successfully fetched model v0 and passed to client
@@ -737,6 +769,7 @@ docker logs fl-demo-coordinator 2>&1 | tail -10
 ```
 
 Your output should look like this:
+
 ```
 ... INFO Received experiment configuration experiment_id=exp-round-... round_id=r-... model_ref=fl/models/global_model_v0 k_of_n=2
 ... INFO Loaded initial model from registry version=0
@@ -750,6 +783,7 @@ Your output should look like this:
 ```
 
 Key milestones to look for:
+
 1. `launched task for FL round participant` - Manager dispatched tasks
 2. `successfully fetched container` - Proxy downloaded WASM from GHCR
 3. `Successfully fetched model` - Proplet loaded initial weights
@@ -769,6 +803,7 @@ curl -s http://localhost:8084/models | jq .
 ```
 
 Your output should look like this:
+
 ```json
 {
   "versions": [0, 1]
@@ -782,25 +817,23 @@ curl -s http://localhost:8084/models/1 | jq .
 ```
 
 Your output should look like this:
+
 ```json
 {
   "b": -0.00026427958266281217,
-  "w": [
-    0.01638395015724097,
-    0.00034361294245900534,
-    0.014378351819544267
-  ]
+  "w": [0.01638395015724097, 0.00034361294245900534, 0.014378351819544267]
 }
 ```
 
 ### Compare Initial vs Trained Model
 
-| Model | Weights (w) | Bias (b) |
-|-------|-------------|----------|
-| **Initial (v0)** | [0, 0, 0] | 0 |
+| Model            | Weights (w)            | Bias (b) |
+| ---------------- | ---------------------- | -------- |
+| **Initial (v0)** | [0, 0, 0]              | 0        |
 | **Trained (v1)** | [0.016, 0.0003, 0.014] | -0.00026 |
 
 The non-zero weights and bias confirm that:
+
 - Proplets successfully trained on their local datasets (64 samples each)
 - Weight updates were aggregated using FedAvg
 - The global model was updated without raw data leaving the devices

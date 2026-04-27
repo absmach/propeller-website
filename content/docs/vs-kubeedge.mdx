@@ -7,18 +7,18 @@ Propeller and KubeEdge both address edge compute orchestration, but they solve d
 
 ## Quick Comparison
 
-| | **Propeller** | **KubeEdge** |
-|---|---|---|
-| **Workload runtime** | WebAssembly (Wasmtime, WAMR) | Containers (containerd, Docker) |
-| **Control plane** | Propeller Manager (Go REST API) | Kubernetes API server + EdgeCore |
-| **Minimum device RAM** | 128 KB (Zephyr RTOS) | ~256 MB (Linux required) |
-| **OS requirement** | Linux, Zephyr RTOS | Linux only |
-| **Cold-start** | < 1 ms (Wasm) | ~180–250 ms (container) |
-| **Communication protocol** | MQTT (via SuperMQ) | EdgeHub transport |
-| **Sandbox model** | Wasm linear memory isolation | Linux namespace + cgroup |
-| **Kubernetes dependency** | None | Required |
-| **License** | Apache 2.0 | Apache 2.0 |
-| **Governance** | Abstract Machines (EU-funded) | CNCF Incubating |
+|                            | **Propeller**                   | **KubeEdge**                     |
+| -------------------------- | ------------------------------- | -------------------------------- |
+| **Workload runtime**       | WebAssembly (Wasmtime, WAMR)    | Containers (containerd, Docker)  |
+| **Control plane**          | Propeller Manager (Go REST API) | Kubernetes API server + EdgeCore |
+| **Minimum device RAM**     | 128 KB (Zephyr RTOS)            | ~256 MB (Linux required)         |
+| **OS requirement**         | Linux, Zephyr RTOS              | Linux only                       |
+| **Cold-start**             | < 1 ms (Wasm)                   | ~180–250 ms (container)          |
+| **Communication protocol** | MQTT (via Magistrala)           | EdgeHub transport                |
+| **Sandbox model**          | Wasm linear memory isolation    | Linux namespace + cgroup         |
+| **Kubernetes dependency**  | None                            | Required                         |
+| **License**                | Apache 2.0                      | Apache 2.0                       |
+| **Governance**             | Abstract Machines (EU-funded)   | CNCF Incubating                  |
 
 ## Runtime Model
 
@@ -41,12 +41,14 @@ Propeller's sandbox is the WebAssembly execution model itself. Wasm modules oper
 ## When to Choose Each
 
 **Choose KubeEdge if:**
+
 - You have existing Kubernetes workloads to move to the edge
 - Your edge devices run Linux with at least 512 MB RAM
 - Your team has existing Kubernetes operational expertise
 - Container-based packaging is a hard requirement
 
 **Choose Propeller if:**
+
 - You need to deploy to microcontrollers (< 1 MB RAM)
 - Cold-start latency below 5 ms is a requirement
 - You need a single binary to run across x86, ARM, and embedded targets

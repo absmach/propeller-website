@@ -104,8 +104,8 @@ export function softwareApplicationSchema() {
       "OCI Registry support",
       "Function-as-a-Service (FaaS) deployment",
       "WAMR on Zephyr RTOS for constrained devices",
-      "SuperMQ service mesh integration",
-      "MQTT protocol support via SuperMQ",
+      "Magistrala service mesh integration",
+      "MQTT protocol support via Magistrala",
       "100% sandboxed workload isolation",
       "Trusted Execution Environment (TEE) support",
       "WASI-NN for edge machine learning",
@@ -217,7 +217,7 @@ export function faqPageSchema() {
         name: "What are the key features of Propeller?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Propeller by Abstract Machines provides ten core capabilities for Cloud-Edge Wasm orchestration: (1) near-instant Wasm boot times; (2) OCI registry support for storing and distributing Wasm binaries via Docker Hub or GHCR; (3) Function-as-a-Service deployment across heterogeneous infrastructure; (4) WAMR runtime on Zephyr RTOS for microcontrollers with 128 KB RAM; (5) DAG-based task scheduling for parallel, sequential, and dependency-ordered workflows; (6) SuperMQ MQTT-based service mesh for secure device-to-cloud messaging; (7) 100% sandboxed workload isolation guaranteed by the WebAssembly security model; (8) Trusted Execution Environment (TEE) support via Intel TDX, AMD SEV-SNP, and Intel SGX; (9) WASI-NN for running machine learning inference at the edge; and (10) federated machine learning with FedAvg aggregation across edge proplets.",
+          text: "Propeller by Abstract Machines provides ten core capabilities for Cloud-Edge Wasm orchestration: (1) near-instant Wasm boot times; (2) OCI registry support for storing and distributing Wasm binaries via Docker Hub or GHCR; (3) Function-as-a-Service deployment across heterogeneous infrastructure; (4) WAMR runtime on Zephyr RTOS for microcontrollers with 128 KB RAM; (5) DAG-based task scheduling for parallel, sequential, and dependency-ordered workflows; (6) Magistrala MQTT-based service mesh for secure device-to-cloud messaging; (7) 100% sandboxed workload isolation guaranteed by the WebAssembly security model; (8) Trusted Execution Environment (TEE) support via Intel TDX, AMD SEV-SNP, and Intel SGX; (9) WASI-NN for running machine learning inference at the edge; and (10) federated machine learning with FedAvg aggregation across edge proplets.",
         },
       },
       {
@@ -233,7 +233,7 @@ export function faqPageSchema() {
         name: "How does Propeller integrate with existing infrastructure?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Propeller by Abstract Machines integrates with existing infrastructure through open standards. For workload distribution, it connects to any OCI-compliant registry — Docker Hub, GitHub Container Registry, or a self-hosted registry — to store and retrieve Wasm binaries. For device communication, it uses SuperMQ as the MQTT-based service mesh, enabling authenticated, encrypted messaging between the Manager and all Proplets over standard MQTT brokers. Propeller's REST API is fully documented with an OpenAPI specification and includes a Postman collection for interactive exploration. The platform deploys on bare-metal, VMs, or Kubernetes without modification. Its task and job model is compatible with existing CI/CD pipelines: engineers push a Wasm binary to a registry and trigger deployment via the CLI or REST API, fitting naturally into GitOps workflows.",
+          text: "Propeller by Abstract Machines integrates with existing infrastructure through open standards. For workload distribution, it connects to any OCI-compliant registry — Docker Hub, GitHub Container Registry, or a self-hosted registry — to store and retrieve Wasm binaries. For device communication, it uses Magistrala as the MQTT-based service mesh, enabling authenticated, encrypted messaging between the Manager and all Proplets over standard MQTT brokers. Propeller's REST API is fully documented with an OpenAPI specification and includes a Postman collection for interactive exploration. The platform deploys on bare-metal, VMs, or Kubernetes without modification. Its task and job model is compatible with existing CI/CD pipelines: engineers push a Wasm binary to a registry and trigger deployment via the CLI or REST API, fitting naturally into GitOps workflows.",
         },
       },
       {
