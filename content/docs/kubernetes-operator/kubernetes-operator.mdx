@@ -41,8 +41,8 @@ The operator installs five CRDs into the cluster:
 | `Task`            | `propeller.propeller.abstractmachines.fr/v1`         | A single WASM workload to execute on a proplet                 |
 | `Proplet`         | `propeller.propeller.abstractmachines.fr/v1`         | A worker node, either a Kubernetes pod or an external device   |
 | `PropellerJob`    | `propeller.propeller.abstractmachines.fr/v1`         | A named batch of Tasks executed as a group                     |
-| `FederatedJob`    | `propeller.propeller.abstractmachines.fr/v1alpha1`   | A federated learning experiment spanning multiple proplets     |
-| `TrainingRound`   | `propeller.propeller.abstractmachines.fr/v1alpha1`   | One round within a FederatedJob                                |
+| `FederatedJob`    | `propeller.propeller.abstractmachines.fr/v1`         | A federated learning experiment spanning multiple proplets     |
+| `TrainingRound`   | `propeller.propeller.abstractmachines.fr/v1`         | One round within a FederatedJob                                |
 
 ### MQTT Communication
 
@@ -146,14 +146,14 @@ A `Task` resource defines a single WASM workload. The `TaskReconciler` drives it
 
 ![Task Lifecycle State Machine](../images/kubernetes-operator/task-lifecycle.svg)
 
-*Figure: Task state machine showing all valid transitions. Tasks begin in pending, move to scheduled when a proplet is assigned, then to running during execution. From running, tasks can complete successfully (completed), fail (failed), or be stopped (interrupted). The operator enforces valid transitions and supports retry/restart flows from terminal states back to pending.*
+*Figure: Task state machine showing all valid transitions. Tasks begin in pending and move directly to running when dispatched to a proplet. From running, tasks can complete successfully (completed), fail (failed), or be stopped (interrupted). The operator enforces valid transitions and supports retry/restart flows from terminal states back to pending.*
 
 Valid state transitions are enforced by the operator. Task completion and failure arrive via `control/proplet/results` MQTT messages; the operator validates each proposed transition before applying it.
 
 | From          | Allowed next states                                        |
 | ------------- | ---------------------------------------------------------- |
 | `pending`     | `scheduled`, `running`, `completed`, `failed`, `skipped`   |
-| `scheduled`   | `running`, `failed`, `skipped`                             |
+| `scheduled`   | `running`, `completed`, `failed`, `skipped`                |
 | `running`     | `completed`, `failed`, `interrupted`                       |
 | `completed`   | `pending` (for restart or recurring tasks)                 |
 | `failed`      | `pending` (for retry)                                      |
@@ -172,7 +172,7 @@ Valid state transitions are enforced by the operator. Task completion and failur
 3. It publishes an MQTT message to `control/manager/start` containing the full task spec: function name, WASM file or image URL, inputs, environment variables, scheduling parameters, monitoring profile, and the assigned proplet ID.
 4. The proplet receives the message, loads the WASM module with its runtime (e.g. Wasmtime), and executes the named function.
 5. The proplet publishes the result to `control/proplet/results`.
-6. The `PropletReconciler`'s MQTT result handler receives the message, stores the output in `status.results`, and sets `status.phase = completed`.
+6. The `TaskReconciler`'s MQTT result handler receives the message, stores the output in `status.results`, and sets `status.phase = completed`.
 
 **k8s proplet path:**
 1. `TaskReconciler` resolves the proplet and confirms its type is `k8s`.
@@ -216,9 +216,9 @@ If no proplet satisfies the filter, the task remains in `pending` and is requeue
 | `propletSelector.matchDeviceTypes`         | []string                      | No       | —          | Target Proplets with a matching device type                                 |
 | `propletSelector.matchCapabilities`        | []string                      | No       | —          | Target Proplets advertising all listed capabilities                         |
 | `preferredPropletType`                     | `k8s` \| `external` \| `any` | No       | `any`      | Constrain which proplet type receives the task                              |
-| `resourceRequirements.cpu`                 | string                        | No       | —          | Minimum CPU the proplet must have available (e.g. `100m`)                  |
-| `resourceRequirements.memory`              | string                        | No       | —          | Minimum memory the proplet must have available (e.g. `256Mi`)              |
-| `resourceRequirements.custom`              | map[string]string             | No       | —          | Custom resource constraints                                                 |
+| `resourceRequirements.cpu`                 | string                        | No       | —          | CPU resource request/limit applied to the k8s Job pod (e.g. `100m`); not used for scheduling |
+| `resourceRequirements.memory`              | string                        | No       | —          | Memory resource request/limit applied to the k8s Job pod (e.g. `256Mi`); not used for scheduling |
+| `resourceRequirements.custom`              | map[string]string             | No       | —          | Custom resource constraints passed to the k8s Job pod                      |
 | `daemon`                                   | bool                          | No       | `false`    | Run indefinitely; sets Kubernetes RestartPolicy to Always                   |
 | `restartPolicy`                            | Kubernetes RestartPolicy      | No       | —          | Override pod restart policy for k8s tasks                                   |
 | `encrypted`                                | bool                          | No       | `false`    | Signal that the WASM binary is encrypted                                    |
@@ -387,12 +387,10 @@ The default implementation is **round-robin**: the proplet immediately after the
 
 Errors returned by the scheduler:
 
-| Error                        | Meaning                                            |
-| ---------------------------- | -------------------------------------------------- |
-| `ErrNoProplet`               | No proplets exist in the namespace                 |
-| `ErrDeadProplers`            | All proplets are Offline or Initializing           |
-| `ErrNoCandidates`            | No proplets satisfy the task's selector criteria   |
-| `ErrInsufficientResources`   | No proplet has sufficient CPU or memory            |
+| Error              | Meaning                                          |
+| ------------------ | ------------------------------------------------ |
+| `ErrNoProplet`     | No proplets exist in the namespace               |
+| `ErrNoCandidates`  | No proplets satisfy the task's selector criteria |
 
 
 ## Configuration
@@ -443,7 +441,7 @@ The operator is configured through command-line flags and one environment variab
 
 ## Deployment
 
-For a complete walkthrough of setting up the operator with SuperMQ and running a task, see the [Kubernetes Operator Example](/docs/examples/kubernetes-operator).
+For a complete walkthrough of setting up the operator with SuperMQ and running a task, see the [Kubernetes Operator Example](/docs/kubernetes-operator/example).
 
 ### Installing CRDs
 
