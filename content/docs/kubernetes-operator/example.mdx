@@ -728,18 +728,18 @@ Both `Ready` and `Connected` conditions are `True`. The `Last Seen` timestamp up
 
 The table below lists common fields. For the complete specification, see the [main documentation](/docs/kubernetes-operator/kubernetes-operator#proplet-spec-reference).
 
-| Field                            | Type                   | Required         | Description                                            |                       |
-| -------------------------------- | ---------------------- | ---------------- | ------------------------------------------------------ | --------------------- |
-| `type`                           | `k8s` \                | `external`       | Yes                                                    | Where the worker runs |
-| `k8s.image`                      | string                 | Yes (k8s only)   | Container image for the proplet pod                    |                       |
-| `k8s.replicas`                   | int                    | No               | Number of pod replicas (default: 1)                    |                       |
-| `external.deviceType`            | string                 | No               | Device label for scheduling (e.g. `raspberry-pi-4`)    |                       |
-| `external.capabilities`          | []string               | No               | Capabilities advertised for task matching              |                       |
-| `connectionConfig.mqttAddress`   | string                 | Yes              | Broker URL (e.g. `tcp://mqtt:1883`)                    |                       |
-| `connectionConfig.domainId`      | string                 | Yes              | SuperMQ domain ID                                      |                       |
-| `connectionConfig.channelId`     | string                 | Yes              | SuperMQ channel ID                                     |                       |
-| `connectionConfig.clientId`      | string                 | Yes              | SuperMQ client credential ID                           |                       |
-| `connectionConfig.clientKey`     | string                 | Yes              | SuperMQ client secret                                  |                       |
+| Field                            | Type                 | Required       | Description                                         |
+| -------------------------------- | -------------------- | -------------- | --------------------------------------------------- |
+| `type`                           | `k8s` \| `external` | Yes            | Where the worker runs                               |
+| `k8s.image`                      | string               | Yes (k8s only) | Container image for the proplet pod                 |
+| `k8s.replicas`                   | int                  | No             | Number of pod replicas (default: 1)                 |
+| `external.deviceType`            | string               | No             | Device label for scheduling (e.g. `raspberry-pi-4`) |
+| `external.capabilities`          | []string             | No             | Capabilities advertised for task matching           |
+| `connectionConfig.mqttAddress`   | string               | Yes            | Broker URL (e.g. `tcp://mqtt:1883`)                 |
+| `connectionConfig.domainId`      | string               | Yes            | SuperMQ domain ID                                   |
+| `connectionConfig.channelId`     | string               | Yes            | SuperMQ channel ID                                  |
+| `connectionConfig.clientId`      | string               | Yes            | SuperMQ client credential ID                        |
+| `connectionConfig.clientKey`     | string               | No*            | SuperMQ client secret (inline)                      |
 
 ### Proplet Status Reference
 
@@ -790,8 +790,8 @@ kubectl get tasks -n propeller-workloads
 Your output should look like this:
 
 ```bash
-NAME            PHASE       FUNCTION   PROPLET            START TIME   FINISH TIME   PREFERRED TYPE   AGE
-addition-wasm   completed   main       docker-proplet     13s          13s           any              13s
+NAME            PHASE       MODE   PROPLET            START TIME   FINISH TIME   PREFERRED TYPE   AGE
+addition-wasm   completed          docker-proplet     13s          13s           any              13s
 ```
 
 The task went from `pending` to `completed` in under 13 seconds.
@@ -879,21 +879,21 @@ The table below lists common fields. For the complete specification, see the [ma
 | Field                                | Type                | Required   | Description                                        |
 | ------------------------------------ | ------------------- | ---------- | -------------------------------------------------- |
 | `name`                               | string              | Yes        | Task name                                          |
-| `functionName`                       | string              | Yes        | Exported WASM function to call                     |
-| `file`                               | string              | No         | Base64-encoded WASM binary                         |
+| `functionName`                       | string              | No         | Exported WASM function to invoke; defaults to the task name if omitted |
+| `file`                               | bytes               | No         | WASM binary encoded as a base64 string in YAML     |
 | `imageUrl`                           | string              | No         | OCI image reference for the WASM module            |
-| `inputs`                             | []int               | No         | Numeric inputs passed to the function              |
+| `inputs`                             | []string            | No         | Inputs passed to the function; numeric values are accepted |
 | `propletSelector.propletId`          | string              | No         | Target a specific Proplet by name                  |
 | `propletSelector.matchCapabilities`  | []string            | No         | Target Proplets with all listed capabilities       |
 | `daemon`                             | bool                | No         | If true, task runs indefinitely (default: false)   |
 
 ### Task Status Reference
 
-| Field               | Description                                                     |
-| ------------------- | --------------------------------------------------------------- |
-| `phase`             | `pending`, `running`, `completed`, `failed`, or `interrupted`   |
-| `assignedProplet`   | Name of the Proplet executing this task                         |
-| `startedAt`         | When execution began                                            |
-| `finishedAt`        | When execution ended                                            |
-| `results`           | Return value from the WASM function                             |
-| `error`             | Error message when `phase` is `failed`                          |
+| Field             | Description                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| `phase`           | `pending`, `scheduled`, `running`, `completed`, `failed`, `skipped`, or `interrupted` |
+| `assignedProplet` | Name of the Proplet executing this task                                                |
+| `startedAt`       | When execution began                                                                   |
+| `finishedAt`      | When execution ended                                                                   |
+| `results`         | Return value from the WASM function                                                    |
+| `error`           | Error message when `phase` is `failed`                                                 |
