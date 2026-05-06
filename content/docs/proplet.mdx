@@ -143,14 +143,15 @@ When the Manager sends a task start command, the proplet handles the execution l
 
 **1. Command validation** — The proplet validates the `StartRequest` payload, ensuring required fields are present (`id`, `name`, and encrypted workload fields when applicable).
 
-**2. Targeting filter** — If the payload includes a `proplet_id`, the proplet checks whether it matches its own ID. If not, the command is silently dropped. If `proplet_id` is absent, the task is a broadcast and all proplets execute it.
+**2. Targeting filter** — Skipped entirely when `broadcast` is `true`. Otherwise, if `proplet_id` is set, the proplet checks whether it matches its own ID and silently drops the command if not. If neither `broadcast` nor `proplet_id` is set, all proplets execute the task.
 
 **3. Duplicate detection** — If the task is already running, the proplet ignores the duplicate command.
 
-**4. Binary acquisition** — The proplet obtains the WebAssembly binary via one of two paths:
+**4. Binary acquisition** — The proplet obtains the WebAssembly binary via one of three paths:
 
 - **Inline base64**: If `file` is set, decode directly from the payload
-- **Registry fetch**: If `image_url` is set, request chunks from the Proxy via MQTT
+- **HTTP/HTTPS fetch**: If `image_url` starts with `http://` or `https://`, fetch the binary directly over HTTP (up to 100 MB; response `Content-Type` must be `application/wasm` or `application/octet-stream`)
+- **Registry fetch**: Otherwise, if `image_url` is set, request chunks from the Proxy via MQTT
 
 **5. Runtime execution** — The appropriate runtime executes the module with the provided inputs and environment variables.
 

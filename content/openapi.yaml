@@ -183,7 +183,7 @@ paths:
                 metadata:
                   type: object
                   additionalProperties: true
-                  description: Arbitrary key-value metadata attached to the task (max 64KB serialized)
+                  description: Arbitrary key-value metadata attached to the task (max 1 MB serialized)
             example:
               name: main
               file: AGFzbQEAAAABBwFgAn9/AX8DAgEABwgBBG1haW4AAAoJAQcAIAAgAWoL
@@ -208,7 +208,7 @@ paths:
             type: string
           description: >
             Filter tasks by metadata key-value pair. Repeat for multiple filters
-            (all must match). Key must contain only alphanumerics, `.`, `_`, `/`,
+            (all must match). Key must contain only alphanumerics, `.`, `_`,
             or `-`. Example: `metadata[env]=production&metadata[team]=ops`
       responses:
         "200":
@@ -265,7 +265,7 @@ paths:
                 metadata:
                   type: object
                   additionalProperties: true
-                  description: Arbitrary key-value metadata attached to the task (max 64KB serialized)
+                  description: Arbitrary key-value metadata attached to the task (max 1 MB serialized)
             example:
               name: add
               inputs:
