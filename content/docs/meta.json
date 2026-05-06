@@ -15,6 +15,7 @@
     "---Features---",
     "fml",
     "hal.mdx",
+    "proplet-sdf.mdx",
     "task-scheduling.mdx",
     "monitoring.mdx",
     "wasi-nn.mdx",

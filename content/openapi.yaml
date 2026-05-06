@@ -30,6 +30,42 @@ paths:
         required: true
         schema:
           type: string
+  /proplets/{PROPLET_ID}/sdf:
+    get:
+      summary: Get Proplet SDF Description
+      description: >
+        Returns a Semantic Definition Format (SDF) document describing the
+        proplet's properties, actions, events, and data schemas. The document
+        schema version is `1.0` and increments when the shape changes in a
+        breaking way.
+      responses:
+        "200":
+          description: SDF document for the proplet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  info:
+                    type: object
+                    properties:
+                      title:   { type: string }
+                      version: { type: string }
+                      license: { type: string }
+                  sdfThing:
+                    type: object
+                    description: Top-level Thing affordances keyed by thing name
+        "404":
+          description: Proplet not found
+      tags:
+        - Manager
+        - Proplets
+    parameters:
+      - name: PROPLET_ID
+        in: path
+        required: true
+        schema:
+          type: string
   /proplets/{PROPLET_ID}/metrics:
     get:
       summary: Get Proplet Metrics

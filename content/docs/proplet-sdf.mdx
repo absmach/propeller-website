@@ -1,0 +1,188 @@
+---
+title: Proplet SDF Description
+description: "Retrieve a machine-readable SDF (Semantic Definition Format) document describing a proplet's properties, actions, and events via GET /proplets/{id}/sdf."
+---
+
+Propeller exposes each proplet's capabilities as a machine-readable [Semantic Definition Format (SDF)](https://datatracker.ietf.org/doc/draft-ietf-asdf-sdf/) document. SDF is an IETF standard for describing IoT Things — their observable properties, invokable actions, and emitted events — in a way that tools and platforms can consume without reading source code.
+
+The `GET /proplets/{id}/sdf` endpoint returns a full SDF document for a given proplet, describing what it can do, what data schemas it expects, and what events it emits.
+
+## Fetching the SDF Document
+
+```bash
+curl "http://localhost:7070/proplets/a95517f9-5655-4cf5-a7c8-aa00290b3895/sdf"
+```
+
+Example response:
+
+```json
+{
+  "info": {
+    "title": "Propeller Proplet: crimson-falcon (a95517f9-5655-4cf5-a7c8-aa00290b3895)",
+    "version": "1.0",
+    "license": "Apache-2.0"
+  },
+  "sdfThing": {
+    "Proplet": {
+      "description": "A Propeller proplet — an edge node that executes WebAssembly tasks",
+      "sdfProperty": {
+        "id":         { "type": "string",  "readOnly": true,  "description": "Unique proplet identifier" },
+        "name":       { "type": "string",                     "description": "Human-readable proplet name" },
+        "alive":      { "type": "boolean", "readOnly": true,  "observable": true, "description": "Whether the proplet sent a heartbeat within the liveness window" },
+        "task_count": { "type": "integer", "readOnly": true,  "observable": true, "minimum": 0, "description": "Number of tasks currently running on this proplet" },
+        "metadata":   { "sdfRef": "#/sdfThing/Proplet/sdfData/PropletMetadata" }
+      },
+      "sdfAction": {
+        "start_task": {
+          "description": "Dispatch a WebAssembly task to this proplet",
+          "sdfInputData": { "sdfRef": "#/sdfThing/Proplet/sdfData/TaskDispatch" }
+        },
+        "stop_task": {
+          "description": "Stop a running task on this proplet",
+          "sdfInputData": { "sdfRef": "#/sdfThing/Proplet/sdfData/TaskStop" }
+        }
+      },
+      "sdfEvent": {
+        "heartbeat": {
+          "description": "Periodic liveness signal from the proplet",
+          "sdfOutputData": { "sdfRef": "#/sdfThing/Proplet/sdfData/HeartbeatPayload" }
+        },
+        "task_result": {
+          "description": "Emitted when a task finishes (success or failure)",
+          "sdfOutputData": { "sdfRef": "#/sdfThing/Proplet/sdfData/TaskResult" }
+        }
+      },
+      "sdfData": {
+        "PropletMetadata": { ... },
+        "TaskDispatch":    { ... },
+        "TaskStop":        { ... },
+        "HeartbeatPayload":{ ... },
+        "TaskResult":      { ... }
+      }
+    }
+  }
+}
+```
+
+The `info.version` field is the SDF schema version for this proplet description (`1.0`), not the SDF spec version. It increments when the document shape changes in a breaking way.
+
+## Document Structure
+
+The document contains a single `sdfThing` entry — `Proplet` — with four affordance categories.
+
+### Properties
+
+Observable state of the proplet:
+
+| Property     | Type    | Read-only | Observable | Description                                      |
+| ------------ | ------- | --------- | ---------- | ------------------------------------------------ |
+| `id`         | string  | yes       | no         | Unique proplet identifier                        |
+| `name`       | string  | no        | no         | Human-readable proplet name                      |
+| `alive`      | boolean | yes       | yes        | True if a heartbeat arrived within the liveness window |
+| `task_count` | integer | yes       | yes        | Number of tasks currently running (minimum: 0)   |
+| `metadata`   | object  | no        | no         | Static metadata reported at registration (see `PropletMetadata` schema) |
+
+### Actions
+
+Operations that can be invoked on the proplet:
+
+| Action       | Input schema    | Description                             |
+| ------------ | --------------- | --------------------------------------- |
+| `start_task` | `TaskDispatch`  | Dispatch a WebAssembly task to this proplet |
+| `stop_task`  | `TaskStop`      | Stop a running task on this proplet     |
+
+### Events
+
+Signals emitted by the proplet:
+
+| Event         | Output schema      | Description                                  |
+| ------------- | ------------------ | -------------------------------------------- |
+| `heartbeat`   | `HeartbeatPayload` | Periodic liveness signal                     |
+| `task_result` | `TaskResult`       | Emitted when a task finishes (success or failure) |
+
+## Data Schemas
+
+All `sdfRef` pointers within the `Proplet` thing resolve to entries in `sdfThing.Proplet.sdfData`.
+
+### `PropletMetadata`
+
+Static metadata reported by the proplet at registration:
+
+| Field                | Type            | Description                    |
+| -------------------- | --------------- | ------------------------------ |
+| `description`        | string          | Free-text description          |
+| `tags`               | array of string | Classification tags            |
+| `location`           | string          | Physical or logical location   |
+| `ip`                 | string          | IP address                     |
+| `environment`        | string          | Deployment environment         |
+| `os`                 | string          | Operating system               |
+| `hostname`           | string          | Hostname                       |
+| `cpu_arch`           | string          | CPU architecture (e.g. `amd64`) |
+| `total_memory_bytes` | integer (≥ 0)   | Total system memory in bytes   |
+| `proplet_version`    | string          | Proplet binary version         |
+| `wasm_runtime`       | string          | Wasm runtime in use            |
+
+### `TaskDispatch`
+
+Payload used to dispatch a task. Required fields: `id`, `name`.
+
+| Field               | Type            | Required | Description                                          |
+| ------------------- | --------------- | -------- | ---------------------------------------------------- |
+| `id`                | string          | yes      | Task identifier                                      |
+| `name`              | string          | yes      | Human-readable task name                             |
+| `image_url`         | string          | no       | OCI registry reference or HTTP/HTTPS URL for the Wasm binary |
+| `cli_args`          | array of string | no       | Command-line arguments passed to the Wasm module     |
+| `inputs`            | array of string | no       | Input values for the Wasm module                     |
+| `env`               | object          | no       | Environment variables (string → string map)          |
+| `daemon`            | boolean         | no       | If true, task runs continuously until stopped        |
+| `encrypted`         | boolean         | no       | If true, the Wasm binary is encrypted (requires KBS) |
+| `kbs_resource_path` | string          | no       | KBS resource path for encrypted binaries (TEE only)  |
+
+### `TaskStop`
+
+Payload used to stop a running task. Required field: `id`.
+
+| Field | Type   | Required | Description                   |
+| ----- | ------ | -------- | ----------------------------- |
+| `id`  | string | yes      | Identifier of the task to stop |
+
+### `HeartbeatPayload`
+
+Payload of a proplet heartbeat event:
+
+| Field        | Type           | Description                       |
+| ------------ | -------------- | --------------------------------- |
+| `proplet_id` | string         | Proplet identifier                |
+| `name`       | string         | Proplet name                      |
+| `task_count` | integer (≥ 0)  | Number of running tasks           |
+| `alive`      | boolean        | Whether the proplet is alive      |
+
+### `TaskResult`
+
+Result payload emitted after a task completes:
+
+| Field        | Type   | Description                                                          |
+| ------------ | ------ | -------------------------------------------------------------------- |
+| `task_id`    | string | Identifier of the completed task                                     |
+| `proplet_id` | string | Identifier of the proplet that executed the task                     |
+| `state`      | string | Final task state: `Completed`, `Failed`, `Skipped`, or `Interrupted` |
+| `results`    | object | Key-value output produced by the Wasm module (shape is module-defined) |
+| `error`      | string | Error message if the task failed; absent on success                  |
+
+## SDK Usage
+
+Use `GetPropletSDF` on the SDK to retrieve the document programmatically:
+
+```go
+doc, err := sdk.GetPropletSDF("a95517f9-5655-4cf5-a7c8-aa00290b3895")
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println(doc.Info.Title)
+
+// Inspect a property
+prop := doc.SdfThing["Proplet"].SdfProperty["alive"]
+fmt.Println(prop.Observable) // true
+```
+
+The returned `sdf.Document` is the same struct generated server-side by `pkg/sdf.PropletDocument`. All `sdfRef` values are intra-document pointers of the form `#/sdfThing/Proplet/sdfData/<SchemaName>`.
