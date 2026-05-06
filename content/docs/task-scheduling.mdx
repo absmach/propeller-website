@@ -684,7 +684,7 @@ curl -X POST "http://localhost:7070/tasks" \
 }'
 ```
 
-Metadata values can be strings, numbers, booleans, or nested objects—any valid JSON value. The total serialized size must not exceed **64 KB**.
+Metadata values can be strings, numbers, booleans, or nested objects—any valid JSON value. The total serialized size must not exceed **1 MB**.
 
 ### Filtering Tasks by Metadata
 
@@ -697,7 +697,7 @@ curl "http://localhost:7070/tasks?metadata[env]=production&metadata[team]=data-e
 Multiple filters are combined with AND semantics—a task must match every supplied filter to appear in the results.
 
 **Metadata key rules:**
-- Allowed characters: alphanumerics, `.`, `_`, `/`, `-`
+- Allowed characters: alphanumerics, `.`, `_`, `-`
 - Keys with other characters are rejected with a `400` error
 
 ### Updating Metadata
