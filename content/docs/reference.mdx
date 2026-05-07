@@ -70,7 +70,7 @@ propeller-cli provision [--file-name <path>]
 | `image_url`          | string          | OCI image reference for the Wasm binary (e.g. `docker.io/myorg/app:v1`).   |
 | `file`               | string          | Base64-encoded Wasm binary for direct embedding.                           |
 | `cli_args`           | array of string | Arguments passed to the Wasm runtime (e.g. `["--invoke", "add"]`).         |
-| `inputs`             | array           | Numeric inputs forwarded to the Wasm function.                             |
+| `inputs`             | array           | Input values (strings or numbers) forwarded to the Wasm function.          |
 | `env`                | object          | Environment variables injected into the Wasm execution context.            |
 | `daemon`             | boolean         | If `true`, the task runs continuously until explicitly stopped.            |
 | `encrypted`          | boolean         | If `true`, the Wasm binary is encrypted and requires a TEE for decryption. |

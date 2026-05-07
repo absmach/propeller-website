@@ -209,7 +209,7 @@ docker run -d -p 5000:5000 --name registry registry:3.0.0
 Use the `addition` example from the propeller repository to test the full flow. First, build the WASM binary:
 
 ```bash
-GOOS=wasip1 GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasip1 examples/addition/addition.go
+GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasi examples/addition/addition.go
 ```
 
 Then push it to your local registry using `wasm-to-oci`:

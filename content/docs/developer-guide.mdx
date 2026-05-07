@@ -410,11 +410,11 @@ Copy the generated config to the docker folder:
 cp config.toml docker
 ```
 
-Then uncomment the volumes sections in `docker/compose.yaml` to mount the config file into containers. This allows you to use a single `config.toml` instead of setting environment variables.
+The volume mounts for `config.toml` are already configured in `docker/compose.propeller.yaml`. This allows you to use a single `config.toml` instead of setting environment variables.
 
 ### Configuring Docker Containers with config.toml
 
-To configure Docker containers to use your generated `config.toml`, update the `docker/compose.yaml` file to uncomment the volumes sections for manager, proplet, and proxy services.
+The `docker/compose.propeller.yaml` file already includes volume mounts for the generated `config.toml` in each service:
 
 For the manager service:
 
@@ -437,11 +437,11 @@ volumes:
   - ./config.toml:/config.toml
 ```
 
-After uncommenting these lines, restart Magistrala:
+After copying the config file, start the Propeller services:
 
 ```bash
-make stop-magistrala
-make start-magistrala
+make stop-propeller
+make start-propeller
 ```
 
 ### Verifying Service Connectivity

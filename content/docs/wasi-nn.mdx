@@ -140,7 +140,7 @@ Update `docker/.env`:
 PROPLET_EXTERNAL_WASM_RUNTIME=wasmtime
 ```
 
-Mount config and model files in `docker/compose.yaml` under the proplet service:
+Mount config and model files in `docker/compose.propeller.yaml` under the proplet service:
 
 ```yaml
 proplet:
@@ -192,7 +192,7 @@ curl "http://localhost:7070/tasks/${TASK_ID}"
 View proplet logs:
 
 ```bash
-docker compose -f docker/compose.yaml logs proplet --tail 100
+docker compose -f docker/compose.propeller.yaml logs proplet --tail 100
 ```
 
 ## Model Preparation
@@ -298,7 +298,7 @@ The `-S nn` flag is missing from cli_args. Create a new task with correct cli_ar
 Check both volume mount (Docker) and `--dir` flag (cli_args). Verify files exist:
 
 ```bash
-docker compose -f docker/compose.yaml exec proplet ls -la /home/proplet/fixture
+docker compose -f docker/compose.propeller.yaml exec proplet ls -la /home/proplet/fixture
 ```
 
 ### "Failed to spawn host runtime process"
@@ -307,7 +307,7 @@ docker compose -f docker/compose.yaml exec proplet ls -la /home/proplet/fixture
 
 ```bash
 PROPLET_EXTERNAL_WASM_RUNTIME=wasmtime
-make stop-magistrala && make start-magistrala
+make stop-propeller && make start-propeller
 ```
 
 ### OpenVINO backend not available
