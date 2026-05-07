@@ -26,7 +26,7 @@ make compute
 Your output should look like this:
 
 ```bash
-GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/compute.wasm -target wasip1 examples/compute/compute.go
+GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/compute.wasm -target wasi examples/compute/compute.go
 ```
 
 Now we can create a task with the wasm file:

@@ -86,13 +86,6 @@ cd propeller
 make addition-wat
 ```
 
-Your output should look like this:
-
-```bash
-wat2wasm examples/addition-wat/addition.wat -o build/addition-wat.wasm
-base64 build/addition-wat.wasm > build/addition-wat.b64
-```
-
 Now we can create a task with the wasm file:
 
 ```bash

@@ -28,7 +28,7 @@ The source code is available in the [examples/attestation-test](https://github.c
 ## Build
 
 ```bash
-cd examples/attestation-test && cargo build --release
+cd examples/attestation-test && cargo build --target wasm32-wasip2 --release
 ```
 
 Your output should look like this:
@@ -38,7 +38,7 @@ Your output should look like this:
     Finished `release` profile [optimized] target(s) in 2.34s
 ```
 
-The module is at `target/wasm32-wasip1/release/attestation-test.wasm`.
+The module is at `target/wasm32-wasip2/release/attestation_test.wasm`.
 
 ## Create Task
 
@@ -72,7 +72,7 @@ Your output should look like this:
 
 ```bash
 curl -X PUT "http://localhost:7070/tasks/b2c3d4e5-f6a7-8901-bcde-f12345678901/upload" \
--F "file=@examples/attestation-test/target/wasm32-wasip1/release/attestation-test.wasm"
+-F "file=@examples/attestation-test/target/wasm32-wasip2/release/attestation_test.wasm"
 ```
 
 Your output should look like this:

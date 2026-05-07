@@ -58,7 +58,7 @@ make addition
 Your output should look like this:
 
 ```bash
-GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasip1 examples/addition/addition.go
+GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasi examples/addition/addition.go
 ```
 
 Now we can create a task with the wasm file:

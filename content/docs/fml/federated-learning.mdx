@@ -168,7 +168,7 @@ The proplet executes the WASM module with the fetched model and dataset:
    - `MODEL_DATA`: JSON-encoded model weights and bias
    - `DATASET_DATA`: JSON-encoded local dataset
    - `HYPERPARAMS`: JSON-encoded training hyperparameters
-   - `COORDINATOR_URL`: HTTP endpoint for task/update operations
+   - `MANAGER_COORDINATOR_URL`: HTTP endpoint for task/update operations
    - `PROPLET_ID`: This proplet's unique identifier
 
 2. **Training Algorithm**: The WASM module performs logistic regression training with Stochastic Gradient Descent (SGD):
@@ -418,7 +418,7 @@ model := map[string]interface{}{
 
 ```bash
 cd examples/fl-demo/client-wasm
-GOTOOLCHAIN=go1.25.5 GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
+GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
 ```
 
 4. **Push to GHCR**:
@@ -559,7 +559,7 @@ The proplet passes training context to the WASM module via environment variables
 | `MODEL_DATA`         | JSON string of fetched model weights          |
 | `DATASET_DATA`       | JSON string of fetched training dataset       |
 | `PROPLET_ID`         | Magistrala client UUID of this proplet        |
-| `COORDINATOR_URL`    | URL of coordinator service                    |
+| `MANAGER_COORDINATOR_URL` | URL of coordinator service               |
 | `MODEL_REGISTRY_URL` | URL of model registry service                 |
 | `ML_BACKEND`         | Backend mode: `standard`, `tinyml`, or `auto` |
 
@@ -753,7 +753,7 @@ FL_DATASET_PARTICIPANTS="uuid1,uuid2,uuid3"
 
 | Variable               | Description                                                          | Default                   | Required |
 | ---------------------- | -------------------------------------------------------------------- | ------------------------- | -------- |
-| `COORDINATOR_URL`      | URL of FL Coordinator service. If not set, FL features are disabled. | `""`                      | No       |
+| `MANAGER_COORDINATOR_URL` | URL of FL Coordinator service. If not set, FL features are disabled. | `""`                   | No       |
 | `MANAGER_HTTP_PORT`    | HTTP API port                                                        | `7070`                    | No       |
 | `MANAGER_MQTT_ADDRESS` | MQTT broker address                                                  | `tcp://mqtt-adapter:1883` | No       |
 | `MANAGER_DOMAIN_ID`    | Magistrala domain ID                                                 | -                         | Yes      |
@@ -765,7 +765,7 @@ FL_DATASET_PARTICIPANTS="uuid1,uuid2,uuid3"
 | -------------------- | ----------------------- | ------------------------------ | ------------ |
 | `MODEL_REGISTRY_URL` | URL of Model Registry   | -                              | Yes (for FL) |
 | `DATA_STORE_URL`     | URL of Local Data Store | -                              | Yes (for FL) |
-| `COORDINATOR_URL`    | URL of FL Coordinator   | `http://coordinator-http:8080` | No           |
+| `MANAGER_COORDINATOR_URL` | URL of FL Coordinator | `http://coordinator-http:8080` | No      |
 | `PROPLET_CLIENT_ID`  | Magistrala client UUID  | -                              | Yes          |
 | `PROPLET_DOMAIN_ID`  | Magistrala domain ID    | -                              | Yes          |
 | `PROPLET_CHANNEL_ID` | Magistrala channel ID   | -                              | Yes          |

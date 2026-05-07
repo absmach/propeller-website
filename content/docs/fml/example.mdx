@@ -14,7 +14,7 @@ Before starting, ensure you have the following installed and configured:
 ### Required Software
 
 - **Docker** and **Docker Compose** (v2.x or later)
-- **Go** 1.25.5 or later (for building WASM)
+- **Go** 1.26.0 or later (for building WASM)
 - **Python 3** with pip (for provisioning script)
 - **jq** (for JSON formatting in terminal)
 - **curl** (for API requests)
@@ -113,11 +113,11 @@ Your output should look like this:
  => => transferring dockerfile: 1.45kB                                           0.0s
  => [coordinator-http internal] load build definition from Dockerfile            0.0s
  => => transferring dockerfile: 892B                                             0.0s
- => [manager internal] load metadata for docker.io/library/golang:1.25-alpine    1.2s
+ => [manager internal] load metadata for docker.io/library/golang:1.26-bookworm    1.2s
  => [manager internal] load .dockerignore                                        0.0s
  => [proplet internal] load .dockerignore                                        0.0s
  => [coordinator-http internal] load .dockerignore                               0.0s
- => [manager builder 1/6] FROM docker.io/library/golang:1.25-alpine@sha256:...   0.0s
+ => [manager builder 1/6] FROM docker.io/library/golang:1.26-bookworm@sha256:...   0.0s
  => [manager internal] load build context                                        0.1s
  => => transferring context: 2.34MB                                              0.1s
  => CACHED [manager builder 2/6] WORKDIR /app                                    0.0s
@@ -241,7 +241,7 @@ curl -s http://localhost:8086/health && echo ""
 Your output should look like this:
 
 ```
-OK
+{"status":"pass","version":"0.0.0","commit":"ffffffff","description":"manager service","build_time":"1970-01-01_00:00:00","instance_id":"..."}
 {"status":"ok"}
 ```
 
@@ -396,7 +396,7 @@ curl -s http://localhost:8086/health && echo ""
 Your output should look like this:
 
 ```
-OK
+{"status":"pass","version":"0.0.0","commit":"ffffffff","description":"manager service","build_time":"1970-01-01_00:00:00","instance_id":"..."}
 {"status":"ok"}
 ```
 
@@ -494,7 +494,7 @@ Build the federated learning client to WebAssembly:
 
 ```bash
 cd examples/fl-demo/client-wasm
-GOTOOLCHAIN=go1.25.5 GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
+GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
 cd ../../..
 ```
 

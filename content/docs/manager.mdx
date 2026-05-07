@@ -333,28 +333,28 @@ This means even with tracing disabled, you still get logging and metrics for eve
 
 Propeller supports federated machine learning workflows where proplets train local models and contribute updates to a central coordinator. This keeps training data on edge devices while still producing a globally optimized model.
 
-| Variable          | Description                         | Default            |
-| ----------------- | ----------------------------------- | ------------------ |
-| `COORDINATOR_URL` | External FL Coordinator service URL | `""` (FL disabled) |
+| Variable                  | Description                         | Default            |
+| ------------------------- | ----------------------------------- | ------------------ |
+| `MANAGER_COORDINATOR_URL` | External FL Coordinator service URL | `""` (FL disabled) |
 
 The Manager acts as a proxy between proplets and an external FL Coordinator service. The coordinator handles aggregation algorithms (FedAvg, etc.) while the Manager handles task distribution and result collection. For a complete overview of the architecture and training round lifecycle, see the [Federated Learning](/docs/federated-learning) documentation.
 
 ##### Enabling Federated Learning
 
-Set `COORDINATOR_URL` to your FL Coordinator's base URL:
+Set `MANAGER_COORDINATOR_URL` to your FL Coordinator's base URL:
 
 ```bash
-export COORDINATOR_URL=http://fl-coordinator:8080
+export MANAGER_COORDINATOR_URL=http://fl-coordinator:8080
 ```
 
 The Manager then proxies FL endpoints to the coordinator. For the complete endpoint reference, see the [Federated Learning API](/docs/api/federated-ml).
 
 ##### When FL is Disabled
 
-When `COORDINATOR_URL` is not set:
+When `MANAGER_COORDINATOR_URL` is not set:
 
-- The Manager logs a warning at startup: `"COORDINATOR_URL not configured - FL features will not be available"`
-- All FL endpoints return an error: `"COORDINATOR_URL must be configured"`
+- The Manager logs a warning at startup: `"MANAGER_COORDINATOR_URL not configured - FL features will not be available"`
+- All FL endpoints return an error: `"MANAGER_COORDINATOR_URL must be configured"`
 - Standard task, job, and workflow operations work normally
 
 This allows you to run Propeller without FL dependencies when you only need standard compute workloads.
@@ -487,7 +487,7 @@ A proplet is considered alive if it sent a heartbeat within the last 10 seconds:
 func (p *Proplet) SetAlive() {
     if len(p.AliveHistory) > 0 {
         lastAlive := p.AliveHistory[len(p.AliveHistory)-1]
-        if time.Since(lastAlive) <= aliveTimeout {
+        if time.Since(lastAlive) <= AliveTimeout {
             p.Alive = true
             return
         }

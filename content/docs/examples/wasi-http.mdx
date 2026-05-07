@@ -179,7 +179,7 @@ Your output should look like this:
 }
 ```
 
-The `"state": 2` indicates the task is **Running**. For daemon tasks like this HTTP server, state 2 is the expected state — the task keeps running indefinitely to serve HTTP requests. Task states are: 0 (Pending), 1 (Dispatched), 2 (Running), 3 (Completed), 4 (Failed).
+The `"state": 2` indicates the task is **Running**. For daemon tasks like this HTTP server, state 2 is the expected state — the task keeps running indefinitely to serve HTTP requests. Task states are: 0 (Pending), 1 (Scheduled), 2 (Running), 3 (Completed), 4 (Failed), 5 (Skipped), 6 (Interrupted).
 
 ## Test Endpoints
 

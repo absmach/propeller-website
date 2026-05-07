@@ -53,7 +53,7 @@ Apply the proximal term modification to `examples/fl-demo/client-wasm/fl-client.
 
 ```bash
 cd examples/fl-demo/client-wasm
-GOTOOLCHAIN=go1.25.5 GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
+GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
 ```
 
 ### Step 2: Push Updated WASM to GHCR
