@@ -110,14 +110,15 @@ propeller-cli provision [--file-name <path>]
 
 ### Job
 
-| Field            | Type          | Description                                  |
-| ---------------- | ------------- | -------------------------------------------- |
-| `job_id`         | string (UUID) | Unique job identifier.                       |
-| `name`           | string        | Human-readable job name.                     |
-| `execution_mode` | string        | `parallel`, `sequential`, or `configurable`. |
-| `tasks`          | array         | List of task objects belonging to this job.  |
-| `created_at`     | timestamp     | Time the job was created.                    |
-| `updated_at`     | timestamp     | Time the job was last updated.               |
+| Field          | Type          | Description                                 |
+| -------------- | ------------- | ------------------------------------------- |
+| `job_id`       | string (UUID) | Unique job identifier.                      |
+| `name`         | string        | Human-readable job name.                    |
+| `state`        | integer       | Current execution state (see Task States).  |
+| `tasks`        | array         | List of task objects belonging to this job. |
+| `start_time`   | timestamp     | Time the job started executing.             |
+| `finish_time`  | timestamp     | Time the job completed or failed.           |
+| `created_at`   | timestamp     | Time the job was created.                   |
 
 #### Job Execution Modes
 
