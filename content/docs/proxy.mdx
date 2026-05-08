@@ -175,7 +175,7 @@ curl -X POST "http://localhost:7070/tasks" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "image-resize",
-    "inputs": {"width": 800, "height": 600},
+    "inputs": [800, 600],
     "image_url": "docker.io/your-org/image-resize.wasm"
   }'
 ```
@@ -187,7 +187,6 @@ You can also use private registries:
 ```json
 {
   "name": "proprietary-analysis",
-  "inputs": { "data": "..." },
   "image_url": "ghcr.io/your-org/private-module.wasm"
 }
 ```
