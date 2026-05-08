@@ -812,7 +812,7 @@ grep -E '^(PROPLET_CLIENT_ID|PROPLET_2_CLIENT_ID|PROPLET_3_CLIENT_ID)=' docker/.
 
 **Solution**:
 
-1. Check proxy is running: `docker compose ps proxy`
+1. Check proxy is running: `docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env ps proxy`
 2. Configure GHCR authentication in `docker/.env`:
    ```bash
    PROXY_AUTHENTICATE=true
