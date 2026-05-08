@@ -64,8 +64,7 @@ These settings are required because:
 Then restart the proplet to apply the changes:
 
 ```bash
-cd docker
-docker compose up -d proplet
+docker compose -f docker/compose.propeller.yaml --env-file docker/.env up -d proplet
 ```
 
 You should see the following in the proplet startup logs, confirming the correct configuration:
