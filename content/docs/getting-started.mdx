@@ -267,7 +267,7 @@ Copy the configuration to the Docker directory (the Propeller compose file mount
 cp config.toml docker/config.toml
 ```
 
-Enable the config mount in `docker/compose.yaml` by uncommenting the volumes for manager, proplet, and proxy services. Then start Propeller:
+The volume mounts for `config.toml` are already configured in `docker/compose.propeller.yaml`. Copy the config and start Propeller:
 
 ```bash
 make start-propeller
@@ -575,7 +575,7 @@ PROPLET_CONFIG_SECTION=proplet2 propeller-proplet
 PROPLET_CONFIG_SECTION=proplet3 propeller-proplet
 ```
 
-Or in `docker/compose.yaml`, add an `environment` entry per proplet service:
+Or in `docker/compose.propeller.yaml`, add an `environment` entry per proplet service:
 
 ```yaml
 environment:
