@@ -722,7 +722,7 @@ The table below lists common fields. For the complete specification, see the [fe
 
 | Field                            | Type                 | Required       | Description                                         |
 | -------------------------------- | -------------------- | -------------- | --------------------------------------------------- |
-| `type`                           | `k8s` \| `external` | Yes            | Where the worker runs                               |
+| `type`                           | `k8s` \              | `external`     | Yes                                                 |
 | `k8s.image`                      | string               | Yes (k8s only) | Container image for the proplet pod                 |
 | `k8s.replicas`                   | int                  | No             | Number of pod replicas (default: 1)                 |
 | `external.deviceType`            | string               | No             | Device label for scheduling (e.g. `raspberry-pi-4`) |
@@ -868,22 +868,22 @@ The proplet executed the WASM binary with Wasmtime, published the result to `con
 
 The table below lists common fields. For the complete specification, see the [features documentation](/docs/k8s/features#task-spec-reference).
 
-| Field                                | Type                | Required   | Description                                        |
-| ------------------------------------ | ------------------- | ---------- | -------------------------------------------------- |
-| `name`                               | string              | Yes        | Task name                                          |
+| Field                                | Type                | Required   | Description                                                            |
+| ------------------------------------ | ------------------- | ---------- | ---------------------------------------------------------------------- |
+| `name`                               | string              | Yes        | Task name                                                              |
 | `functionName`                       | string              | No         | Exported WASM function to invoke; defaults to the task name if omitted |
-| `file`                               | bytes               | No         | WASM binary encoded as a base64 string in YAML     |
-| `imageUrl`                           | string              | No         | OCI image reference for the WASM module            |
-| `inputs`                             | []string            | No         | Inputs passed to the function; numeric values are accepted |
-| `propletSelector.propletId`          | string              | No         | Target a specific Proplet by name                  |
-| `propletSelector.matchCapabilities`  | []string            | No         | Target Proplets with all listed capabilities       |
-| `daemon`                             | bool                | No         | If true, task runs indefinitely (default: false)   |
+| `file`                               | bytes               | No         | WASM binary encoded as a base64 string in YAML                         |
+| `imageUrl`                           | string              | No         | OCI image reference for the WASM module                                |
+| `inputs`                             | []string            | No         | Inputs passed to the function; numeric values are accepted             |
+| `propletSelector.propletId`          | string              | No         | Target a specific Proplet by name                                      |
+| `propletSelector.matchCapabilities`  | []string            | No         | Target Proplets with all listed capabilities                           |
+| `daemon`                             | bool                | No         | If true, task runs indefinitely (default: false)                       |
 
 ### Task Status Reference
 
 | Field             | Description                                                                            |
 | ----------------- | -------------------------------------------------------------------------------------- |
-| `phase`           | `pending`, `scheduled`, `running`, `completed`, `failed`, `skipped`, or `interrupted` |
+| `phase`           | `pending`, `scheduled`, `running`, `completed`, `failed`, `skipped`, or `interrupted`  |
 | `assignedProplet` | Name of the Proplet executing this task                                                |
 | `startedAt`       | When execution began                                                                   |
 | `finishedAt`      | When execution ended                                                                   |

@@ -330,17 +330,17 @@ Propeller includes built-in support for federated machine learning:
 
 Federated learning tasks are driven by environment variables passed with the task:
 
-| Variable             | Description                                                   |
-| -------------------- | ------------------------------------------------------------- |
-| `ROUND_ID`           | Current federated learning round identifier                   |
-| `MODEL_URI`          | URI to the current global model in the model registry         |
-| `MODEL_REGISTRY_URL` | Base URL of the model registry service                        |
-| `DATA_STORE_URL`     | Base URL of the local data store service                      |
-| `MANAGER_COORDINATOR_URL` | Base URL of the FL coordinator service                   |
-| `ML_BACKEND`         | ML backend hint: `standard`, `tinyml`, or `auto`              |
-| `HYPERPARAMS`        | JSON-encoded hyperparameters for training                     |
-| `FL_NUM_SAMPLES`     | Number of training samples used (included in update envelope) |
-| `FL_FORMAT`          | Update format (default: `f32-delta`)                          |
+| Variable                  | Description                                                   |
+| ------------------------- | ------------------------------------------------------------- |
+| `ROUND_ID`                | Current federated learning round identifier                   |
+| `MODEL_URI`               | URI to the current global model in the model registry         |
+| `MODEL_REGISTRY_URL`      | Base URL of the model registry service                        |
+| `DATA_STORE_URL`          | Base URL of the local data store service                      |
+| `MANAGER_COORDINATOR_URL` | Base URL of the FL coordinator service                        |
+| `ML_BACKEND`              | ML backend hint: `standard`, `tinyml`, or `auto`              |
+| `HYPERPARAMS`             | JSON-encoded hyperparameters for training                     |
+| `FL_NUM_SAMPLES`          | Number of training samples used (included in update envelope) |
+| `FL_FORMAT`               | Update format (default: `f32-delta`)                          |
 
 ## Scheduling
 

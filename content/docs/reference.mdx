@@ -132,11 +132,11 @@ propeller-cli provision [--file-name <path>]
 
 ### Proplet
 
-| Field        | Type          | Description                                                                  |
-| ------------ | ------------- | ---------------------------------------------------------------------------- |
-| `id`         | string (UUID) | Unique proplet identifier, set by the proplet on startup.                    |
-| `name`       | string        | Human-readable proplet name.                                                 |
-| `task_count` | integer       | Number of tasks currently running on this proplet.                           |
-| `alive`         | boolean       | `true` if the most recent heartbeat was received within the last 10 seconds. |
-| `last_alive_at` | timestamp     | Most recent heartbeat timestamp recorded by the Manager (omitted if never received). |
+| Field           | Type          | Description                                                                                                                                                                             |
+| --------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`            | string (UUID) | Unique proplet identifier, set by the proplet on startup.                                                                                                                               |
+| `name`          | string        | Human-readable proplet name.                                                                                                                                                            |
+| `task_count`    | integer       | Number of tasks currently running on this proplet.                                                                                                                                      |
+| `alive`         | boolean       | `true` if the most recent heartbeat was received within the last 10 seconds.                                                                                                            |
+| `last_alive_at` | timestamp     | Most recent heartbeat timestamp recorded by the Manager (omitted if never received).                                                                                                    |
 | `metadata`      | object        | System metadata reported by the proplet: `os`, `hostname`, `cpu_arch`, `wasm_runtime`, `total_memory_bytes`, `proplet_version`, `ip`, `environment`, `location`, `tags`, `description`. |

@@ -622,10 +622,10 @@ After completion:
 
 ### Execution Mode Comparison
 
-| Mode         | Behavior                                                     | Start Times (this example)                           |
-| ------------ | ------------------------------------------------------------ | ---------------------------------------------------- |
-| `parallel`   | All root tasks start simultaneously                          | `.452`, `.468`, `.485` (33ms spread)                 |
-| `sequential` | Root task starts first; each `depends_on` task starts after its predecessor completes | `.099`, `.250`, `.391` (non-overlapping) |
+| Mode         | Behavior                                                                              | Start Times (this example)                           |
+| ------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `parallel`   | All root tasks start simultaneously                                                   | `.452`, `.468`, `.485` (33ms spread)                 |
+| `sequential` | Root task starts first; each `depends_on` task starts after its predecessor completes | `.099`, `.250`, `.391` (non-overlapping)             |
 
 The `depends_on` chains enforce the ordering — seq-task-002 starts only after seq-task-001 finishes, and seq-task-003 starts only after seq-task-002 finishes. If any task fails, the job stops immediately (fail-fast).
 

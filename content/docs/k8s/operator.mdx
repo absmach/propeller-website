@@ -54,14 +54,14 @@ m/{domain_id}/c/{channel_id}/{sub-topic}
 
 The operator subscribes to the wildcard `m/{domain_id}/c/{channel_id}/#` and dispatches incoming messages to the appropriate handler by matching the topic suffix.
 
-| Sub-topic                        | Direction            | Purpose                                                                        |
-| -------------------------------- | -------------------- | ------------------------------------------------------------------------------ |
+| Sub-topic                        | Direction            | Purpose                                                                                 |
+| -------------------------------- | -------------------- | --------------------------------------------------------------------------------------- |
 | `control/proplet/alive`          | proplet → operator   | Heartbeat published by every proplet every 10 seconds; carries optional device metadata |
-| `control/proplet/metrics`        | proplet → operator   | Proplet system metrics (CPU utilisation, memory usage)                         |
-| `control/proplet/results`        | proplet → operator   | Task result payload after WASM execution completes                             |
-| `control/proplet/task_metrics`   | proplet → operator   | Per-task CPU and memory metrics during execution                               |
-| `control/manager/start`          | operator → proplet   | Task execution instruction including the full task spec                        |
-| `control/manager/stop`           | operator → proplet   | Instruction to stop a running task                                             |
+| `control/proplet/metrics`        | proplet → operator   | Proplet system metrics (CPU utilisation, memory usage)                                  |
+| `control/proplet/results`        | proplet → operator   | Task result payload after WASM execution completes                                      |
+| `control/proplet/task_metrics`   | proplet → operator   | Per-task CPU and memory metrics during execution                                        |
+| `control/manager/start`          | operator → proplet   | Task execution instruction including the full task spec                                 |
+| `control/manager/stop`           | operator → proplet   | Instruction to stop a running task                                                      |
 
 ![MQTT Communication Flow](../images/kubernetes-operator/mqtt-communication.svg)
 
