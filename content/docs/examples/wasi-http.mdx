@@ -64,8 +64,7 @@ These settings are required because:
 Then restart the proplet to apply the changes:
 
 ```bash
-cd docker
-docker compose up -d proplet
+docker compose -f docker/compose.propeller.yaml --env-file docker/.env up -d proplet
 ```
 
 You should see the following in the proplet startup logs, confirming the correct configuration:
@@ -179,7 +178,7 @@ Your output should look like this:
 }
 ```
 
-The `"state": 2` indicates the task is **Running**. For daemon tasks like this HTTP server, state 2 is the expected state — the task keeps running indefinitely to serve HTTP requests. Task states are: 0 (Pending), 1 (Dispatched), 2 (Running), 3 (Completed), 4 (Failed).
+The `"state": 2` indicates the task is **Running**. For daemon tasks like this HTTP server, state 2 is the expected state — the task keeps running indefinitely to serve HTTP requests. Task states are: 0 (Pending), 1 (Scheduled), 2 (Running), 3 (Completed), 4 (Failed), 5 (Skipped), 6 (Interrupted).
 
 ## Test Endpoints
 

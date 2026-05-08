@@ -35,40 +35,40 @@ A `Proplet` resource represents one worker node. The `spec.type` field selects b
 
 | Field                                    | Type                                             | Required    | Default   | Description                                                                                     |
 | ---------------------------------------- | ------------------------------------------------ | ----------- | --------- | ----------------------------------------------------------------------------------------------- |
-| `type`                                   | `k8s` \| `external`                             | Yes         | —         | Where the worker runs: inside the cluster (`k8s`) or outside it (`external`)                   |
+| `type`                                   | `k8s` \                                          | `external`  | Yes       | —                                                                                               |
 | `k8s.image`                              | string                                           | Yes (k8s)   | —         | Container image for the proplet pod                                                             |
-| `k8s.logLevel`                           | `debug` \| `info` \| `warn` \| `error`          | No          | `info`    | Log verbosity                                                                                   |
+| `k8s.logLevel`                           | `debug` \                                        | `info` \    | `warn` \  | `error`                                                                                         |
 | `k8s.replicas`                           | int32                                            | No          | `1`       | Number of pod replicas (0–100)                                                                  |
 | `k8s.pluginDir`                          | string                                           | No          | —         | Path inside the container where WASM plugin files are loaded from (`PROPLET_PLUGIN_DIR`)        |
-| `external.deviceType`                    | string                                           | No          | —         | Device category label used for task matching (e.g. `raspberry-pi-4`)                           |
-| `external.capabilities`                  | []string                                         | No          | —         | Capability strings the device advertises (e.g. `wasm`, `gpu`)                                  |
+| `external.deviceType`                    | string                                           | No          | —         | Device category label used for task matching (e.g. `raspberry-pi-4`)                            |
+| `external.capabilities`                  | []string                                         | No          | —         | Capability strings the device advertises (e.g. `wasm`, `gpu`)                                   |
 | `resources`                              | ResourceList                                     | No          | —         | Kubernetes CPU and memory requests/limits applied to the proplet pod                            |
 | `connectionConfig.mqttAddress`           | string                                           | Yes         | —         | MQTT broker URL (e.g. `tcp://mqtt:1883`)                                                        |
 | `connectionConfig.domainId`              | string                                           | Yes         | —         | SuperMQ domain ID                                                                               |
 | `connectionConfig.channelId`             | string                                           | Yes         | —         | SuperMQ channel ID                                                                              |
 | `connectionConfig.clientId`              | string                                           | Yes         | —         | SuperMQ client credential ID; must match `proplet_id` in alive messages for external proplets   |
-| `connectionConfig.clientKey`             | string                                           | No*         | —         | SuperMQ client secret (inline). Exactly one of `clientKey` or `clientKeySecretRef` must be set |
+| `connectionConfig.clientKey`             | string                                           | No*         | —         | SuperMQ client secret (inline). Exactly one of `clientKey` or `clientKeySecretRef` must be set  |
 | `connectionConfig.clientKeySecretRef`    | SecretKeySelector                                | No*         | —         | Reference to a Kubernetes Secret holding the client secret. Mutually exclusive with `clientKey` |
 | `connectionConfig.mqttQos`               | uint8                                            | No          | `0`       | MQTT QoS level (0–2)                                                                            |
 | `connectionConfig.mqttTimeout`           | duration                                         | No          | `30s`     | Broker operation timeout                                                                        |
 
 ### Proplet Status Reference
 
-| Field                         | Description                                                                                                                                                          |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `phase`                       | `Initializing`, `Running`, or `Offline`                                                                                                                              |
-| `alive`                       | `true` while heartbeats are arriving within the `--last-seen-threshold`                                                                                              |
-| `conditions[Ready]`           | `True` when the proplet is ready to accept tasks                                                                                                                     |
-| `conditions[Connected]`       | `True` when MQTT heartbeat is current (external) or pod is available (k8s)                                                                                          |
-| `conditions[Healthy]`         | `True` when the proplet is operating without errors                                                                                                                  |
-| `lastSeen`                    | Timestamp of the most recent alive heartbeat                                                                                                                         |
-| `aliveHistory`                | Last 10 heartbeat timestamps                                                                                                                                         |
-| `taskCount`                   | Total tasks assigned to this proplet                                                                                                                                 |
-| `availableResources`          | CPU and memory reported as available (from spec for k8s; from heartbeat for external)                                                                               |
-| `k8sStatus.readyReplicas`     | Ready pod replicas (k8s type only)                                                                                                                                   |
-| `k8sStatus.availableReplicas` | Available pod replicas (k8s type only)                                                                                                                               |
+| Field                         | Description                                                                                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `phase`                       | `Initializing`, `Running`, or `Offline`                                                                                                                                              |
+| `alive`                       | `true` while heartbeats are arriving within the `--last-seen-threshold`                                                                                                              |
+| `conditions[Ready]`           | `True` when the proplet is ready to accept tasks                                                                                                                                     |
+| `conditions[Connected]`       | `True` when MQTT heartbeat is current (external) or pod is available (k8s)                                                                                                           |
+| `conditions[Healthy]`         | `True` when the proplet is operating without errors                                                                                                                                  |
+| `lastSeen`                    | Timestamp of the most recent alive heartbeat                                                                                                                                         |
+| `aliveHistory`                | Last 10 heartbeat timestamps                                                                                                                                                         |
+| `taskCount`                   | Total tasks assigned to this proplet                                                                                                                                                 |
+| `availableResources`          | CPU and memory reported as available (from spec for k8s; from heartbeat for external)                                                                                                |
+| `k8sStatus.readyReplicas`     | Ready pod replicas (k8s type only)                                                                                                                                                   |
+| `k8sStatus.availableReplicas` | Available pod replicas (k8s type only)                                                                                                                                               |
 | `metadata`                    | Device metadata reported in alive messages: `description`, `tags`, `location`, `ip`, `environment`, `os`, `hostname`, `cpuArch`, `totalMemoryBytes`, `propletVersion`, `wasmRuntime` |
-| `latestMetrics`               | Most recent metrics sample: `cpuMilliPercent` (CPU × 1000), `memoryMilliPercent` (memory × 1000), `memoryBytes`, `timestamp`                                        |
+| `latestMetrics`               | Most recent metrics sample: `cpuMilliPercent` (CPU × 1000), `memoryMilliPercent` (memory × 1000), `memoryBytes`, `timestamp`                                                         |
 
 
 ## Task
@@ -131,49 +131,49 @@ If no proplet satisfies the filter, the task remains in `pending` and is requeue
 
 ### Task Spec Reference
 
-| Field                                      | Type                          | Required | Default    | Description                                                                 |
-| ------------------------------------------ | ----------------------------- | -------- | ---------- | --------------------------------------------------------------------------- |
-| `name`                                     | string                        | Yes      | —          | Task name (max 253 chars)                                                   |
-| `functionName`                             | string                        | No       | —          | Exported WASM function to invoke; defaults to the task name if omitted      |
-| `kind`                                     | `standard` \| `federated`     | No       | `standard` | Task kind                                                                   |
-| `file`                                     | bytes                         | No       | —          | WASM binary encoded as a base64 string in YAML                              |
-| `imageUrl`                                 | string                        | No       | —          | OCI image reference containing the WASM module; required for k8s proplets   |
-| `cliArgs`                                  | []string                      | No       | —          | Command-line arguments passed to the WASM runtime                           |
-| `inputs`                                   | []string                      | No       | —          | Inputs passed to the function; numeric values are accepted and coerced      |
-| `env`                                      | map[string]string             | No       | —          | Environment variables available in the module                               |
-| `broadcast`                                | bool                          | No       | `false`    | Send the task to all available proplets simultaneously instead of one       |
-| `mode`                                     | `infer` \| `train`            | No       | —          | Federated learning mode; leave unset for standard WASM tasks                |
-| `metadata`                                 | object                        | No       | —          | Arbitrary key-value JSON attached to the task and forwarded to the proplet  |
-| `propletSelector.propletId`                | string                        | No       | —          | Target a specific Proplet by its Kubernetes resource name                   |
-| `propletSelector.matchLabels`              | map[string]string             | No       | —          | Target Proplets matching all labels                                         |
-| `propletSelector.matchDeviceTypes`         | []string                      | No       | —          | Target Proplets with a matching device type                                 |
-| `propletSelector.matchCapabilities`        | []string                      | No       | —          | Target Proplets advertising all listed capabilities                         |
-| `preferredPropletType`                     | `k8s` \| `external` \| `any` | No       | `any`      | Constrain which proplet type receives the task                              |
-| `resourceRequirements.cpu`                 | string                        | No       | —          | CPU resource request/limit applied to the k8s Job pod (e.g. `100m`); not used for scheduling |
-| `resourceRequirements.memory`              | string                        | No       | —          | Memory resource request/limit applied to the k8s Job pod (e.g. `256Mi`); not used for scheduling |
-| `resourceRequirements.custom`              | map[string]string             | No       | —          | Custom resource constraints passed to the k8s Job pod                      |
-| `daemon`                                   | bool                          | No       | `false`    | Run indefinitely; sets Kubernetes RestartPolicy to Always                   |
-| `restartPolicy`                            | Kubernetes RestartPolicy      | No       | —          | Override pod restart policy for k8s tasks                                   |
-| `encrypted`                                | bool                          | No       | `false`    | Signal that the WASM binary is encrypted                                    |
-| `kbsResourcePath`                          | string                        | No       | —          | Key Broker Service path for decrypting the module                           |
-| `dependsOn`                                | []string                      | No       | —          | Task IDs that must complete before this task is scheduled                   |
-| `runIf`                                    | `success` \| `failure`        | No       | —          | Conditional execution: run only if dependencies succeeded or failed         |
-| `workflowId`                               | string                        | No       | —          | Groups tasks into a workflow                                                |
-| `jobId`                                    | string                        | No       | —          | Associates this task with a PropellerJob                                    |
-| `schedule`                                 | string                        | No       | —          | Cron expression for recurring execution                                     |
-| `isRecurring`                              | bool                          | No       | `false`    | Enable recurring execution via `schedule`                                   |
-| `timezone`                                 | string                        | No       | `UTC`      | Timezone for cron evaluation                                                |
-| `priority`                                 | int                           | No       | `50`       | Scheduling priority (0–100; higher = more urgent)                           |
-| `monitoringProfile.enabled`                | bool                          | No       | `false`    | Enable metrics collection during execution                                  |
-| `monitoringProfile.interval`               | duration                      | No       | —          | Metrics collection interval (e.g. `10s`, `1m`)                              |
-| `monitoringProfile.collectCpu`             | bool                          | No       | —          | Collect CPU usage                                                           |
-| `monitoringProfile.collectMemory`          | bool                          | No       | —          | Collect memory usage                                                        |
-| `monitoringProfile.collectDiskIo`          | bool                          | No       | —          | Collect disk I/O                                                            |
-| `monitoringProfile.collectThreads`         | bool                          | No       | —          | Collect thread count                                                        |
-| `monitoringProfile.collectFileDescriptors` | bool                          | No       | —          | Collect file descriptor count                                               |
-| `monitoringProfile.historySize`            | int                           | No       | —          | Number of history entries to retain                                         |
-| `monitoringProfile.exportToMqtt`           | bool                          | No       | —          | Stream metrics to MQTT                                                      |
-| `monitoringProfile.retainHistory`          | bool                          | No       | —          | Retain metrics history after task completes                                 |
+| Field                                      | Type                          | Required     | Default    | Description                                                                                      |
+| ------------------------------------------ | ----------------------------- | ------------ | ---------- | ------------------------------------------------------------------------------------------------ |
+| `name`                                     | string                        | Yes          | —          | Task name (max 253 chars)                                                                        |
+| `functionName`                             | string                        | No           | —          | Exported WASM function to invoke; defaults to the task name if omitted                           |
+| `kind`                                     | `standard` \                  | `federated`  | No         | `standard`                                                                                       |
+| `file`                                     | bytes                         | No           | —          | WASM binary encoded as a base64 string in YAML                                                   |
+| `imageUrl`                                 | string                        | No           | —          | OCI image reference containing the WASM module; required for k8s proplets                        |
+| `cliArgs`                                  | []string                      | No           | —          | Command-line arguments passed to the WASM runtime                                                |
+| `inputs`                                   | []string                      | No           | —          | Inputs passed to the function; numeric values are accepted and coerced                           |
+| `env`                                      | map[string]string             | No           | —          | Environment variables available in the module                                                    |
+| `broadcast`                                | bool                          | No           | `false`    | Send the task to all available proplets simultaneously instead of one                            |
+| `mode`                                     | `infer` \                     | `train`      | No         | —                                                                                                |
+| `metadata`                                 | object                        | No           | —          | Arbitrary key-value JSON attached to the task and forwarded to the proplet                       |
+| `propletSelector.propletId`                | string                        | No           | —          | Target a specific Proplet by its Kubernetes resource name                                        |
+| `propletSelector.matchLabels`              | map[string]string             | No           | —          | Target Proplets matching all labels                                                              |
+| `propletSelector.matchDeviceTypes`         | []string                      | No           | —          | Target Proplets with a matching device type                                                      |
+| `propletSelector.matchCapabilities`        | []string                      | No           | —          | Target Proplets advertising all listed capabilities                                              |
+| `preferredPropletType`                     | `k8s` \                       | `external` \ | `any`      | No                                                                                               |
+| `resourceRequirements.cpu`                 | string                        | No           | —          | CPU resource request/limit applied to the k8s Job pod (e.g. `100m`); not used for scheduling     |
+| `resourceRequirements.memory`              | string                        | No           | —          | Memory resource request/limit applied to the k8s Job pod (e.g. `256Mi`); not used for scheduling |
+| `resourceRequirements.custom`              | map[string]string             | No           | —          | Custom resource constraints passed to the k8s Job pod                                            |
+| `daemon`                                   | bool                          | No           | `false`    | Run indefinitely; sets Kubernetes RestartPolicy to Always                                        |
+| `restartPolicy`                            | Kubernetes RestartPolicy      | No           | —          | Override pod restart policy for k8s tasks                                                        |
+| `encrypted`                                | bool                          | No           | `false`    | Signal that the WASM binary is encrypted                                                         |
+| `kbsResourcePath`                          | string                        | No           | —          | Key Broker Service path for decrypting the module                                                |
+| `dependsOn`                                | []string                      | No           | —          | Task IDs that must complete before this task is scheduled                                        |
+| `runIf`                                    | `success` \                   | `failure`    | No         | —                                                                                                |
+| `workflowId`                               | string                        | No           | —          | Groups tasks into a workflow                                                                     |
+| `jobId`                                    | string                        | No           | —          | Associates this task with a PropellerJob                                                         |
+| `schedule`                                 | string                        | No           | —          | Cron expression for recurring execution                                                          |
+| `isRecurring`                              | bool                          | No           | `false`    | Enable recurring execution via `schedule`                                                        |
+| `timezone`                                 | string                        | No           | `UTC`      | Timezone for cron evaluation                                                                     |
+| `priority`                                 | int                           | No           | `50`       | Scheduling priority (0–100; higher = more urgent)                                                |
+| `monitoringProfile.enabled`                | bool                          | No           | `false`    | Enable metrics collection during execution                                                       |
+| `monitoringProfile.interval`               | duration                      | No           | —          | Metrics collection interval (e.g. `10s`, `1m`)                                                   |
+| `monitoringProfile.collectCpu`             | bool                          | No           | —          | Collect CPU usage                                                                                |
+| `monitoringProfile.collectMemory`          | bool                          | No           | —          | Collect memory usage                                                                             |
+| `monitoringProfile.collectDiskIo`          | bool                          | No           | —          | Collect disk I/O                                                                                 |
+| `monitoringProfile.collectThreads`         | bool                          | No           | —          | Collect thread count                                                                             |
+| `monitoringProfile.collectFileDescriptors` | bool                          | No           | —          | Collect file descriptor count                                                                    |
+| `monitoringProfile.historySize`            | int                           | No           | —          | Number of history entries to retain                                                              |
+| `monitoringProfile.exportToMqtt`           | bool                          | No           | —          | Stream metrics to MQTT                                                                           |
+| `monitoringProfile.retainHistory`          | bool                          | No           | —          | Retain metrics history after task completes                                                      |
 
 ### Task Status Reference
 
@@ -206,12 +206,12 @@ A `PropellerJob` groups multiple Tasks into a single managed batch. The `Propell
 
 ### PropellerJob Spec Reference
 
-| Field           | Type                                              | Required | Default        | Description                                 |
-| --------------- | ------------------------------------------------- | -------- | -------------- | ------------------------------------------- |
-| `name`          | string                                            | Yes      | —              | Job name                                    |
-| `executionMode` | `parallel` \| `sequential` \| `configurable`     | No       | `configurable` | How tasks within the job are executed       |
-| `tasks`         | []TaskSpec                                        | No       | —              | Inline task definitions to create           |
-| `taskRefs`      | []string                                          | No       | —              | Names of existing Task resources to include |
+| Field           | Type                                              | Required       | Default        | Description                                 |
+| --------------- | ------------------------------------------------- | -------------- | -------------- | ------------------------------------------- |
+| `name`          | string                                            | Yes            | —              | Job name                                    |
+| `executionMode` | `parallel` \                                      | `sequential` \ | `configurable` | No                                          |
+| `tasks`         | []TaskSpec                                        | No             | —              | Inline task definitions to create           |
+| `taskRefs`      | []string                                          | No             | —              | Names of existing Task resources to include |
 
 ### PropellerJob Status Reference
 

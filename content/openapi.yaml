@@ -163,9 +163,10 @@ paths:
                 inputs:
                   type: array
                   items:
-                    type: integer
-                    format: uint64
-                  description: Integer input values passed to the Wasm module (uint64)
+                    oneOf:
+                      - type: string
+                      - type: number
+                  description: Input values passed to the Wasm module (strings or numbers; numbers are coerced to strings)
                 env:
                   type: object
                   additionalProperties:
@@ -291,7 +292,10 @@ paths:
                 inputs:
                   type: array
                   items:
-                    type: integer
+                    oneOf:
+                      - type: string
+                      - type: number
+                  description: Input values passed to the Wasm module (strings or numbers; numbers are coerced to strings)
                 proplet_id:
                   type: string
                   description: Target proplet ID; mutually exclusive with `broadcast`

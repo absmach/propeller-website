@@ -168,7 +168,7 @@ The proplet executes the WASM module with the fetched model and dataset:
    - `MODEL_DATA`: JSON-encoded model weights and bias
    - `DATASET_DATA`: JSON-encoded local dataset
    - `HYPERPARAMS`: JSON-encoded training hyperparameters
-   - `COORDINATOR_URL`: HTTP endpoint for task/update operations
+   - `MANAGER_COORDINATOR_URL`: HTTP endpoint for task/update operations
    - `PROPLET_ID`: This proplet's unique identifier
 
 2. **Training Algorithm**: The WASM module performs logistic regression training with Stochastic Gradient Descent (SGD):
@@ -418,7 +418,7 @@ model := map[string]interface{}{
 
 ```bash
 cd examples/fl-demo/client-wasm
-GOTOOLCHAIN=go1.25.5 GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
+GOOS=wasip2 GOARCH=wasm go build -o fl-client.wasm fl-client.go
 ```
 
 4. **Push to GHCR**:
@@ -551,17 +551,17 @@ This is the same module delivery mechanism used for standard tasks—see the [Ma
 
 The proplet passes training context to the WASM module via environment variables:
 
-| Variable             | Description                                   |
-| -------------------- | --------------------------------------------- |
-| `ROUND_ID`           | Training round identifier                     |
-| `MODEL_URI`          | Reference to base model version               |
-| `HYPERPARAMS`        | JSON object with training hyperparameters     |
-| `MODEL_DATA`         | JSON string of fetched model weights          |
-| `DATASET_DATA`       | JSON string of fetched training dataset       |
-| `PROPLET_ID`         | Magistrala client UUID of this proplet        |
-| `COORDINATOR_URL`    | URL of coordinator service                    |
-| `MODEL_REGISTRY_URL` | URL of model registry service                 |
-| `ML_BACKEND`         | Backend mode: `standard`, `tinyml`, or `auto` |
+| Variable                  | Description                                   |
+| ------------------------- | --------------------------------------------- |
+| `ROUND_ID`                | Training round identifier                     |
+| `MODEL_URI`               | Reference to base model version               |
+| `HYPERPARAMS`             | JSON object with training hyperparameters     |
+| `MODEL_DATA`              | JSON string of fetched model weights          |
+| `DATASET_DATA`            | JSON string of fetched training dataset       |
+| `PROPLET_ID`              | Magistrala client UUID of this proplet        |
+| `MANAGER_COORDINATOR_URL` | URL of coordinator service                    |
+| `MODEL_REGISTRY_URL`      | URL of model registry service                 |
+| `ML_BACKEND`              | Backend mode: `standard`, `tinyml`, or `auto` |
 
 ### ML Backend Selection
 
@@ -751,24 +751,24 @@ FL_DATASET_PARTICIPANTS="uuid1,uuid2,uuid3"
 
 ### Manager Environment Variables
 
-| Variable               | Description                                                          | Default                   | Required |
-| ---------------------- | -------------------------------------------------------------------- | ------------------------- | -------- |
-| `COORDINATOR_URL`      | URL of FL Coordinator service. If not set, FL features are disabled. | `""`                      | No       |
-| `MANAGER_HTTP_PORT`    | HTTP API port                                                        | `7070`                    | No       |
-| `MANAGER_MQTT_ADDRESS` | MQTT broker address                                                  | `tcp://mqtt-adapter:1883` | No       |
-| `MANAGER_DOMAIN_ID`    | Magistrala domain ID                                                 | -                         | Yes      |
-| `MANAGER_CHANNEL_ID`   | Magistrala channel ID                                                | -                         | Yes      |
+| Variable                  | Description                                                          | Default                   | Required |
+| ------------------------- | -------------------------------------------------------------------- | ------------------------- | -------- |
+| `MANAGER_COORDINATOR_URL` | URL of FL Coordinator service. If not set, FL features are disabled. | `""`                      | No       |
+| `MANAGER_HTTP_PORT`       | HTTP API port                                                        | `7070`                    | No       |
+| `MANAGER_MQTT_ADDRESS`    | MQTT broker address                                                  | `tcp://mqtt-adapter:1883` | No       |
+| `MANAGER_DOMAIN_ID`       | Magistrala domain ID                                                 | -                         | Yes      |
+| `MANAGER_CHANNEL_ID`      | Magistrala channel ID                                                | -                         | Yes      |
 
 ### Proplet Environment Variables
 
-| Variable             | Description             | Default                        | Required     |
-| -------------------- | ----------------------- | ------------------------------ | ------------ |
-| `MODEL_REGISTRY_URL` | URL of Model Registry   | -                              | Yes (for FL) |
-| `DATA_STORE_URL`     | URL of Local Data Store | -                              | Yes (for FL) |
-| `COORDINATOR_URL`    | URL of FL Coordinator   | `http://coordinator-http:8080` | No           |
-| `PROPLET_CLIENT_ID`  | Magistrala client UUID  | -                              | Yes          |
-| `PROPLET_DOMAIN_ID`  | Magistrala domain ID    | -                              | Yes          |
-| `PROPLET_CHANNEL_ID` | Magistrala channel ID   | -                              | Yes          |
+| Variable                  | Description             | Default                        | Required     |
+| ------------------------- | ----------------------- | ------------------------------ | ------------ |
+| `MODEL_REGISTRY_URL`      | URL of Model Registry   | -                              | Yes (for FL) |
+| `DATA_STORE_URL`          | URL of Local Data Store | -                              | Yes (for FL) |
+| `MANAGER_COORDINATOR_URL` | URL of FL Coordinator   | `http://coordinator-http:8080` | No           |
+| `PROPLET_CLIENT_ID`       | Magistrala client UUID  | -                              | Yes          |
+| `PROPLET_DOMAIN_ID`       | Magistrala domain ID    | -                              | Yes          |
+| `PROPLET_CHANNEL_ID`      | Magistrala channel ID   | -                              | Yes          |
 
 ### Coordinator Environment Variables
 
@@ -812,7 +812,7 @@ grep -E '^(PROPLET_CLIENT_ID|PROPLET_2_CLIENT_ID|PROPLET_3_CLIENT_ID)=' docker/.
 
 **Solution**:
 
-1. Check proxy is running: `docker compose ps proxy`
+1. Check proxy is running: `docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env ps proxy`
 2. Configure GHCR authentication in `docker/.env`:
    ```bash
    PROXY_AUTHENTICATE=true
@@ -820,7 +820,7 @@ grep -E '^(PROPLET_CLIENT_ID|PROPLET_2_CLIENT_ID|PROPLET_3_CLIENT_ID)=' docker/.
    PROXY_REGISTRY_USERNAME=YOUR_GITHUB_USERNAME
    PROXY_REGISTRY_PASSWORD=ghp_xxxxx
    ```
-3. Restart proxy: `docker compose up -d --force-recreate proxy`
+3. Restart proxy: `docker compose -f docker/compose.yaml -f examples/fl-demo/compose.yaml --env-file docker/.env up -d --force-recreate proxy`
 
 ### Model Weights Remain Zero After Training
 
@@ -834,7 +834,7 @@ grep -E '^(PROPLET_CLIENT_ID|PROPLET_2_CLIENT_ID|PROPLET_3_CLIENT_ID)=' docker/.
    ```
 2. Check proplet logs for dataset fetch errors:
    ```bash
-   docker compose logs proplet | grep -i "dataset"
+   docker logs propeller-proplet 2>&1 | grep -i "dataset"
    ```
 
 ### Coordinator Connection Refused

@@ -3,11 +3,11 @@ title: Addition (Host Runtime)
 description: Addition example using external wasmtime runtime
 ---
 
-This is a simple addition example. It takes two numbers as inputs and returns their sum. For this example since we want to use the external wasmtime runtime we need to specify the runtime when starting proplet. For the proplet docker image the wasmtime runtime is already included. It is found in `/usr/local/bin/wasmtime`. To enable proplet to use this runtime we need to set the `WASMTIME_RUNTIME` environment variable to `/usr/local/bin/wasmtime`.
+This is a simple addition example. It takes two numbers as inputs and returns their sum. For this example since we want to use the external wasmtime runtime we need to specify the runtime when starting proplet. For the proplet docker image the wasmtime runtime is already included. It is found in `/usr/local/bin/wasmtime`. To enable proplet to use this runtime we need to set the `PROPLET_EXTERNAL_WASM_RUNTIME` environment variable to `/usr/local/bin/wasmtime`.
 
 ```bash
 export PROPLET_EXTERNAL_WASM_RUNTIME="/usr/local/bin/wasmtime"
-make start-proplet
+make start-propeller
 ```
 
 The logs from the proplet should look like this.
@@ -58,7 +58,7 @@ make addition
 Your output should look like this:
 
 ```bash
-GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasip1 examples/addition/addition.go
+GOOS=js GOARCH=wasm tinygo build -buildmode=c-shared -o build/addition.wasm -target wasi examples/addition/addition.go
 ```
 
 Now we can create a task with the wasm file:

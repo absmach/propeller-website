@@ -20,7 +20,7 @@ This section demonstrates [DAG (Directed Acyclic Graph) workflow](/docs/task-sch
 
 Ensure you have:
 
-- Propeller services running (`make start-magistrala`)
+- Propeller services running (`make start-all`)
 - A [provisioned config](/docs/getting-started#step-3-provision-propeller) with valid credentials
 - The `addition.wasm` module built
 
@@ -535,7 +535,7 @@ After completion, your output should look like this:
 
 ### Sequential Job
 
-Create a job with `sequential` execution mode. Tasks run one at a time in order:
+Create a job with `sequential` execution mode. Use `depends_on` chains so each task starts only after the previous one completes:
 
 ```bash
 curl -X POST "http://localhost:7070/jobs" \
@@ -552,12 +552,14 @@ curl -X POST "http://localhost:7070/jobs" \
     {
       "id": "seq-task-002",
       "name": "main",
-      "inputs": [3, 4]
+      "inputs": [3, 4],
+      "depends_on": ["seq-task-001"]
     },
     {
       "id": "seq-task-003",
       "name": "main",
-      "inputs": [5, 6]
+      "inputs": [5, 6],
+      "depends_on": ["seq-task-002"]
     }
   ]
 }'
@@ -593,18 +595,20 @@ After completion:
       "name": "main",
       "state": 3,
       "inputs": [3, 4],
+      "depends_on": ["seq-task-001"],
       "results": "7\n",
-      "start_time": "2026-03-01T17:13:42.120860495Z",
-      "finish_time": "2026-03-01T17:13:42.269139758Z"
+      "start_time": "2026-03-01T17:13:42.250694531Z",
+      "finish_time": "2026-03-01T17:13:42.380139758Z"
     },
     {
       "id": "seq-task-003",
       "name": "main",
       "state": 3,
       "inputs": [5, 6],
+      "depends_on": ["seq-task-002"],
       "results": "11\n",
-      "start_time": "2026-03-01T17:13:42.153693284Z",
-      "finish_time": "2026-03-01T17:13:42.287081364Z"
+      "start_time": "2026-03-01T17:13:42.391693284Z",
+      "finish_time": "2026-03-01T17:13:42.521081364Z"
     }
   ]
 }
@@ -613,16 +617,16 @@ After completion:
 **Results:**
 
 - Task 1: `1 + 2 = 3`
-- Task 2: `3 + 4 = 7`
-- Task 3: `5 + 6 = 11`
+- Task 2: `3 + 4 = 7` (started after Task 1 finished)
+- Task 3: `5 + 6 = 11` (started after Task 2 finished)
 
 ### Execution Mode Comparison
 
-| Mode         | Behavior                       | Start Times (this example)           |
-| ------------ | ------------------------------ | ------------------------------------ |
-| `parallel`   | All tasks start simultaneously | `.452`, `.468`, `.485` (33ms spread) |
-| `sequential` | Tasks start one after another  | `.099`, `.120`, `.153` (staggered)   |
+| Mode         | Behavior                                                                              | Start Times (this example)                           |
+| ------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `parallel`   | All root tasks start simultaneously                                                   | `.452`, `.468`, `.485` (33ms spread)                 |
+| `sequential` | Root task starts first; each `depends_on` task starts after its predecessor completes | `.099`, `.250`, `.391` (non-overlapping)             |
 
-With fast-executing tasks, the timing difference is subtle. For long-running tasks, sequential mode ensures each task completes before the next starts (fail-fast behavior).
+The `depends_on` chains enforce the ordering — seq-task-002 starts only after seq-task-001 finishes, and seq-task-003 starts only after seq-task-002 finishes. If any task fails, the job stops immediately (fail-fast).
 
 For a comparison of workflows vs jobs and detailed job configuration options, see [Workflow vs Job Comparison](/docs/task-scheduling#workflow-vs-job-comparison).

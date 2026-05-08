@@ -330,17 +330,17 @@ Propeller includes built-in support for federated machine learning:
 
 Federated learning tasks are driven by environment variables passed with the task:
 
-| Variable             | Description                                                   |
-| -------------------- | ------------------------------------------------------------- |
-| `ROUND_ID`           | Current federated learning round identifier                   |
-| `MODEL_URI`          | URI to the current global model in the model registry         |
-| `MODEL_REGISTRY_URL` | Base URL of the model registry service                        |
-| `DATA_STORE_URL`     | Base URL of the local data store service                      |
-| `COORDINATOR_URL`    | Base URL of the FL coordinator service                        |
-| `ML_BACKEND`         | ML backend hint: `standard`, `tinyml`, or `auto`              |
-| `HYPERPARAMS`        | JSON-encoded hyperparameters for training                     |
-| `FL_NUM_SAMPLES`     | Number of training samples used (included in update envelope) |
-| `FL_FORMAT`          | Update format (default: `f32-delta`)                          |
+| Variable                  | Description                                                   |
+| ------------------------- | ------------------------------------------------------------- |
+| `ROUND_ID`                | Current federated learning round identifier                   |
+| `MODEL_URI`               | URI to the current global model in the model registry         |
+| `MODEL_REGISTRY_URL`      | Base URL of the model registry service                        |
+| `DATA_STORE_URL`          | Base URL of the local data store service                      |
+| `MANAGER_COORDINATOR_URL` | Base URL of the FL coordinator service                        |
+| `ML_BACKEND`              | ML backend hint: `standard`, `tinyml`, or `auto`              |
+| `HYPERPARAMS`             | JSON-encoded hyperparameters for training                     |
+| `FL_NUM_SAMPLES`          | Number of training samples used (included in update envelope) |
+| `FL_FORMAT`               | Update format (default: `f32-delta`)                          |
 
 ## Scheduling
 
@@ -412,6 +412,6 @@ Proplet supports WebAssembly module distribution through:
   - **AMD SEV/SNP**: detected via `/dev/sev`, EFI variables, or cpuinfo/dmesg flags
   - **Intel SGX**: detected via `/dev/sgx_enclave`, `/dev/sgx/enclave`, or cpuinfo/dmesg flags
 - **Encrypted Workloads**: When a TEE is detected, encrypted Wasm workloads are fetched from OCI registries and decrypted using the attestation agent and KBS
-- **Attestation**: The attestation agent (`attestation-agent`) runs as a gRPC keyprovider service on port **50010** (formerly 50002); `coco_keyprovider` uses port **50011**
+- **Attestation**: The attestation agent (`attestation-agent`) listens on port **50010**; `coco_keyprovider` uses port **50011**
 - **KBS Integration**: Key Broker Service (KBS) integration for secure encryption key management. `PROPLET_KBS_URI` must be set when a TEE is detected
 - **Magistrala**: Secure MQTT communication for IoT deployments

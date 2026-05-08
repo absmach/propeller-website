@@ -188,76 +188,68 @@ namespace/propeller-workloads created
 
 ## Step 4 — Start the Propeller Stack (SuperMQ + Proplet)
 
-The operator communicates with proplets over MQTT via SuperMQ. Start the full Propeller Docker stack from the propeller repository:
+The operator communicates with proplets over MQTT via the Magistrala broker stack. Start the full Propeller Docker stack (broker services + Propeller services) from the propeller repository:
 
 ```bash
 cd propeller
-make start-supermq
+make start-all
 ```
 
 Your output should look like this:
 
 ```bash
- Container supermq-groups Started
- Container supermq-users Started
- Container supermq-clients Starting
- Container supermq-channels Starting
- Container supermq-channels Started
- Container supermq-clients Started
- Container supermq-mqtt Starting
- Container supermq-coap Starting
- Container supermq-http Starting
- Container supermq-mqtt Started
+ Container magistrala-spicedb-db Started
+ Container magistrala-auth-redis Started
+ Container magistrala-users-db Started
+ Container magistrala-channels-db Started
+ Container magistrala-clients-db Started
+ Container magistrala-fluxmq-node1 Started
+ Container magistrala-fluxmq-node2 Started
+ Container magistrala-fluxmq-node3 Started
+ Container magistrala-fluxmq-auth Started
+ Container magistrala-nginx Started
+ Container magistrala-users Started
+ Container magistrala-channels Started
+ Container magistrala-clients Started
+ Container magistrala-auth Started
+ Container magistrala-domains Started
  Container propeller-manager Starting
  Container propeller-proxy Starting
  Container propeller-proplet Starting
- Container supermq-coap Started
- Container supermq-http Started
- Container supermq-nginx Starting
  Container propeller-proplet Started
  Container propeller-proxy Started
  Container propeller-manager Started
- Container supermq-nginx Started
 ```
 
 Confirm the containers are running:
 
 ```bash
-docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "supermq|propeller"
+docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "magistrala|propeller"
 ```
 
 Your output should look like this:
 
 ```bash
-supermq-nginx              Up 14 seconds
 propeller-proplet          Up 15 seconds (healthy)
 propeller-proxy            Up 15 seconds
 propeller-manager          Up 15 seconds
-supermq-http               Up 10 seconds
-supermq-mqtt               Up 19 seconds
-supermq-coap               Up 19 seconds
-supermq-clients            Up 15 seconds
-supermq-channels           Up 15 seconds
-supermq-groups             Up 13 seconds
-supermq-users              Up 7 seconds
-supermq-auth               Up 18 seconds
-supermq-domains            Up 16 seconds
-supermq-spicedb            Up 23 seconds
-supermq-notifications      Up 35 seconds
-supermq-auth-redis         Up 37 seconds
-supermq-domains-redis      Up 37 seconds
-supermq-rabbitmq           Up 37 seconds
-supermq-domains-db         Up 37 seconds
-supermq-spicedb-db         Up 37 seconds
-supermq-nats               Up 37 seconds
-supermq-channels-db        Up 37 seconds
-supermq-users-db           Up 37 seconds
-supermq-channels-redis     Up 37 seconds
-supermq-groups-db          Up 37 seconds
-supermq-auth-db            Up 37 seconds
-supermq-clients-redis      Up 37 seconds
-supermq-jaeger             Up 37 seconds
-supermq-clients-db         Up 37 seconds
+magistrala-nginx           Up 37 seconds
+magistrala-clients         Up 35 seconds
+magistrala-channels        Up 35 seconds
+magistrala-users           Up 33 seconds
+magistrala-auth            Up 30 seconds
+magistrala-domains         Up 28 seconds
+magistrala-fluxmq-node1    Up 37 seconds
+magistrala-fluxmq-node2    Up 37 seconds
+magistrala-fluxmq-node3    Up 37 seconds
+magistrala-fluxmq-auth     Up 37 seconds
+magistrala-spicedb         Up 37 seconds
+magistrala-users-db        Up 37 seconds
+magistrala-channels-db     Up 37 seconds
+magistrala-clients-db      Up 37 seconds
+magistrala-auth-db         Up 37 seconds
+magistrala-auth-redis      Up 37 seconds
+magistrala-jaeger          Up 37 seconds
 ```
 
 > The propeller-manager, propeller-proplet, and propeller-proxy containers start but will fail to connect until you provision credentials. That is expected at this stage.
@@ -389,10 +381,10 @@ PROXY_CLIENT_KEY=3c905d3c-845b-4b9e-8c51-7ab9a2403163
 
 > Replace all UUIDs above with the values from `docker/config.toml`. The UUIDs shown here are from the example provisioning run—yours will be different.
 
-Recreate only the propeller containers (not SuperMQ) to pick up the new env values:
+Recreate only the propeller containers (not Magistrala) to pick up the new env values:
 
 ```bash
-docker compose -f docker/compose.yaml \
+docker compose -f docker/compose.propeller.yaml \
   --env-file docker/.env \
   up -d --force-recreate manager proplet proxy
 ```
@@ -730,7 +722,7 @@ The table below lists common fields. For the complete specification, see the [fe
 
 | Field                            | Type                 | Required       | Description                                         |
 | -------------------------------- | -------------------- | -------------- | --------------------------------------------------- |
-| `type`                           | `k8s` \| `external` | Yes            | Where the worker runs                               |
+| `type`                           | `k8s` \              | `external`     | Yes                                                 |
 | `k8s.image`                      | string               | Yes (k8s only) | Container image for the proplet pod                 |
 | `k8s.replicas`                   | int                  | No             | Number of pod replicas (default: 1)                 |
 | `external.deviceType`            | string               | No             | Device label for scheduling (e.g. `raspberry-pi-4`) |
@@ -876,22 +868,22 @@ The proplet executed the WASM binary with Wasmtime, published the result to `con
 
 The table below lists common fields. For the complete specification, see the [features documentation](/docs/k8s/features#task-spec-reference).
 
-| Field                                | Type                | Required   | Description                                        |
-| ------------------------------------ | ------------------- | ---------- | -------------------------------------------------- |
-| `name`                               | string              | Yes        | Task name                                          |
+| Field                                | Type                | Required   | Description                                                            |
+| ------------------------------------ | ------------------- | ---------- | ---------------------------------------------------------------------- |
+| `name`                               | string              | Yes        | Task name                                                              |
 | `functionName`                       | string              | No         | Exported WASM function to invoke; defaults to the task name if omitted |
-| `file`                               | bytes               | No         | WASM binary encoded as a base64 string in YAML     |
-| `imageUrl`                           | string              | No         | OCI image reference for the WASM module            |
-| `inputs`                             | []string            | No         | Inputs passed to the function; numeric values are accepted |
-| `propletSelector.propletId`          | string              | No         | Target a specific Proplet by name                  |
-| `propletSelector.matchCapabilities`  | []string            | No         | Target Proplets with all listed capabilities       |
-| `daemon`                             | bool                | No         | If true, task runs indefinitely (default: false)   |
+| `file`                               | bytes               | No         | WASM binary encoded as a base64 string in YAML                         |
+| `imageUrl`                           | string              | No         | OCI image reference for the WASM module                                |
+| `inputs`                             | []string            | No         | Inputs passed to the function; numeric values are accepted             |
+| `propletSelector.propletId`          | string              | No         | Target a specific Proplet by name                                      |
+| `propletSelector.matchCapabilities`  | []string            | No         | Target Proplets with all listed capabilities                           |
+| `daemon`                             | bool                | No         | If true, task runs indefinitely (default: false)                       |
 
 ### Task Status Reference
 
 | Field             | Description                                                                            |
 | ----------------- | -------------------------------------------------------------------------------------- |
-| `phase`           | `pending`, `scheduled`, `running`, `completed`, `failed`, `skipped`, or `interrupted` |
+| `phase`           | `pending`, `scheduled`, `running`, `completed`, `failed`, `skipped`, or `interrupted`  |
 | `assignedProplet` | Name of the Proplet executing this task                                                |
 | `startedAt`       | When execution began                                                                   |
 | `finishedAt`      | When execution ended                                                                   |

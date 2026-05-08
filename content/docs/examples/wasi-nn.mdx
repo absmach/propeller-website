@@ -572,7 +572,7 @@ Your output should look like this:
       "name": "proplet-0",
       "task_count": 0,
       "alive": true,
-      "alive_at": ["2026-03-02T07:55:00.000000000Z"],
+      "last_alive_at": "2026-03-02T07:55:00.000000000Z",
       "metadata": {}
     }
   ]
@@ -586,7 +586,7 @@ Your output should look like this:
 - `name` — The proplet's human-readable name
 - `task_count` — The number of tasks currently assigned to this proplet
 - `alive: true` — The proplet is connected and sending heartbeats
-- `alive_at` — Timestamps of recent heartbeats received from the proplet
+- `last_alive_at` — Timestamp of the most recent heartbeat received from the proplet
 - `metadata` — System information reported by the proplet (OS, CPU arch, runtime, etc.)
 
 **If the proplets array is empty**, wait 10-15 seconds and try again. The proplet needs time to establish the MQTT connection and complete registration. If it remains empty, check proplet logs: `docker logs propeller-proplet`.

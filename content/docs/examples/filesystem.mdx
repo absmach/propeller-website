@@ -3,10 +3,10 @@ title: Filesystem
 description: Filesystem example
 ---
 
-This is a simple filesystem example. This WASI P1 module writes a file to a preopened directory, reads it back, and prints the result to stdout — verifying that the guest has read/write access to the host filesystem. For this example we need to enable preopened directories in the guest's configuration. To do this, we need to set the `PROPLET_PREOPENED_DIRS` environment variable to `/tmp` in the guest's configuration.
+This is a simple filesystem example. This WASI P1 module writes a file to a preopened directory, reads it back, and prints the result to stdout — verifying that the guest has read/write access to the host filesystem. For this example we need to enable preopened directories in the guest's configuration. To do this, we need to set the `PROPLET_DIRS` environment variable to `/tmp` in the guest's configuration.
 
 ```bash
-export PROPLET_PREOPENED_DIRS="/tmp"
+export PROPLET_DIRS="/tmp"
 ```
 
 ## Source Code
@@ -44,7 +44,6 @@ Your output should look like this:
   "kind": "standard",
   "state": 0,
   "cli_args": null,
-  "inputs": [10, 20],
   "daemon": false,
   "encrypted": false,
   "start_time": "0001-01-01T00:00:00Z",
