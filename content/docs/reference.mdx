@@ -136,5 +136,5 @@ propeller-cli provision [--file-name <path>]
 | `id`         | string (UUID) | Unique proplet identifier, set by the proplet on startup.                    |
 | `name`       | string        | Human-readable proplet name.                                                 |
 | `task_count` | integer       | Number of tasks currently running on this proplet.                           |
-| `alive`      | boolean       | `true` if the most recent heartbeat was received within the last 10 seconds. |
-| `alive_at`   | array         | Last 10 heartbeat timestamps recorded by the Manager.                        |
+| `alive`         | boolean       | `true` if the most recent heartbeat was received within the last 10 seconds. |
+| `last_alive_at` | timestamp     | Most recent heartbeat timestamp recorded by the Manager (omitted if never received). |
